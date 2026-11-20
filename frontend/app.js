@@ -403,8 +403,11 @@ function renderOverview(container) {
               <span>ค้างส่ง (${totalPending})</span>
             </div>
           </div>
-          <div style="margin-top: 1.25rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 1rem; text-align: center;">
-            <a href="${appState.settings.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <div style="margin-top: 1.25rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 1rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
+              ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets
+            </button>
+            <a href="${appState.settings.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;">
               <span>📊 เปิดดูชีทจริงใน Google Drive</span> ↗
             </a>
           </div>
@@ -1780,16 +1783,28 @@ function renderSettings(container) {
 
       <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
         <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
-        <button class="btn btn-secondary" onclick="triggerManualSync()">🔄 ซิงค์ข้อมูลกับ Google Sheets</button>
+        <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
       </div>
 
-      <div style="margin-top: 2rem; border-top: 1px solid var(--border-light); padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+      <!-- Cloud Recovery / Pull Data จากฐานข้อมูลจริง -->
+      <div style="margin-top: 1.5rem; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <h4 style="font-size: 0.95rem; font-weight: 600; color: #166534;">☁️ คืนค่า & ดึงข้อมูลจริงจาก Google Sheets</h4>
+            <p style="font-size: 0.8rem; color: #15803D; margin-top: 2px;">
+              ใช้เมื่อเปิดบนอุปกรณ์ใหม่ (iPad/มือถือ) หรือเมื่อข้อมูลในหน้าเว็บเครื่องนี้หาย ระบบจะดึงนักเรียน คะแนน และงานทั้งหมดจากชีทกลับมาแสดงทันที
+            </p>
+          </div>
+          <button class="btn btn-success" onclick="pullFromGoogleSheets(true)">
+            📥 ดึงข้อมูลจาก Google Sheets เดี๋ยวนี้
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-light); padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
         <a href="${appState.settings.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-size: 0.85rem; font-weight: 500;">
           📊 เปิดดูชีทจริงใน Google Drive
         </a>
-        <button class="btn btn-secondary btn-sm" onclick="resetToSampleData()" style="color: #DC2626;">
-          ⚠️ รีเซ็ตข้อมูลเริ่มต้น (ม.4 & ม.5)
-        </button>
       </div>
     </div>
   `;
@@ -1817,12 +1832,64 @@ function saveSettings() {
   showToast('บันทึกการตั้งค่าเรียบร้อยแล้ว');
 }
 
-function resetToSampleData() {
-  if (confirm('คุณต้องการรีเซ็ตข้อมูลตัวอย่าง ม.4 (11 ห้อง) และ ม.5 (2 ห้อง) หรือไม่?')) {
-    seedDefaultState();
-    showToast('รีเซ็ตข้อมูลตัวอย่างเรียบร้อยแล้ว');
-    renderHeaderControls();
-    renderApp();
+// ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
+async function pullFromGoogleSheets(isManual = false) {
+  if (!appState.settings.gasUrl) {
+    if (isManual) alert('กรุณาระบุ Google Apps Script Web App URL ในหน้าตั้งค่า');
+    return;
+  }
+
+  if (isManual) {
+    showToast('⏳ กำลังดึงข้อมูลล่าสุดจาก Google Sheets...');
+  }
+  updateSyncIndicator('syncing');
+
+  try {
+    const res = await fetch(`${appState.settings.gasUrl}?action=getInitialData`);
+    const json = await res.json();
+
+    if (json.success && json.data) {
+      const data = json.data;
+      
+      if (data.students && data.students.length > 0) {
+        appState.students = data.students;
+      }
+      if (data.assignments && data.assignments.length > 0) {
+        appState.assignments = data.assignments;
+      }
+      if (data.submissions) {
+        appState.submissions = data.submissions;
+      }
+      if (data.classes && data.classes.length > 0) {
+        appState.settings.classrooms = data.classes;
+      }
+      if (data.subjects && data.subjects.length > 0) {
+        appState.settings.subjects = data.subjects;
+      }
+      if (data.settings) {
+        if (data.settings.schoolName) appState.settings.schoolName = data.settings.schoolName;
+        if (data.settings.teacherName) appState.settings.teacherName = data.settings.teacherName;
+        if (data.settings.academicYear) appState.settings.academicYear = data.settings.academicYear;
+        if (data.settings.term) appState.settings.term = data.settings.term;
+      }
+
+      saveLocalState();
+      renderHeaderControls();
+      renderApp();
+      updateSyncIndicator('online');
+
+      if (isManual) {
+        showToast(`✓ ดึงข้อมูลสำเร็จ: พบนักเรียน ${appState.students.length} คน, ${appState.assignments.length} งาน`);
+      }
+    } else {
+      throw new Error(json.message || 'Data structure invalid');
+    }
+  } catch (err) {
+    console.error('Error pulling from Google Sheets:', err);
+    updateSyncIndicator('offline');
+    if (isManual) {
+      showToast('⚠️ ไม่สามารถดึงข้อมูลได้: โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+    }
   }
 }
 
@@ -1873,28 +1940,7 @@ async function pushSubmissionsToBackend() {
 }
 
 async function trySilentFetch() {
-  if (!appState.settings.gasUrl) return;
-  try {
-    const res = await fetch(`${appState.settings.gasUrl}?action=getInitialData`);
-    const json = await res.json();
-    if (json.success && json.data) {
-      if (json.data.students && json.data.students.length > 0) {
-        appState.students = json.data.students;
-      }
-      if (json.data.assignments && json.data.assignments.length > 0) {
-        appState.assignments = json.data.assignments;
-      }
-      if (json.data.submissions) {
-        appState.submissions = { ...appState.submissions, ...json.data.submissions };
-      }
-      if (json.data.classes && json.data.classes.length > 0) {
-        appState.settings.classrooms = json.data.classes;
-      }
-      saveLocalState();
-      renderHeaderControls();
-      renderApp();
-    }
-  } catch (e) {}
+  await pullFromGoogleSheets(false);
 }
 
 async function triggerManualSync() {

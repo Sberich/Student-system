@@ -114,10 +114,10 @@ function seedDefaultState() {
     { id: 'A04', title: '04 ใบงานการบวกเศษส่วน', fullScore: 10, dueDate: '2026-11-12', classroom: 'ป.4/1' },
     { id: 'A05', title: '05 แบบฝึกหัดการลบ', fullScore: 10, dueDate: '2026-11-19', classroom: 'ป.4/1' },
     { id: 'A06', title: '06 กิจกรรมแก้โจทย์ปัญหา', fullScore: 10, dueDate: '2026-11-26', classroom: 'ป.4/1' },
-    { id: 'A07', title: '07 ชิ้นงานสรุปความรู้', 10, dueDate: '2026-12-03', classroom: 'ป.4/1' },
-    { id: 'A08', title: '08 แบบฝึกหัดเพิ่มเติม 8', 10, dueDate: '2026-12-10', classroom: 'ป.4/1' },
-    { id: 'A09', title: '09 แบบฝึกหัดเพิ่มเติม 9', 10, dueDate: '2026-12-17', classroom: 'ป.4/1' },
-    { id: 'A10', title: '10 แบบฝึกหัดเพิ่มเติม 10', 10, dueDate: '2026-12-24', classroom: 'ป.4/1' }
+    { id: 'A07', title: '07 ชิ้นงานสรุปความรู้', fullScore: 10, dueDate: '2026-12-03', classroom: 'ป.4/1' },
+    { id: 'A08', title: '08 แบบฝึกหัดเพิ่มเติม 8', fullScore: 10, dueDate: '2026-12-10', classroom: 'ป.4/1' },
+    { id: 'A09', title: '09 แบบฝึกหัดเพิ่มเติม 9', fullScore: 10, dueDate: '2026-12-17', classroom: 'ป.4/1' },
+    { id: 'A10', title: '10 แบบฝึกหัดเพิ่มเติม 10', fullScore: 10, dueDate: '2026-12-24', classroom: 'ป.4/1' }
   ];
 
   // จำลองข้อมูลส่งงาน

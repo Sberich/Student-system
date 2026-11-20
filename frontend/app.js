@@ -306,7 +306,7 @@ function handleGlobalKeydown(e) {
     const currentAssignments = getFilteredAssignments();
     const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
     const score = Number(e.key);
-    if (currentAssignment && score <= (currentAssignment.fullScore || 10)) {
+    if (currentAssignment && score <= (currentAssignment.fullScore || 5)) {
       e.preventDefault();
       applyScore(score);
     }
@@ -629,7 +629,7 @@ function renderGrading(container) {
   const activeSubmission = activeStudent ? (appState.submissions[activeSubmissionKey] || { status: 'ค้างส่ง', score: null }) : null;
 
   // สร้างปุ่ม Numpad แบบไดนามิกตามคะแนนเต็มจริง (fullScore)
-  const maxScore = currentAssignment.fullScore || 10;
+  const maxScore = currentAssignment.fullScore || 5;
   let numpadButtonsHtml = '';
   if (maxScore <= 10) {
     const btns = [];
@@ -901,7 +901,7 @@ function quickGradeStudent(studentId) {
   };
 
   const nextStatus = prevSub.status === 'ส่งแล้ว' ? 'ค้างส่ง' : 'ส่งแล้ว';
-  const fullScore = currentAssignment.fullScore || 10;
+  const fullScore = currentAssignment.fullScore || 5;
   const nextScore = nextStatus === 'ส่งแล้ว' ? fullScore : null;
 
   appState.submissions[key] = {
@@ -1198,26 +1198,22 @@ function renderReport(container) {
         <table class="matrix-table">
           <thead>
             <tr>
-              <th rowspan="2" style="width: 32px; text-align: center;">เลขที่</th>
-              <th rowspan="2" style="width: 50px; text-align: center;">รหัส</th>
-              <th rowspan="2" style="width: 130px; text-align: left;">ชื่อ-นามสกุล</th>
+              <th rowspan="2" style="width: 36px; text-align: center;">เลขที่</th>
+              <th rowspan="2" style="width: 58px; text-align: center;">รหัส</th>
+              <th rowspan="2" style="width: 150px; text-align: left; padding-left: 10px;">ชื่อ-นามสกุล</th>
               ${pageAssignments.map(a => `
-                <th colspan="2" class="task-header" title="${esc(a.title)}">
-                  <div style="font-weight: 700; font-size: 0.8rem;">${esc(a.id)}</div>
-                  <div style="font-size: 0.68rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65px; margin: 0 auto;">${esc(a.title)}</div>
-                  <div style="font-size: 0.65rem; color: #64748B;">(เต็ม ${a.fullScore})</div>
+                <th rowspan="2" class="task-header" title="${esc(a.title)}">
+                  <div style="font-weight: 700; font-size: 0.82rem; color: var(--primary);">${esc(a.id)}</div>
+                  <div style="font-size: 0.68rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px; margin: 1px auto;">${esc(a.title)}</div>
+                  <div style="font-size: 0.65rem; color: #64748B; font-weight: normal;">(เต็ม ${a.fullScore})</div>
                 </th>
               `).join('')}
-              <th colspan="3" style="text-align: center;">สรุปหน้านี้</th>
+              <th colspan="3" style="text-align: center; background: #F1F5F9;">สรุป</th>
             </tr>
             <tr>
-              ${pageAssignments.map(() => `
-                <th style="width: 28px; text-align: center;">ส่ง</th>
-                <th style="width: 28px; text-align: center;">คะแนน</th>
-              `).join('')}
-              <th style="width: 28px; text-align: center;">ส่ง</th>
-              <th style="width: 28px; text-align: center;">ค้าง</th>
-              <th style="width: 44px; text-align: center;">รวม</th>
+              <th style="width: 34px; text-align: center; font-size: 0.75rem;">ส่ง</th>
+              <th style="width: 34px; text-align: center; font-size: 0.75rem;">ค้าง</th>
+              <th style="width: 50px; text-align: center; font-size: 0.75rem;">รวม</th>
             </tr>
           </thead>
           <tbody>
@@ -1233,22 +1229,22 @@ function renderReport(container) {
                   submittedSum++;
                   const sc = sub.score !== null && sub.score !== undefined && sub.score !== '' ? Number(sub.score) : 0;
                   scoreSum += sc;
-                  return `<td class="tag-done" style="text-align: center;">ส่ง</td><td style="text-align: center;">${sc}</td>`;
+                  return `<td class="cell-score" style="text-align: center;">${sc}</td>`;
                 } else {
                   pendingSum++;
-                  return `<td class="tag-missing" style="text-align: center;">ค้าง</td><td style="text-align: center; color: #94A3B8;">-</td>`;
+                  return `<td class="cell-missing" style="text-align: center;">ค้าง</td>`;
                 }
               }).join('');
 
               return `
                 <tr>
-                  <td style="text-align: center; font-weight: 600;">${st.no}</td>
-                  <td style="text-align: center; font-family: monospace; font-size: 0.82rem;">${esc(st.studentId)}</td>
+                  <td style="text-align: center; font-weight: 600; color: #64748B;">${st.no}</td>
+                  <td style="text-align: center; font-family: monospace; font-size: 0.82rem; color: #475569;">${esc(st.studentId)}</td>
                   <td class="col-name" style="text-align: left;">${esc(st.fullName)}</td>
                   ${taskCols}
-                  <td style="font-weight: 600; text-align: center;">${submittedSum}</td>
-                  <td style="color: #DC2626; font-weight: 600; text-align: center;">${pendingSum}</td>
-                  <td style="font-weight: 700; background: #F8FAFC; text-align: center;">${scoreSum}/${maxScorePageSum}</td>
+                  <td style="font-weight: 600; text-align: center; color: #16A34A;">${submittedSum}</td>
+                  <td style="font-weight: 600; text-align: center; ${pendingSum > 0 ? 'color: #DC2626;' : 'color: #94A3B8;'}">${pendingSum}</td>
+                  <td style="font-weight: 700; background: #F8FAFC; text-align: center; color: var(--primary);">${scoreSum}/${maxScorePageSum}</td>
                 </tr>
               `;
             }).join('')}
@@ -1256,9 +1252,12 @@ function renderReport(container) {
         </table>
 
         <!-- คำอธิบายชื่องานใต้ตาราง (Assignment Legend) -->
-        <div class="report-legend" style="margin-top: 8px; font-size: 0.72rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px; padding: 6px 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px;">
+        <div class="report-legend" style="margin-top: 12px; font-size: 0.74rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">
           ${pageAssignments.map(a => `
-            <div><strong>${esc(a.id)}:</strong> ${esc(a.title)} (เต็ม ${a.fullScore} คะแนน)</div>
+            <div style="display: flex; gap: 4px; align-items: baseline;">
+              <span style="font-weight: 700; color: var(--primary); min-width: 28px;">${esc(a.id)}:</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(a.title)} <span style="color: #64748B;">(เต็ม ${a.fullScore})</span></span>
+            </div>
           `).join('')}
         </div>
 
@@ -1308,7 +1307,7 @@ function exportToCSV() {
 
   let headerRow = ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน'];
   currentAssignments.forEach(a => {
-    headerRow.push(`${a.title}_สถานะ`, `${a.title}_คะแนน`);
+    headerRow.push(`${a.id} ${a.title} (เต็ม ${a.fullScore})`);
   });
   headerRow.push('ส่งแล้วรวม', 'ค้างส่งรวม', 'คะแนนรวม');
   csvContent += headerRow.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\r\n';
@@ -1326,10 +1325,10 @@ function exportToCSV() {
         submittedSum++;
         const sc = sub.score !== null && sub.score !== '' ? sub.score : 0;
         scoreSum += sc;
-        row.push('ส่งแล้ว', sc);
+        row.push(sc);
       } else {
         pendingSum++;
-        row.push('ค้างส่ง', '');
+        row.push('ค้าง');
       }
     });
 
@@ -2162,7 +2161,7 @@ function renderAssignments(container) {
           </div>
           <div>
             <label class="form-label">คะแนนเต็ม</label>
-            <input type="number" id="new-assign-score" class="form-input" value="10" />
+            <input type="number" id="new-assign-score" class="form-input" value="5" />
           </div>
           <div>
             <label class="form-label">กำหนดส่ง</label>
@@ -2206,7 +2205,7 @@ function renderAssignments(container) {
 
 function handleAddAssignment() {
   const title = document.getElementById('new-assign-title').value.trim();
-  const fullScore = parseInt(document.getElementById('new-assign-score').value) || 10;
+  const fullScore = parseInt(document.getElementById('new-assign-score').value) || 5;
   const dueDate = document.getElementById('new-assign-date').value;
 
   if (!title) {

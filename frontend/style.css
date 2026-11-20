@@ -874,56 +874,68 @@ body {
 
 .printable-sheet {
   background: #FFFFFF;
-  border: 1px solid #D1D5DB;
-  padding: 24px;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 26px 22px;
   margin: 0 auto;
   overflow-x: auto;
 }
 
 .sheet-header-text {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .sheet-header-text h2 {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
 }
 
 .sheet-header-text p {
-  font-size: 0.85rem;
-  color: #4B5563;
+  font-size: 0.82rem;
+  color: #64748B;
+  margin: 2px 0;
 }
 
 .matrix-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   text-align: center;
 }
 
 .matrix-table th, 
 .matrix-table td {
-  border: 1px solid #CBD5E1;
-  padding: 4px 6px;
+  border: 1px solid #E2E8F0;
+  padding: 5px 6px;
+  vertical-align: middle;
 }
 
 .matrix-table th {
-  background: #F1F5F9;
+  background: #F8FAFC;
   font-weight: 600;
+  color: #334155;
+}
+
+.matrix-table tbody tr:hover {
+  background-color: #F8FAFC;
 }
 
 .matrix-table th.task-header {
-  font-size: 0.7rem;
-  max-width: 75px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.72rem;
+  min-width: 52px;
+  max-width: 80px;
+  padding: 6px 4px;
 }
 
 .matrix-table td.col-name {
   text-align: left;
   white-space: nowrap;
+  padding-left: 10px;
 }
 
 .matrix-table .tag-done {
@@ -933,6 +945,21 @@ body {
 
 .matrix-table .tag-missing {
   color: #DC2626;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.matrix-table .cell-score {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #1E293B;
+}
+
+.matrix-table .cell-missing {
+  color: #DC2626;
+  font-weight: 600;
+  font-size: 0.8rem;
+  background: #FEF2F2;
 }
 
 .sheet-signature-box {
@@ -1245,6 +1272,14 @@ body {
 
   .matrix-table th {
     background-color: #E2E8F0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .matrix-table .cell-missing {
+    color: #DC2626 !important;
+    font-weight: bold !important;
+    background: transparent !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

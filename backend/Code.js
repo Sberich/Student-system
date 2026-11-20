@@ -256,7 +256,7 @@ function fetchAllData(ss) {
       assignments.push({
         id: String(row[0]),
         title: String(row[1]),
-        fullScore: Number(row[2]) || 10,
+        fullScore: Number(row[2]) || 5,
         dueDate: dueDateFormatted,
         subject: String(row[4] || ''),
         classroom: String(row[5] || 'ม.4/1')
@@ -448,7 +448,7 @@ function handleCreateAssignment(ss, payload) {
   const sheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
   const id = 'A' + Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyMMddHHmmss');
   const title = payload.title || 'งานที่มอบหมายใหม่';
-  const fullScore = Number(payload.fullScore) || 10;
+  const fullScore = Number(payload.fullScore) || 5;
   const dueDate = payload.dueDate || '';
   const subject = payload.subject || DEFAULT_SUBJECTS[0].code;
   const classroom = payload.classroom || 'ม.4/1';
@@ -486,7 +486,7 @@ function handleSaveAssignmentsList(ss, assignmentsList) {
     const rows = assignmentsList.map(a => [
       String(a.id || ''),
       String(a.title || 'ชื่องาน'),
-      Number(a.fullScore) || 10,
+      Number(a.fullScore) || 5,
       String(a.dueDate || ''),
       String(a.subject || ''),
       String(a.classroom || 'ม.4/1'),
@@ -592,11 +592,11 @@ function seedSampleData() {
   assignmentsSheet.clearContents();
   const sampleAssignments = [
     ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'],
-    ['A01', '01 ใบงานโครงสร้างสังคมและการขัดเกลา', 10, '2026-11-10', 'ส31101', 'ม.4/1', new Date()],
-    ['A02', '02 แผนผังความคิดสิทธิมนุษยชน', 10, '2026-11-17', 'ส31101', 'ม.4/1', new Date()],
-    ['A03', '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', 10, '2026-11-24', 'ส31101', 'ม.4/1', new Date()],
-    ['A04', '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', 10, '2026-12-01', 'ส31101', 'ม.4/1', new Date()],
-    ['A05', '05 ชิ้นงานสรุปหลักธรรมสากล', 10, '2026-12-08', 'ส31101', 'ม.4/1', new Date()]
+    ['A01', '01 ใบงานโครงสร้างสังคมและการขัดเกลา', 5, '2026-11-10', 'ส31101', 'ม.4/1', new Date()],
+    ['A02', '02 แผนผังความคิดสิทธิมนุษยชน', 5, '2026-11-17', 'ส31101', 'ม.4/1', new Date()],
+    ['A03', '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', 5, '2026-11-24', 'ส31101', 'ม.4/1', new Date()],
+    ['A04', '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', 5, '2026-12-01', 'ส31101', 'ม.4/1', new Date()],
+    ['A05', '05 ชิ้นงานสรุปหลักธรรมสากล', 5, '2026-12-08', 'ส31101', 'ม.4/1', new Date()]
   ];
   assignmentsSheet.getRange(1, 1, sampleAssignments.length, 7).setValues(sampleAssignments);
   formatHeaderRow(assignmentsSheet);

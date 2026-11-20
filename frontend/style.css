@@ -479,6 +479,16 @@ body {
   border-color: var(--border-light);
 }
 
+.btn-danger {
+  background: #DC2626;
+  color: #FFFFFF;
+  border-color: #DC2626;
+}
+
+.btn-danger:hover {
+  background: #B91C1C;
+}
+
 .btn-sm {
   padding: 0.35rem 0.625rem;
   font-size: 0.8rem;

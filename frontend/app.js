@@ -889,10 +889,20 @@ function renderStudents(container) {
   }).join('');
 
   container.innerHTML = `
-    <!-- แถบสลับห้อง -->
-    <div class="classroom-pill-strip">
-      <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">เลือกดูห้อง:</span>
-      ${classPillsHtml}
+    <!-- แถบสลับห้อง + ปุ่มจัดการห้อง -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <div class="classroom-pill-strip" style="margin-bottom: 0; flex: 1;">
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">เลือกดูห้อง:</span>
+        ${classPillsHtml}
+      </div>
+      <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
+        <button class="btn btn-secondary btn-sm" onclick="openAddClassroomModal()">
+          ➕ เพิ่มห้องใหม่
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
+          ⚙️ จัดการห้องเรียน
+        </button>
+      </div>
     </div>
 
     <div class="card">
@@ -900,15 +910,21 @@ function renderStudents(container) {
         <div>
           <h2 class="card-title">รายชื่อนักเรียน ห้อง ${appState.activeClassroom} (${currentStudents.length} คน)</h2>
           <p style="font-size: 0.8rem; color: var(--text-secondary);">
-            นักเรียนทั้งหมดในระบบ (ทุกห้อง): <strong>${totalAllClasses} คน</strong> ใน 13 ห้องเรียน
+            นักเรียนทั้งหมดในระบบ: <strong>${totalAllClasses} คน</strong> ใน ${appState.settings.classrooms.length} ห้องเรียน
           </p>
         </div>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="openImportModal('${appState.activeClassroom}')">
-            📥 นำเข้ารายชื่อจาก Excel (Import)
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="openInsertStudentModal('${appState.activeClassroom}')">
+            ➕ แทรกนักเรียนในห้องนี้
+          </button>
+          <button class="btn btn-secondary" onclick="reindexClassroomStudents('${appState.activeClassroom}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
+            🔢 จัดเรียงเลขที่ใหม่ (1..N)
+          </button>
+          <button class="btn btn-secondary" onclick="openImportModal('${appState.activeClassroom}')">
+            📥 นำเข้าจาก Excel
           </button>
           <button class="btn btn-secondary" onclick="exportClassroomTemplate('${appState.activeClassroom}')">
-            📄 ดาวน์โหลดแม่แบบ Excel
+            📄 แม่แบบ Excel
           </button>
         </div>
       </div>
@@ -916,23 +932,31 @@ function renderStudents(container) {
       <div style="max-height: 520px; overflow-y: auto;">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
           <thead>
-            <tr style="border-bottom: 2px solid var(--border-light); text-align: left;">
-              <th style="padding: 0.5rem;">เลขที่</th>
-              <th style="padding: 0.5rem;">รหัสนักเรียน</th>
-              <th style="padding: 0.5rem;">ชื่อ-นามสกุล</th>
-              <th style="padding: 0.5rem;">ห้องเรียน</th>
-              <th style="padding: 0.5rem; text-align: right;">จัดการ</th>
+            <tr style="border-bottom: 2px solid var(--border-light); text-align: left; background: var(--bg-subtle);">
+              <th style="padding: 0.6rem 0.5rem; width: 60px;">เลขที่</th>
+              <th style="padding: 0.6rem 0.5rem; width: 90px;">รหัส</th>
+              <th style="padding: 0.6rem 0.5rem;">ชื่อ-นามสกุล</th>
+              <th style="padding: 0.6rem 0.5rem; width: 80px;">ห้องเรียน</th>
+              <th style="padding: 0.6rem 0.5rem; text-align: right; width: 220px;">การกระทำ</th>
             </tr>
           </thead>
           <tbody>
             ${currentStudents.length > 0 ? currentStudents.map(st => `
               <tr style="border-bottom: 1px solid var(--border-light);">
-                <td style="padding: 0.5rem; font-weight: 600;">${st.no}</td>
+                <td style="padding: 0.5rem; font-weight: 600; color: var(--primary);">${st.no}</td>
                 <td style="padding: 0.5rem; color: var(--text-secondary);">${st.studentId}</td>
                 <td style="padding: 0.5rem; font-weight: 500;">${st.fullName}</td>
                 <td style="padding: 0.5rem;">${st.classroom}</td>
                 <td style="padding: 0.5rem; text-align: right;">
-                  <button class="btn btn-sm btn-secondary" onclick="deleteStudent('${st.studentId}')">ลบ</button>
+                  <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${st.classroom}', ${st.no + 1})" title="แทรกนักเรียนใหม่เป็นเลขที่ ${st.no + 1}">
+                    ➕ แทรกคนถัดไป
+                  </button>
+                  <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${st.studentId}')">
+                    ✏️ แก้ไข
+                  </button>
+                  <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteStudent('${st.studentId}')">
+                    ลบ
+                  </button>
                 </td>
               </tr>
             `).join('') : `
@@ -940,8 +964,12 @@ function renderStudents(container) {
                 <td colspan="5" style="padding: 2.5rem; text-align: center; color: var(--text-secondary);">
                   ยังไม่มีรายชื่อนักเรียนในห้อง ${appState.activeClassroom}
                   <br><br>
-                  <button class="btn btn-primary" onclick="openImportModal('${appState.activeClassroom}')">
-                    📥 นำเข้ารายชื่อห้อง ${appState.activeClassroom} ทันที
+                  <button class="btn btn-primary" onclick="openInsertStudentModal('${appState.activeClassroom}', 1)">
+                    ➕ เพิ่มนักเรียนคนแรก (เลขที่ 1)
+                  </button>
+                  &nbsp;
+                  <button class="btn btn-secondary" onclick="openImportModal('${appState.activeClassroom}')">
+                    📥 วางจาก Excel
                   </button>
                 </td>
               </tr>
@@ -954,13 +982,384 @@ function renderStudents(container) {
 }
 
 function deleteStudent(studentId) {
-  if (confirm('คุณแน่ใจว่าต้องการลบนักเรียนคนนี้หรือไม่?')) {
+  const st = appState.students.find(s => s.studentId === studentId);
+  if (!st) return;
+
+  if (confirm(`คุณแน่ใจว่าต้องการลบ "เลขที่ ${st.no} ${st.fullName}" หรือไม่?`)) {
+    const className = st.classroom;
     appState.students = appState.students.filter(s => s.studentId !== studentId);
+    
+    // ถามว่าต้องการรันเลขที่คนที่เหลือต่อเลยไหม
+    if (confirm('ต้องการจัดเรียงเลขที่ของนักเรียนคนถัดไปให้ชิดขึ้นมาแทนที่โดยอัตโนมัติหรือไม่?')) {
+      const classStudents = appState.students.filter(s => s.classroom === className);
+      classStudents.sort((a, b) => a.no - b.no);
+      classStudents.forEach((s, idx) => { s.no = idx + 1; });
+    }
+
     saveLocalState();
     scheduleAutoSync();
     renderStudents(document.getElementById('app-view-container'));
   }
 }
+
+// ----------------- Modal: แทรกนักเรียนในห้อง & แต่ละเลขที่ -----------------
+function openInsertStudentModal(defaultClass, defaultNo) {
+  const targetClass = defaultClass || appState.activeClassroom;
+  const classStudents = appState.students.filter(s => s.classroom === targetClass);
+  const nextNo = defaultNo !== undefined ? defaultNo : (classStudents.length > 0 ? Math.max(...classStudents.map(s => s.no)) + 1 : 1);
+  const suggestedId = String(40000 + (classStudents.length + 1));
+
+  const modalHtml = `
+    <div class="modal-overlay" id="insert-student-modal">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3 style="font-size: 1.1rem; font-weight: 600;">➕ แทรกนักเรียนในห้องเรียน</h3>
+          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer;" onclick="closeModal('insert-student-modal')">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div>
+              <label class="form-label">ห้องเรียน:</label>
+              <select id="insert-st-class" class="form-input">
+                ${appState.settings.classrooms.map(c => `
+                  <option value="${c}" ${c === targetClass ? 'selected' : ''}>${c}</option>
+                `).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="form-label">แทรกที่เลขที่:</label>
+              <input type="number" id="insert-st-no" class="form-input" value="${nextNo}" min="1" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">รหัสประจำตัวนักเรียน:</label>
+            <input type="text" id="insert-st-id" class="form-input" value="${suggestedId}" placeholder="เช่น 41025" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ชื่อ - นามสกุล (พร้อมคำนำหน้า):</label>
+            <input type="text" id="insert-st-name" class="form-input" placeholder="เช่น ด.ช. ศักดิ์สิทธิ์ ยิ่งเจริญ" autofocus />
+          </div>
+
+          <div style="background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light); margin-top: 0.5rem;">
+            <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; line-height: 1.3;">
+              <input type="checkbox" id="insert-st-autoshift" checked style="margin-top: 3px;" />
+              <div>
+                <strong>เลื่อนเลขที่คนถัดไป +1 อัตโนมัติ (Auto-Shift)</strong>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                  หากแทรกคั่นกลาง เช่น แทรกที่เลขที่ ${nextNo} คนเดิมที่เลขที่ ${nextNo} ขึ้นไป จะขยับเลื่อนเป็น ${nextNo + 1}, ${nextNo + 2}... ให้อัตโนมัติ
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('insert-student-modal')">ยกเลิก</button>
+          <button class="btn btn-primary" onclick="executeInsertStudent()">✓ บันทึกการแทรก</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  closeModal('insert-student-modal');
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  setTimeout(() => {
+    const input = document.getElementById('insert-st-name');
+    if (input) input.focus();
+  }, 100);
+}
+
+function executeInsertStudent() {
+  const targetClass = document.getElementById('insert-st-class').value;
+  const insertNo = parseInt(document.getElementById('insert-st-no').value) || 1;
+  const studentId = document.getElementById('insert-st-id').value.trim();
+  const fullName = document.getElementById('insert-st-name').value.trim();
+  const autoShift = document.getElementById('insert-st-autoshift').checked;
+
+  if (!fullName) {
+    alert('กรุณากรอกชื่อ-นามสกุลนักเรียน');
+    return;
+  }
+
+  // เลื่อนเลขที่คนถัดไป +1 ถ้าเลือก Auto-Shift
+  if (autoShift) {
+    appState.students.forEach(s => {
+      if (s.classroom === targetClass && s.no >= insertNo) {
+        s.no += 1;
+      }
+    });
+  }
+
+  // เพิ่มนักเรียนใหม่
+  appState.students.push({
+    no: insertNo,
+    studentId: studentId || String(40000 + insertNo),
+    fullName: fullName,
+    classroom: targetClass,
+    status: 'ปกติ'
+  });
+
+  // จัดเรียง
+  appState.students.sort((a, b) => {
+    if (a.classroom !== b.classroom) return a.classroom.localeCompare(b.classroom, 'th');
+    return a.no - b.no;
+  });
+
+  appState.activeClassroom = targetClass;
+  saveLocalState();
+  scheduleAutoSync();
+  closeModal('insert-student-modal');
+  showToast(`แทรก "${fullName}" ที่เลขที่ ${insertNo} (ห้อง ${targetClass}) เรียบร้อย`);
+  renderApp();
+}
+
+// ----------------- Modal: แก้ไขข้อมูลนักเรียน -----------------
+function openEditStudentModal(studentId) {
+  const st = appState.students.find(s => s.studentId === studentId);
+  if (!st) return;
+
+  const modalHtml = `
+    <div class="modal-overlay" id="edit-student-modal">
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+          <h3 style="font-size: 1.1rem; font-weight: 600;">✏️ แก้ไขข้อมูลนักเรียน</h3>
+          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer;" onclick="closeModal('edit-student-modal')">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div>
+              <label class="form-label">เลขที่:</label>
+              <input type="number" id="edit-st-no" class="form-input" value="${st.no}" min="1" />
+            </div>
+            <div>
+              <label class="form-label">ห้องเรียน:</label>
+              <select id="edit-st-class" class="form-input">
+                ${appState.settings.classrooms.map(c => `
+                  <option value="${c}" ${c === st.classroom ? 'selected' : ''}>${c}</option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">รหัสประจำตัว:</label>
+            <input type="text" id="edit-st-id" class="form-input" value="${st.studentId}" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ชื่อ - นามสกุล:</label>
+            <input type="text" id="edit-st-name" class="form-input" value="${st.fullName}" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('edit-student-modal')">ยกเลิก</button>
+          <button class="btn btn-primary" onclick="executeEditStudent('${studentId}')">✓ บันทึกการแก้ไข</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  closeModal('edit-student-modal');
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function executeEditStudent(originalStudentId) {
+  const st = appState.students.find(s => s.studentId === originalStudentId);
+  if (!st) return;
+
+  st.no = parseInt(document.getElementById('edit-st-no').value) || st.no;
+  st.classroom = document.getElementById('edit-st-class').value;
+  st.studentId = document.getElementById('edit-st-id').value.trim() || st.studentId;
+  st.fullName = document.getElementById('edit-st-name').value.trim() || st.fullName;
+
+  // เรียงลำดับใหม่
+  appState.students.sort((a, b) => {
+    if (a.classroom !== b.classroom) return a.classroom.localeCompare(b.classroom, 'th');
+    return a.no - b.no;
+  });
+
+  saveLocalState();
+  scheduleAutoSync();
+  closeModal('edit-student-modal');
+  showToast('บันทึกข้อมูลเรียบร้อย');
+  renderApp();
+}
+
+// ----------------- ฟังก์ชันจัดเรียงเลขที่ใหม่ 1 ถึง N -----------------
+function reindexClassroomStudents(className) {
+  const classStudents = appState.students.filter(s => s.classroom === className);
+  if (classStudents.length === 0) return;
+
+  if (confirm(`คุณต้องการจัดเรียงเลขที่นักเรียนห้อง ${className} ใหม่ทั้งหมด (${classStudents.length} คน) เป็นเลขที่ 1 ถึง ${classStudents.length} หรือไม่?`)) {
+    classStudents.sort((a, b) => a.no - b.no);
+    classStudents.forEach((s, idx) => {
+      s.no = idx + 1;
+    });
+
+    saveLocalState();
+    scheduleAutoSync();
+    showToast(`จัดเรียงเลขที่ห้อง ${className} ใหม่ (1-${classStudents.length}) เรียบร้อย`);
+    renderStudents(document.getElementById('app-view-container'));
+  }
+}
+
+// ----------------- Modal: จัดการห้องเรียน (เพิ่ม / ลบ / เปลี่ยนชื่อ) -----------------
+function openAddClassroomModal() {
+  const name = prompt('กรุณาระบุชื่อห้องเรียนใหม่ที่ต้องการเพิ่ม (เช่น ม.4/12 หรือ ม.6/1):');
+  if (name && name.trim()) {
+    const trimmed = name.trim();
+    if (appState.settings.classrooms.includes(trimmed)) {
+      alert('มีห้องเรียนนี้อยู่ในระบบแล้ว');
+      return;
+    }
+    appState.settings.classrooms.push(trimmed);
+    appState.activeClassroom = trimmed;
+    saveLocalState();
+    scheduleAutoSync();
+    renderHeaderControls();
+    showToast(`เพิ่มห้อง ${trimmed} เรียบร้อยแล้ว`);
+    renderApp();
+  }
+}
+
+function openClassroomManagerModal() {
+  const modalHtml = `
+    <div class="modal-overlay" id="classroom-manager-modal">
+      <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+          <h3 style="font-size: 1.1rem; font-weight: 600;">⚙️ จัดการห้องเรียนทั้งหมด (${appState.settings.classrooms.length} ห้อง)</h3>
+          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer;" onclick="closeModal('classroom-manager-modal')">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="new-room-input" class="form-input" placeholder="พิมพ์ชื่อห้องใหม่ เช่น ม.4/12" />
+            <button class="btn btn-primary" onclick="handleAddRoomFromManager()">+ เพิ่มห้อง</button>
+          </div>
+
+          <div style="max-height: 380px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+              <thead>
+                <tr style="background: var(--bg-subtle); border-bottom: 2px solid var(--border-light); text-align: left;">
+                  <th style="padding: 0.5rem;">ชื่อห้องเรียน</th>
+                  <th style="padding: 0.5rem;">จำนวนนักเรียน</th>
+                  <th style="padding: 0.5rem; text-align: right;">การกระทำ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${appState.settings.classrooms.map(c => {
+                  const count = appState.students.filter(s => s.classroom === c).length;
+                  return `
+                    <tr style="border-bottom: 1px solid var(--border-light);">
+                      <td style="padding: 0.5rem; font-weight: 600;">${c}</td>
+                      <td style="padding: 0.5rem; color: var(--text-secondary);">${count} คน</td>
+                      <td style="padding: 0.5rem; text-align: right;">
+                        <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${c}')">เปลี่ยนชื่อ</button>
+                        <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteClassroom('${c}')">ลบห้อง</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeModal('classroom-manager-modal')">ปิดหน้าต่าง</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  closeModal('classroom-manager-modal');
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function handleAddRoomFromManager() {
+  const input = document.getElementById('new-room-input');
+  if (!input || !input.value.trim()) return;
+
+  const name = input.value.trim();
+  if (appState.settings.classrooms.includes(name)) {
+    alert('มีห้องนี้อยู่แล้ว');
+    return;
+  }
+
+  appState.settings.classrooms.push(name);
+  saveLocalState();
+  scheduleAutoSync();
+  renderHeaderControls();
+  openClassroomManagerModal(); // refresh
+  showToast(`เพิ่มห้อง ${name} สำเร็จ`);
+}
+
+function renameClassroom(oldName) {
+  const newName = prompt(`เปลี่ยนชื่อห้อง "${oldName}" เป็น:`, oldName);
+  if (newName && newName.trim() && newName.trim() !== oldName) {
+    const trimmed = newName.trim();
+    const idx = appState.settings.classrooms.indexOf(oldName);
+    if (idx !== -1) {
+      appState.settings.classrooms[idx] = trimmed;
+    }
+    // อัปเดตห้องของนักเรียนในห้องนี้ด้วย
+    appState.students.forEach(s => {
+      if (s.classroom === oldName) s.classroom = trimmed;
+    });
+    // อัปเดตห้องของงาน
+    appState.assignments.forEach(a => {
+      if (a.classroom === oldName) a.classroom = trimmed;
+    });
+    if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
+
+    saveLocalState();
+    scheduleAutoSync();
+    renderHeaderControls();
+    openClassroomManagerModal();
+    showToast(`เปลี่ยนชื่อห้องเป็น ${trimmed} เรียบร้อย`);
+  }
+}
+
+function deleteClassroom(className) {
+  const count = appState.students.filter(s => s.classroom === className).length;
+  if (appState.settings.classrooms.length <= 1) {
+    alert('ระบบต้องมีห้องเรียนอย่างน้อย 1 ห้อง');
+    return;
+  }
+
+  let confirmMsg = `คุณแน่ใจว่าต้องการลบห้อง "${className}" หรือไม่?`;
+  if (count > 0) {
+    confirmMsg += `\n⚠️ ห้องนี้มีนักเรียนอยู่ ${count} คน การลบจะทำให้นักเรียนในห้องนี้ถูกลบออกจากระบบด้วย!`;
+  }
+
+  if (confirm(confirmMsg)) {
+    appState.settings.classrooms = appState.settings.classrooms.filter(c => c !== className);
+    appState.students = appState.students.filter(s => s.classroom !== className);
+    appState.assignments = appState.assignments.filter(a => a.classroom !== className);
+
+    if (appState.activeClassroom === className) {
+      appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
+    }
+
+    saveLocalState();
+    scheduleAutoSync();
+    renderHeaderControls();
+    openClassroomManagerModal();
+    showToast(`ลบห้อง ${className} เรียบร้อย`);
+    renderApp();
+  }
+}
+
+function closeModal(modalId) {
+  const m = document.getElementById(modalId);
+  if (m) m.remove();
+}
+
 
 // ----------------- Smart Import Modal (ระบบนำเข้ารายชื่อ) -----------------
 function openImportModal(defaultClass) {

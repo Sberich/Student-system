@@ -33,6 +33,12 @@ function onOpen() {
     .addToUi();
 }
 
+function initSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSheetsExist(ss);
+  SpreadsheetApp.getUi().alert('⚙️ ตั้งค่าชีทเริ่มต้นและโครงสร้างตารางเรียบร้อยแล้ว');
+}
+
 /**
  * จัดการ CORS และ Output แบบ JSON
  */
@@ -56,12 +62,6 @@ function doGet(e) {
       return createJsonResponse({ success: true, data: data });
     }
 
-    if (action === 'seedSample') {
-      seedSampleData();
-      const data = fetchAllData(ss);
-      return createJsonResponse({ success: true, message: 'Sample data created', data: data });
-    }
-
     if (action === 'ping') {
       return createJsonResponse({ success: true, message: 'API is running', timestamp: new Date().toISOString() });
     }
@@ -73,9 +73,16 @@ function doGet(e) {
 }
 
 /**
- * Handle HTTP POST Requests
+ * Handle HTTP POST Requests with LockService
  */
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (lockErr) {
+    return createJsonResponse({ success: false, error: 'ระบบกำลังประมวลผลคำขออื่น โปรดลองใหม่อีกครั้ง' });
+  }
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ensureSheetsExist(ss);
@@ -145,6 +152,8 @@ function doPost(e) {
     return createJsonResponse({ success: false, message: 'Invalid action: ' + action });
   } catch (err) {
     return createJsonResponse({ success: false, error: err.toString() });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -275,8 +284,11 @@ function handleBatchSaveSubmissions(ss, submissionsList) {
     const studentId = String(item.studentId);
     const status = item.status || 'ส่งแล้ว';
     const score = item.score !== null && item.score !== undefined && item.score !== '' ? Number(item.score) : '';
-    const note = item.note || '';
     const key = `${assignId}_${studentId}`;
+
+    // รักษาหมายเหตุเดิมในชีทไว้ถ้าไม่มีการส่งหมายเหตุใหม่มา
+    const existingNote = rowIndexMap[key] ? String(data[rowIndexMap[key] - 1][4] || '') : '';
+    const note = (item.note !== undefined && item.note !== null && item.note !== '') ? String(item.note) : existingNote;
 
     if (rowIndexMap[key]) {
       const r = rowIndexMap[key];
@@ -358,11 +370,12 @@ function handleImportStudents(ss, payload) {
   if (finalStudents.length > 0) {
     const rows = finalStudents.map(st => [
       st.no,
-      st.studentId,
+      String(st.studentId || ''),
       st.fullName,
       st.classroom,
       st.status
     ]);
+    sheet.getRange(2, 2, rows.length, 1).setNumberFormat('@');
     sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   }
 

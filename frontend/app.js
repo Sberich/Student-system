@@ -438,6 +438,10 @@ function renderGrading(container) {
     return;
   }
 
+  // จำตำแหน่ง Scroll เดิมของรายชื่อนักเรียน เพื่อไม่ให้เด้งไปบนสุดเวลาแตะให้คะแนน
+  const studentListEl = container.querySelector('.student-list');
+  const savedScrollTop = studentListEl ? studentListEl.scrollTop : 0;
+
   let currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
   appState.selectedAssignmentId = currentAssignment.id;
 
@@ -463,6 +467,25 @@ function renderGrading(container) {
 
   const activeSubmissionKey = activeStudent ? `${currentAssignment.id}_${activeStudent.studentId}` : '';
   const activeSubmission = activeStudent ? (appState.submissions[activeSubmissionKey] || { status: 'ค้างส่ง', score: null }) : null;
+
+  // สร้างปุ่ม Numpad แบบไดนามิกตามคะแนนเต็มจริง (fullScore)
+  const maxScore = currentAssignment.fullScore || 10;
+  let numpadButtonsHtml = '';
+  if (maxScore <= 10) {
+    const btns = [];
+    for (let s = maxScore; s >= 0; s--) {
+      btns.push(`<button class="numpad-btn ${s === maxScore ? 'full-score' : ''}" onclick="applyScore(${s})">${s === maxScore ? '🌟 ' : ''}${s}</button>`);
+    }
+    numpadButtonsHtml = btns.join('');
+  } else {
+    const steps = [maxScore, Math.round(maxScore * 0.9), Math.round(maxScore * 0.8), Math.round(maxScore * 0.7), Math.round(maxScore * 0.6), Math.round(maxScore * 0.5), Math.round(maxScore * 0.4), 0];
+    const uniqueSteps = [...new Set(steps)].sort((a,b) => b - a);
+    numpadButtonsHtml = uniqueSteps.map(s => `
+      <button class="numpad-btn ${s === maxScore ? 'full-score' : ''}" onclick="applyScore(${s})">
+        ${s === maxScore ? '🌟 ' : ''}${s}
+      </button>
+    `).join('');
+  }
 
   container.innerHTML = `
     <div class="assignment-bar">
@@ -542,7 +565,7 @@ function renderGrading(container) {
         </div>
       </div>
 
-      <!-- แป้นตัวเลขบนหน้าจอ (Touch Numpad สำหรับ iPad) -->
+      <!-- แป้นตัวเลขบนหน้าจอ (Touch Numpad สำหรับ iPad และมือถือ) -->
       <div>
         <div class="keypad-panel">
           ${activeStudent ? `
@@ -567,18 +590,12 @@ function renderGrading(container) {
             </div>
 
             <div class="quick-score-grid">
-              <button class="numpad-btn full-score" onclick="applyScore(${currentAssignment.fullScore})">
-                🌟 คะแนนเต็ม (${currentAssignment.fullScore})
-              </button>
-              <button class="numpad-btn" onclick="applyScore(10)">10</button>
-              <button class="numpad-btn" onclick="applyScore(9)">9</button>
-              <button class="numpad-btn" onclick="applyScore(8)">8</button>
-              <button class="numpad-btn" onclick="applyScore(7)">7</button>
-              <button class="numpad-btn" onclick="applyScore(6)">6</button>
-              <button class="numpad-btn" onclick="applyScore(5)">5</button>
-              <button class="numpad-btn" onclick="applyScore(4)">4</button>
-              <button class="numpad-btn" onclick="applyScore(3)">3</button>
-              <button class="numpad-btn" onclick="applyScore(0)">0</button>
+              ${numpadButtonsHtml}
+            </div>
+
+            <div style="display: flex; gap: 0.35rem; margin-top: 0.5rem; align-items: center;">
+              <input type="number" id="custom-score-input" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem;" placeholder="ระบุคะแนนเอง (เช่น 7.5)" step="0.5" min="0" max="${maxScore}" onkeydown="if(event.key==='Enter') applyCustomScore(${maxScore})" />
+              <button class="btn btn-secondary btn-sm" onclick="applyCustomScore(${maxScore})" style="white-space: nowrap;">✓ ให้คะแนน</button>
             </div>
 
             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
@@ -601,6 +618,22 @@ function renderGrading(container) {
       </div>
     </div>
   `;
+
+  // คืนตำแหน่ง Scroll ให้คงที่ ไม่เด้งกลับไปบนสุด
+  const newStudentListEl = container.querySelector('.student-list');
+  if (newStudentListEl && savedScrollTop > 0) {
+    newStudentListEl.scrollTop = savedScrollTop;
+  }
+}
+
+function applyCustomScore(max) {
+  const input = document.getElementById('custom-score-input');
+  if (!input || input.value === '') return;
+  let val = parseFloat(input.value);
+  if (isNaN(val)) return;
+  if (val < 0) val = 0;
+  if (max !== undefined && val > max) val = max;
+  applyScore(val);
 }
 
 // ----------------- Grading Actions -----------------
@@ -626,10 +659,32 @@ function selectStudent(studentId) {
 
 function navigateStudent(step) {
   const currentStudents = getFilteredStudents();
-  const currentIdx = currentStudents.findIndex(s => s.studentId === appState.selectedStudentId);
+  const currentAssignments = getFilteredAssignments();
+  const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
+
+  // เลื่อนตาม Filter ที่กำลังเปิดดูอยู่จริง (ทั้งหมด, ส่งแล้ว, ค้างส่ง)
+  const visibleStudents = currentStudents.filter(st => {
+    if (!currentAssignment) return true;
+    const key = `${currentAssignment.id}_${st.studentId}`;
+    const sub = appState.submissions[key] || { status: 'ค้างส่ง' };
+    if (appState.filterStatus === 'submitted') return sub.status === 'ส่งแล้ว';
+    if (appState.filterStatus === 'pending') return sub.status === 'ค้างส่ง';
+    return true;
+  });
+
+  if (visibleStudents.length === 0) {
+    renderGrading(document.getElementById('app-view-container'));
+    return;
+  }
+
+  const currentIdx = visibleStudents.findIndex(s => s.studentId === appState.selectedStudentId);
   const nextIdx = currentIdx + step;
-  if (nextIdx >= 0 && nextIdx < currentStudents.length) {
-    selectStudent(currentStudents[nextIdx].studentId);
+
+  if (nextIdx >= 0 && nextIdx < visibleStudents.length) {
+    selectStudent(visibleStudents[nextIdx].studentId);
+  } else {
+    // หากถึงคนสุดท้ายของห้อง ให้อัปเดตตารางแสดงผลทันที เพื่อแสดงคะแนนที่เพิ่งให้ไป
+    renderGrading(document.getElementById('app-view-container'));
   }
 }
 
@@ -656,7 +711,7 @@ function toggleStudentStatus(event, studentId) {
   appState.submissions[key] = {
     ...current,
     status: nextStatus,
-    score: nextStatus === 'ส่งแล้ว' ? (current.score !== null ? current.score : currentAssignment.fullScore) : null
+    score: nextStatus === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null
   };
 
   saveLocalState();
@@ -675,7 +730,7 @@ function setStudentStatus(studentId, status) {
   appState.submissions[key] = {
     ...current,
     status: status,
-    score: status === 'ส่งแล้ว' ? (current.score !== null ? current.score : currentAssignment.fullScore) : null
+    score: status === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null
   };
 
   saveLocalState();
@@ -837,7 +892,7 @@ function renderReport(container) {
 }
 
 function exportToCSV() {
-  const currentAssignments = getFilteredAssignments().slice(0, 10);
+  const currentAssignments = getFilteredAssignments();
   const currentStudents = getFilteredStudents();
   let csvContent = '\uFEFF';
 
@@ -846,7 +901,7 @@ function exportToCSV() {
     headerRow.push(`${a.title}_สถานะ`, `${a.title}_คะแนน`);
   });
   headerRow.push('ส่งแล้วรวม', 'ค้างส่งรวม', 'คะแนนรวม');
-  csvContent += headerRow.map(h => `"${h}"`).join(',') + '\r\n';
+  csvContent += headerRow.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\r\n';
 
   currentStudents.forEach(st => {
     let row = [st.no, st.studentId, st.fullName, st.classroom];
@@ -859,7 +914,7 @@ function exportToCSV() {
       const sub = appState.submissions[key];
       if (sub && sub.status === 'ส่งแล้ว') {
         submittedSum++;
-        const sc = sub.score !== null ? sub.score : 0;
+        const sc = sub.score !== null && sub.score !== '' ? sub.score : 0;
         scoreSum += sc;
         row.push('ส่งแล้ว', sc);
       } else {
@@ -869,14 +924,15 @@ function exportToCSV() {
     });
 
     row.push(submittedSum, pendingSum, scoreSum);
-    csvContent += row.map(cell => `"${cell}"`).join(',') + '\r\n';
+    csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\r\n';
   });
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
+  const safeClass = appState.activeClassroom.replace(/\//g, '-');
   link.setAttribute('href', url);
-  link.setAttribute('download', `สรุปส่งงาน_${appState.activeClassroom}_${appState.activeSubject}.csv`);
+  link.setAttribute('download', `สรุปส่งงาน_${safeClass}_${appState.activeSubject}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1001,9 +1057,14 @@ function deleteStudent(studentId) {
   const st = appState.students.find(s => s.studentId === studentId);
   if (!st) return;
 
-  if (confirm(`คุณแน่ใจว่าต้องการลบ "เลขที่ ${st.no} ${st.fullName}" หรือไม่?`)) {
+  if (confirm(`คุณแน่ใจว่าต้องการลบ "เลขที่ ${st.no} ${st.fullName}" หรือไม่? ข้อมูลการส่งงานของนักเรียนคนนี้จะถูกลบออกด้วย`)) {
     const className = st.classroom;
     appState.students = appState.students.filter(s => s.studentId !== studentId);
+
+    // ลบข้อมูล Submissions ของนักเรียนคนนี้เพื่อไม่ให้มีข้อมูลกำพร้า
+    Object.keys(appState.submissions).forEach(k => {
+      if (k.endsWith(`_${studentId}`)) delete appState.submissions[k];
+    });
     
     // ถามว่าต้องการรันเลขที่คนที่เหลือต่อเลยไหม
     if (confirm('ต้องการจัดเรียงเลขที่ของนักเรียนคนถัดไปให้ชิดขึ้นมาแทนที่โดยอัตโนมัติหรือไม่?')) {
@@ -1013,7 +1074,7 @@ function deleteStudent(studentId) {
     }
 
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     renderStudents(document.getElementById('app-view-container'));
   }
 }
@@ -1742,8 +1803,14 @@ function handleAddAssignment() {
 }
 
 function deleteAssignment(assignId) {
-  if (confirm('คุณแน่ใจว่าต้องการลบงานนี้หรือไม่?')) {
+  if (confirm('คุณแน่ใจว่าต้องการลบงานนี้หรือไม่? ข้อมูลการส่งงานและคะแนนของงานนี้จะถูกลบออกด้วย')) {
     appState.assignments = appState.assignments.filter(a => a.id !== assignId);
+
+    // ลบข้อมูล Submissions ของงานนี้ออกด้วย
+    Object.keys(appState.submissions).forEach(k => {
+      if (k.startsWith(`${assignId}_`)) delete appState.submissions[k];
+    });
+
     saveLocalState();
     scheduleAutoSync('full');
     renderAssignments(document.getElementById('app-view-container'));

@@ -305,19 +305,27 @@ function fetchAllData(ss) {
 }
 
 /**
- * บันทึกคะแนนแบบกลุ่ม (Batch Save)
+ * บันทึกคะแนนแบบกลุ่ม (Batch Save) ด้วย In-Memory Batch Write รวดเร็วในคำสั่งเดียว
  */
 function handleBatchSaveSubmissions(ss, submissionsList) {
+  if (!submissionsList || submissionsList.length === 0) return [];
   const sheet = ss.getSheetByName(SHEET_SUBMISSIONS);
   const data = sheet.getDataRange().getValues();
   const rowIndexMap = {};
 
-  for (let i = 1; i < data.length; i++) {
-    const key = `${String(data[i][0])}_${String(data[i][1])}`;
-    rowIndexMap[key] = i + 1;
+  // ตรวจสอบหัวตาราง
+  if (data.length === 0 || !data[0] || data[0].length < 6) {
+    sheet.clearContents();
+    sheet.appendRow(['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตเมื่อ']);
+    formatHeaderRow(sheet);
+    data[0] = ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตเมื่อ'];
   }
 
-  const newRows = [];
+  for (let i = 1; i < data.length; i++) {
+    const key = `${String(data[i][0])}_${String(data[i][1])}`;
+    rowIndexMap[key] = i; // 0-based index in data array
+  }
+
   const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
 
   submissionsList.forEach(item => {
@@ -327,20 +335,29 @@ function handleBatchSaveSubmissions(ss, submissionsList) {
     const score = item.score !== null && item.score !== undefined && item.score !== '' ? Number(item.score) : '';
     const key = `${assignId}_${studentId}`;
 
-    // รักษาหมายเหตุเดิมในชีทไว้ถ้าไม่มีการส่งหมายเหตุใหม่มา
-    const existingNote = rowIndexMap[key] ? String(data[rowIndexMap[key] - 1][4] || '') : '';
+    const existingIdx = rowIndexMap[key];
+    const existingNote = (existingIdx !== undefined && data[existingIdx]) ? String(data[existingIdx][4] || '') : '';
     const note = (item.note !== undefined && item.note !== null && item.note !== '') ? String(item.note) : existingNote;
 
-    if (rowIndexMap[key]) {
-      const r = rowIndexMap[key];
-      sheet.getRange(r, 3, 1, 4).setValues([[status, score, note, now]]);
+    if (existingIdx !== undefined) {
+      // อัปเดตในหน่วยความจำทันที ไม่ต้องเรียก API ทีละแถว
+      data[existingIdx][2] = status;
+      data[existingIdx][3] = score;
+      data[existingIdx][4] = note;
+      data[existingIdx][5] = now;
     } else {
-      newRows.push([assignId, studentId, status, score, note, now]);
+      const newRow = [assignId, studentId, status, score, note, now];
+      data.push(newRow);
+      rowIndexMap[key] = data.length - 1;
     }
   });
 
-  if (newRows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 6).setValues(newRows);
+  // เขียนกลับลงชีททั้งหมดด้วยการเรียก setValues เพียงครั้งเดียว
+  if (data.length > 0) {
+    sheet.getRange(1, 1, data.length, 6).setValues(data);
+    if (data.length > 1) {
+      sheet.getRange(2, 1, data.length - 1, 2).setNumberFormat('@');
+    }
   }
 
   return submissionsList;

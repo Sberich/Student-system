@@ -23,6 +23,19 @@ const DEFAULT_SUBJECTS = [
   { code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)' }
 ];
 
+/**
+ * ป้องกัน XSS และ Escape ตัวอักษรพิเศษก่อนแสดงผลลงใน HTML
+ */
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 let appState = {
   currentTab: 'overview',
   activeClassroom: 'ม.4/1',
@@ -31,8 +44,10 @@ let appState = {
   selectedStudentId: '',
   filterStatus: 'all', // 'all', 'submitted', 'pending'
   gradingMode: 'detailed', // 'detailed' or 'rapid'
+  reportPage: 0, // 0 = หน้า 1 (งาน 1-10), 1 = หน้า 2, 'all' = แสดงทุกหน้า
   autoAdvance: true,
   isSyncing: false,
+  isDirty: false, // ติดธงเมื่อมีข้อมูลในเครื่องที่ยังไม่ได้บันทึกลง Google Sheets
   settings: {
     gasUrl: DEFAULT_GAS_URL,
     spreadsheetUrl: SPREADSHEET_URL,
@@ -107,7 +122,9 @@ function saveLocalState() {
       selectedAssignmentId: appState.selectedAssignmentId,
       filterStatus: appState.filterStatus,
       gradingMode: appState.gradingMode,
+      reportPage: appState.reportPage,
       autoAdvance: appState.autoAdvance,
+      isDirty: appState.isDirty,
       settings: appState.settings,
       students: appState.students,
       assignments: appState.assignments,
@@ -187,11 +204,11 @@ function renderHeaderControls() {
   if (!container) return;
 
   const subjectOpts = appState.settings.subjects.map(s => 
-    `<option value="${s.code}" ${s.code === appState.activeSubject ? 'selected' : ''}>${s.code} ${s.name}</option>`
+    `<option value="${esc(s.code)}" ${s.code === appState.activeSubject ? 'selected' : ''}>${esc(s.code)} ${esc(s.name)}</option>`
   ).join('');
 
   const classOpts = appState.settings.classrooms.map(c => 
-    `<option value="${c}" ${c === appState.activeClassroom ? 'selected' : ''}>${c}</option>`
+    `<option value="${esc(c)}" ${c === appState.activeClassroom ? 'selected' : ''}>${esc(c)}</option>`
   ).join('');
 
   container.innerHTML = `
@@ -248,6 +265,23 @@ function setupEventListeners() {
 
   // แป้นพิมพ์ลัดสำหรับคอมพิวเตอร์และ iPad ที่ต่อคีย์บอร์ด
   window.addEventListener('keydown', handleGlobalKeydown);
+
+  // ตรวจจับเมื่ออุปกรณ์กลับมาต่อเน็ต ให้ Push ข้อมูลที่ค้างอยู่ขึ้นชีท
+  window.addEventListener('online', () => {
+    if (appState.isDirty && appState.settings.gasUrl) {
+      showToast('📶 ตรวจพบสัญญาณอินเทอร์เน็ต กำลังซิงค์ข้อมูลค้างขึ้น Google Sheets...');
+      pushFullStateToBackend().then(() => {
+        showToast('✓ ซิงค์ข้อมูลค้างขึ้น Google Sheets เรียบร้อย');
+      }).catch(() => {});
+    }
+  });
+
+  // เมื่อสลับกลับมาที่หน้าเว็บนี้ และมีข้อมูลค้างอยู่ ให้ส่งขึ้น Google Sheets ทันที
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && appState.isDirty && appState.settings.gasUrl) {
+      pushFullStateToBackend().catch(() => {});
+    }
+  });
 }
 
 function handleGlobalKeydown(e) {
@@ -384,13 +418,13 @@ function renderOverview(container) {
         <div style="display: flex; align-items: center; gap: 0.75rem;">
           <span style="font-weight: 700; color: var(--text-muted); width: 28px;">#${st.no}</span>
           <div>
-            <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">${st.fullName}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">รหัส ${st.studentId} • ห้อง ${st.classroom}</div>
+            <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">${esc(st.fullName)}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">รหัส ${esc(st.studentId)} • ห้อง ${esc(st.classroom)}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 0.75rem;">
           <span class="risk-badge">⚠️ ค้าง ${st.pendingCount} งาน</span>
-          <button class="btn btn-secondary btn-sm" onclick="quickJumpToGrade('${st.studentId}')" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;">
+          <button class="btn btn-secondary btn-sm" onclick="quickJumpToGrade('${esc(st.studentId)}')" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;">
             ✏️ ตรวจงาน
           </button>
         </div>
@@ -401,7 +435,7 @@ function renderOverview(container) {
       <div class="card" style="margin-top: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
           <h3 style="font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main); margin: 0;">
-            <span>⚠️</span> นักเรียนที่ค้างส่งสะสมสูงสุด (ห้อง ${appState.activeClassroom})
+            <span>⚠️</span> นักเรียนที่ค้างส่งสะสมสูงสุด (ห้อง ${esc(appState.activeClassroom)})
           </h3>
           <span style="font-size: 0.8rem; color: var(--text-muted);">ลำดับความสำคัญในการติดตามงานก่อนตัดเกรด</span>
         </div>
@@ -417,8 +451,8 @@ function renderOverview(container) {
     const count = appState.students.filter(s => s.classroom === c).length;
     const isActive = c === appState.activeClassroom;
     return `
-      <button class="class-pill ${isActive ? 'active' : ''}" onclick="changeActiveClassroom('${c}')">
-        ${c} <span class="badge">${count} คน</span>
+      <button class="class-pill ${isActive ? 'active' : ''}" onclick="changeActiveClassroom('${esc(c)}')">
+        ${esc(c)} <span class="badge">${count} คน</span>
       </button>
     `;
   }).join('');
@@ -435,14 +469,14 @@ function renderOverview(container) {
         <div class="card" style="margin-bottom: 1.25rem;">
           <div class="card-header">
             <div>
-              <h2 class="card-title">${subjectObj.code} ${subjectObj.name} • ห้อง ${appState.activeClassroom}</h2>
+              <h2 class="card-title">${esc(subjectObj.code)} ${esc(subjectObj.name)} • ห้อง ${esc(appState.activeClassroom)}</h2>
               <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
-                ภาคเรียนที่ ${appState.settings.term} ปีการศึกษา ${appState.settings.academicYear} | ${appState.settings.schoolName}
+                ภาคเรียนที่ ${esc(appState.settings.term)} ปีการศึกษา ${esc(appState.settings.academicYear)} | ${esc(appState.settings.schoolName)}
               </p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-secondary btn-sm" onclick="openImportModal('${appState.activeClassroom}')">
-                📥 นำเข้ารายชื่อ ${appState.activeClassroom}
+              <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
+                📥 นำเข้ารายชื่อ ${esc(appState.activeClassroom)}
               </button>
               <button class="btn btn-primary" onclick="switchTab('grading')">
                 ✏️ เช็กส่งงานห้องนี้
@@ -452,7 +486,7 @@ function renderOverview(container) {
 
           <div class="stats-ribbon">
             <div class="stat-box">
-              <div class="stat-label">นักเรียนห้อง ${appState.activeClassroom}</div>
+              <div class="stat-label">นักเรียนห้อง ${esc(appState.activeClassroom)}</div>
               <div class="stat-value">${totalStudents} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">คน</span></div>
             </div>
             <div class="stat-box">
@@ -474,11 +508,11 @@ function renderOverview(container) {
             <button class="action-tile-btn" onclick="switchTab('grading')">
               <span class="tile-icon">📝</span>
               <div>
-                <div class="tile-title">ตรวจงานห้อง ${appState.activeClassroom}</div>
+                <div class="tile-title">ตรวจงานห้อง ${esc(appState.activeClassroom)}</div>
                 <div class="tile-desc">แผงตัวเลขด่วนบนไอแพด</div>
               </div>
             </button>
-            <button class="action-tile-btn" onclick="openImportModal('${appState.activeClassroom}')">
+            <button class="action-tile-btn" onclick="openImportModal('${esc(appState.activeClassroom)}')">
               <span class="tile-icon">📋</span>
               <div>
                 <div class="tile-title">นำเข้ารายชื่อจาก Excel</div>
@@ -556,7 +590,7 @@ function renderGrading(container) {
   if (currentAssignments.length === 0) {
     container.innerHTML = `
       <div class="card" style="text-align: center; padding: 2rem;">
-        <h3>ยังไม่มีรายการงานสำหรับวิชา ${appState.activeSubject} ในห้อง ${appState.activeClassroom}</h3>
+        <h3>ยังไม่มีรายการงานสำหรับวิชา ${esc(appState.activeSubject)} ในห้อง ${esc(appState.activeClassroom)}</h3>
         <p style="color: var(--text-secondary); margin: 0.75rem 0;">คุณสามารถเพิ่มงานใหม่สำหรับห้องนี้ได้ทันที</p>
         <button class="btn btn-primary" onclick="switchTab('assignments')">+ เพิ่มงานใหม่</button>
       </div>
@@ -619,8 +653,8 @@ function renderGrading(container) {
         <span style="font-weight: 600; font-size: 0.95rem;">เลือกงาน:</span>
         <select class="select-control" id="assignment-select" onchange="changeAssignment(this.value)">
           ${currentAssignments.map(a => `
-            <option value="${a.id}" ${a.id === currentAssignment.id ? 'selected' : ''}>
-              ${a.title} (เต็ม ${a.fullScore})
+            <option value="${esc(a.id)}" ${a.id === currentAssignment.id ? 'selected' : ''}>
+              ${esc(a.title)} (เต็ม ${a.fullScore})
             </option>
           `).join('')}
         </select>
@@ -640,7 +674,7 @@ function renderGrading(container) {
           </button>
         </div>
         <span style="font-size: 0.85rem; color: var(--text-secondary);">
-          ส่งแล้ว <strong>${submittedCount}</strong> / ค้าง <strong>${pendingCount}</strong> (ห้อง ${appState.activeClassroom})
+          ส่งแล้ว <strong>${submittedCount}</strong> / ค้าง <strong>${pendingCount}</strong> (ห้อง ${esc(appState.activeClassroom)})
         </span>
         <button class="btn btn-success btn-sm" onclick="markAllRemainingAsSubmitted()">
           ⚡ ส่งแล้วทุกคนที่เหลือ
@@ -675,16 +709,16 @@ function renderGrading(container) {
             const isSelected = activeStudent && st.studentId === activeStudent.studentId;
             const isSubmitted = sub.status === 'ส่งแล้ว';
             const rowClickAction = appState.gradingMode === 'rapid'
-              ? `quickGradeStudent('${st.studentId}')`
-              : `selectStudent('${st.studentId}')`;
+              ? `quickGradeStudent('${esc(st.studentId)}')`
+              : `selectStudent('${esc(st.studentId)}')`;
 
             return `
               <div class="student-row ${isSelected ? 'selected' : ''}" onclick="${rowClickAction}">
                 <span class="student-no">${st.no}</span>
-                <span class="student-code col-code">${st.studentId}</span>
-                <span class="student-name">${st.fullName}</span>
+                <span class="student-code col-code">${esc(st.studentId)}</span>
+                <span class="student-name">${esc(st.fullName)}</span>
                 <div>
-                  <span class="status-badge ${isSubmitted ? 'submitted' : 'pending'}" onclick="toggleStudentStatus(event, '${st.studentId}')">
+                  <span class="status-badge ${isSubmitted ? 'submitted' : 'pending'}" onclick="toggleStudentStatus(event, '${esc(st.studentId)}')">
                     ${isSubmitted ? '✓ ส่งแล้ว' : '✕ ค้างส่ง'}
                   </span>
                 </div>
@@ -695,8 +729,8 @@ function renderGrading(container) {
             `;
           }).join('') : `
             <div style="padding: 2rem; text-align: center; color: var(--text-secondary);">
-              ไม่พบนักเรียนในห้อง ${appState.activeClassroom}
-              <br><button class="btn btn-primary btn-sm" style="margin-top: 0.75rem;" onclick="openImportModal('${appState.activeClassroom}')">📥 นำเข้ารายชื่อห้องนี้</button>
+              ไม่พบนักเรียนในห้อง ${esc(appState.activeClassroom)}
+              <br><button class="btn btn-primary btn-sm" style="margin-top: 0.75rem;" onclick="openImportModal('${esc(appState.activeClassroom)}')">📥 นำเข้ารายชื่อห้องนี้</button>
             </div>
           `}
         </div>
@@ -707,8 +741,8 @@ function renderGrading(container) {
         <div class="keypad-panel">
           ${activeStudent ? `
             <div class="active-student-card">
-              <div class="active-student-no">เลขที่ ${activeStudent.no} • รหัส ${activeStudent.studentId} • ห้อง ${activeStudent.classroom}</div>
-              <div class="active-student-title">${activeStudent.fullName}</div>
+              <div class="active-student-no">เลขที่ ${activeStudent.no} • รหัส ${esc(activeStudent.studentId)} • ห้อง ${esc(activeStudent.classroom)}</div>
+              <div class="active-student-title">${esc(activeStudent.fullName)}</div>
               <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
                 สถานะ: <strong>${activeSubmission.status}</strong> 
                 ${activeSubmission.score !== null && activeSubmission.score !== '' ? `| คะแนน: <strong style="color: var(--primary); font-size: 1.15rem;">${activeSubmission.score}</strong>` : ''}
@@ -717,11 +751,11 @@ function renderGrading(container) {
 
             <div class="status-toggle-row">
               <button class="toggle-opt-btn ${activeSubmission.status === 'ส่งแล้ว' ? 'active-submitted' : ''}"
-                onclick="setStudentStatus('${activeStudent.studentId}', 'ส่งแล้ว')">
+                onclick="setStudentStatus('${esc(activeStudent.studentId)}', 'ส่งแล้ว')">
                 ✓ ส่งแล้ว
               </button>
               <button class="toggle-opt-btn ${activeSubmission.status === 'ค้างส่ง' ? 'active-pending' : ''}"
-                onclick="setStudentStatus('${activeStudent.studentId}', 'ค้างส่ง')">
+                onclick="setStudentStatus('${esc(activeStudent.studentId)}', 'ค้างส่ง')">
                 ✕ ค้างส่ง
               </button>
             </div>
@@ -878,6 +912,7 @@ function quickGradeStudent(studentId) {
   };
 
   appState.selectedStudentId = studentId;
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
 
@@ -903,6 +938,7 @@ function undoLastGrading() {
   appState.selectedStudentId = studentId;
   appState.selectedAssignmentId = assignmentId;
   lastGradingAction = null;
+  appState.isDirty = true;
 
   saveLocalState();
   scheduleAutoSync();
@@ -937,6 +973,7 @@ function toggleStudentStatusById(studentId) {
     updatedAt: new Date().toISOString()
   };
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
   showToastWithAction(`${nextStatus === 'ส่งแล้ว' ? '✓' : '✕'} ${studentName} (${nextStatus})`, '↩️ เลิกทำ', undoLastGrading);
@@ -974,6 +1011,7 @@ function setStudentStatus(studentId, status) {
     updatedAt: new Date().toISOString()
   };
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
   showToastWithAction(`${status === 'ส่งแล้ว' ? '✓' : '✕'} ${studentName} (${status})`, '↩️ เลิกทำ', undoLastGrading);
@@ -1006,6 +1044,7 @@ function applyScore(score) {
     updatedAt: new Date().toISOString()
   };
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
 
@@ -1036,69 +1075,149 @@ function markAllRemainingAsSubmitted() {
     }
   });
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
   showToast(`บันทึกส่งแล้ว ${count} คนในห้อง ${appState.activeClassroom} เรียบร้อย`);
   renderGrading(document.getElementById('app-view-container'));
 }
 
-// ----------------- View: Report (A4 Landscape Matrix) -----------------
+// ----------------- View: Report (A4 Landscape Matrix with Pagination) -----------------
+function setReportPage(page) {
+  appState.reportPage = page;
+  saveLocalState();
+  const container = document.getElementById('app-view-container');
+  if (container) renderReport(container);
+}
+
+function handlePrintReport(all = false) {
+  if (all) {
+    appState.reportPage = 'all';
+    saveLocalState();
+    const container = document.getElementById('app-view-container');
+    if (container) renderReport(container);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  } else {
+    window.print();
+  }
+}
+
 function renderReport(container) {
-  const currentAssignments = getFilteredAssignments().slice(0, 10);
+  const currentAssignments = getFilteredAssignments();
   const currentStudents = getFilteredStudents();
   const subjectObj = getActiveSubjectObj();
 
-  container.innerHTML = `
-    <div class="report-view-container">
-      <div class="report-controls">
-        <div>
-          <h2 style="font-size: 1.15rem; font-weight: 600;">รายงานสรุปการส่งงาน ห้อง ${appState.activeClassroom}</h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">
-            วิชา ${subjectObj.code} ${subjectObj.name} • จัดรูปแบบ A4 แนวนอน พร้อมพิมพ์ส่งฝ่ายวิชาการ
-          </p>
-        </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-secondary" onclick="exportToCSV()">
-            📥 ส่งออก Excel (CSV)
-          </button>
-          <button class="btn btn-primary" onclick="window.print()">
-            🖨️ พิมพ์ / บันทึก PDF (ห้อง ${appState.activeClassroom})
-          </button>
-        </div>
+  if (currentAssignments.length === 0) {
+    container.innerHTML = `
+      <div class="card" style="text-align: center; padding: 2.5rem;">
+        <h3>ยังไม่มีรายการงานสำหรับห้อง ${esc(appState.activeClassroom)}</h3>
+        <p style="color: var(--text-secondary); margin: 0.75rem 0;">กรุณาเพิ่มงานในเมนู "งานที่สั่ง" ก่อนพิมพ์รายงาน</p>
+        <button class="btn btn-primary" onclick="switchTab('assignments')">+ เพิ่มงานใหม่</button>
       </div>
+    `;
+    return;
+  }
 
-      <div class="printable-sheet">
+  const PAGE_SIZE = 10;
+  const totalPages = Math.ceil(currentAssignments.length / PAGE_SIZE) || 1;
+
+  // ตรวจสอบค่า appState.reportPage
+  let activePage = appState.reportPage;
+  if (activePage !== 'all') {
+    if (typeof activePage !== 'number' || activePage < 0 || activePage >= totalPages) {
+      activePage = 0;
+      appState.reportPage = 0;
+    }
+  }
+
+  // สร้าง tabs เลือกหน้า หากมีงานมากกว่า 10 รายการ
+  let tabsHtml = '';
+  if (totalPages > 1) {
+    const tabButtons = [];
+    for (let p = 0; p < totalPages; p++) {
+      const start = p * PAGE_SIZE + 1;
+      const end = Math.min((p + 1) * PAGE_SIZE, currentAssignments.length);
+      const isActive = activePage === p;
+      tabButtons.push(`
+        <button class="report-page-btn ${isActive ? 'active' : ''}" onclick="setReportPage(${p})">
+          📄 หน้า ${p + 1} (งานที่ ${start}-${end})
+        </button>
+      `);
+    }
+    const isAllActive = activePage === 'all';
+    tabButtons.push(`
+      <button class="report-page-btn ${isAllActive ? 'active' : ''}" onclick="setReportPage('all')">
+        📑 แสดงทุกหน้า A4 (${totalPages} หน้า)
+      </button>
+    `);
+
+    tabsHtml = `
+      <div class="report-page-tabs">
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); align-self: center; margin-right: 0.25rem;">
+          📑 เลือกชุดงาน (A4 ละ 10 งาน):
+        </span>
+        ${tabButtons.join('')}
+      </div>
+    `;
+  }
+
+  // กำหนดว่าแผ่นงานไหนบ้างที่จะ render
+  const pagesToRender = [];
+  if (activePage === 'all') {
+    for (let p = 0; p < totalPages; p++) pagesToRender.push(p);
+  } else {
+    pagesToRender.push(activePage);
+  }
+
+  const sheetsHtml = pagesToRender.map(pIdx => {
+    const startIdx = pIdx * PAGE_SIZE;
+    const pageAssignments = currentAssignments.slice(startIdx, startIdx + PAGE_SIZE);
+    const startNum = startIdx + 1;
+    const endNum = Math.min(startIdx + PAGE_SIZE, currentAssignments.length);
+
+    let maxScorePageSum = 0;
+    pageAssignments.forEach(a => { maxScorePageSum += (Number(a.fullScore) || 0); });
+
+    return `
+      <div class="printable-sheet" style="margin-bottom: 2rem;">
         <div class="sheet-header-text">
-          <h2>${appState.settings.schoolName}</h2>
+          <h2>${esc(appState.settings.schoolName)}</h2>
           <p>
-            รายวิชา ${subjectObj.name} (${subjectObj.code}) &nbsp;|&nbsp; 
-            ชั้นมัธยมศึกษาปีที่ ${appState.activeClassroom} &nbsp;|&nbsp; 
-            ภาคเรียนที่ ${appState.settings.term} ปีการศึกษา ${appState.settings.academicYear}
+            รายวิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)}) &nbsp;|&nbsp; 
+            ชั้นมัธยมศึกษาปีที่ ${esc(appState.activeClassroom)} &nbsp;|&nbsp; 
+            ภาคเรียนที่ ${esc(appState.settings.term)} ปีการศึกษา ${esc(appState.settings.academicYear)}
           </p>
-          <p style="margin-top: 2px;">ครูผู้สอน: ${appState.settings.teacherName}</p>
+          <p style="margin-top: 2px;">
+            ครูผู้สอน: ${esc(appState.settings.teacherName)}
+            ${totalPages > 1 ? `&nbsp;|&nbsp; <strong>แผ่นที่ ${pIdx + 1}/${totalPages} (งานที่ ${startNum}-${endNum})</strong>` : ''}
+          </p>
         </div>
 
         <table class="matrix-table">
           <thead>
             <tr>
-              <th rowspan="2" style="width: 35px;">เลขที่</th>
-              <th rowspan="2" style="width: 55px;">รหัส</th>
-              <th rowspan="2" style="width: 140px; text-align: left;">ชื่อ-นามสกุล</th>
-              ${currentAssignments.map(a => `
-                <th colspan="2" class="task-header" title="${a.title}">
-                  ${a.title}
+              <th rowspan="2" style="width: 32px; text-align: center;">เลขที่</th>
+              <th rowspan="2" style="width: 50px; text-align: center;">รหัส</th>
+              <th rowspan="2" style="width: 130px; text-align: left;">ชื่อ-นามสกุล</th>
+              ${pageAssignments.map(a => `
+                <th colspan="2" class="task-header" title="${esc(a.title)}">
+                  <div style="font-weight: 700; font-size: 0.8rem;">${esc(a.id)}</div>
+                  <div style="font-size: 0.68rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65px; margin: 0 auto;">${esc(a.title)}</div>
+                  <div style="font-size: 0.65rem; color: #64748B;">(เต็ม ${a.fullScore})</div>
                 </th>
               `).join('')}
-              <th colspan="3">สรุปทั้งรายวิชา</th>
+              <th colspan="3" style="text-align: center;">สรุปหน้านี้</th>
             </tr>
             <tr>
-              ${currentAssignments.map(() => `
-                <th style="width: 32px;">ส่ง</th>
-                <th style="width: 32px;">คะแนน</th>
+              ${pageAssignments.map(() => `
+                <th style="width: 28px; text-align: center;">ส่ง</th>
+                <th style="width: 28px; text-align: center;">คะแนน</th>
               `).join('')}
-              <th style="width: 32px;">ส่ง</th>
-              <th style="width: 32px;">ค้าง</th>
-              <th style="width: 48px;">รวม</th>
+              <th style="width: 28px; text-align: center;">ส่ง</th>
+              <th style="width: 28px; text-align: center;">ค้าง</th>
+              <th style="width: 44px; text-align: center;">รวม</th>
             </tr>
           </thead>
           <tbody>
@@ -1106,46 +1225,78 @@ function renderReport(container) {
               let submittedSum = 0;
               let pendingSum = 0;
               let scoreSum = 0;
-              let maxScoreSum = 0;
 
-              const taskCols = currentAssignments.map(a => {
-                maxScoreSum += a.fullScore;
+              const taskCols = pageAssignments.map(a => {
                 const key = `${a.id}_${st.studentId}`;
                 const sub = appState.submissions[key];
                 if (sub && sub.status === 'ส่งแล้ว') {
                   submittedSum++;
-                  const sc = sub.score !== null && sub.score !== '' ? sub.score : 0;
+                  const sc = sub.score !== null && sub.score !== undefined && sub.score !== '' ? Number(sub.score) : 0;
                   scoreSum += sc;
-                  return `<td class="tag-done">ส่ง</td><td>${sc}</td>`;
+                  return `<td class="tag-done" style="text-align: center;">ส่ง</td><td style="text-align: center;">${sc}</td>`;
                 } else {
                   pendingSum++;
-                  return `<td class="tag-missing">ค้าง</td><td>-</td>`;
+                  return `<td class="tag-missing" style="text-align: center;">ค้าง</td><td style="text-align: center; color: #94A3B8;">-</td>`;
                 }
               }).join('');
 
               return `
                 <tr>
-                  <td>${st.no}</td>
-                  <td>${st.studentId}</td>
-                  <td class="col-name">${st.fullName}</td>
+                  <td style="text-align: center; font-weight: 600;">${st.no}</td>
+                  <td style="text-align: center; font-family: monospace; font-size: 0.82rem;">${esc(st.studentId)}</td>
+                  <td class="col-name" style="text-align: left;">${esc(st.fullName)}</td>
                   ${taskCols}
-                  <td style="font-weight: 600;">${submittedSum}</td>
-                  <td style="color: #DC2626; font-weight: 600;">${pendingSum}</td>
-                  <td style="font-weight: 700; background: #F8FAFC;">${scoreSum}/${maxScoreSum}</td>
+                  <td style="font-weight: 600; text-align: center;">${submittedSum}</td>
+                  <td style="color: #DC2626; font-weight: 600; text-align: center;">${pendingSum}</td>
+                  <td style="font-weight: 700; background: #F8FAFC; text-align: center;">${scoreSum}/${maxScorePageSum}</td>
                 </tr>
               `;
             }).join('')}
           </tbody>
         </table>
 
+        <!-- คำอธิบายชื่องานใต้ตาราง (Assignment Legend) -->
+        <div class="report-legend" style="margin-top: 8px; font-size: 0.72rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px; padding: 6px 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px;">
+          ${pageAssignments.map(a => `
+            <div><strong>${esc(a.id)}:</strong> ${esc(a.title)} (เต็ม ${a.fullScore} คะแนน)</div>
+          `).join('')}
+        </div>
+
         <div class="sheet-signature-box">
           <div>
             <div class="signature-line"></div>
-            <div>ลงชื่อ (${appState.settings.teacherName})</div>
+            <div>ลงชื่อ (${esc(appState.settings.teacherName)})</div>
             <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">ครูประจำวิชา</div>
           </div>
         </div>
       </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="report-view-container">
+      <div class="report-controls">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 600;">รายงานสรุปการส่งงาน ห้อง ${esc(appState.activeClassroom)}</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">
+            วิชา ${esc(subjectObj.code)} ${esc(subjectObj.name)} • จัดรูปแบบ A4 แนวนอน พร้อมพิมพ์ส่งฝ่ายวิชาการ (${currentAssignments.length} งาน)
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary" onclick="exportToCSV()">
+            📥 ส่งออก Excel (CSV)
+          </button>
+          <button class="btn btn-secondary" onclick="handlePrintReport(false)" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
+            🖨️ พิมพ์หน้านี้
+          </button>
+          <button class="btn btn-primary" onclick="handlePrintReport(true)" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
+            🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
+          </button>
+        </div>
+      </div>
+
+      ${tabsHtml}
+      ${sheetsHtml}
     </div>
   `;
 }
@@ -1205,8 +1356,8 @@ function renderStudents(container) {
   const classPillsHtml = appState.settings.classrooms.map(c => {
     const count = appState.students.filter(s => s.classroom === c).length;
     return `
-      <button class="class-pill ${c === appState.activeClassroom ? 'active' : ''}" onclick="changeActiveClassroom('${c}')">
-        ${c} <span class="badge">${count} คน</span>
+      <button class="class-pill ${c === appState.activeClassroom ? 'active' : ''}" onclick="changeActiveClassroom('${esc(c)}')">
+        ${esc(c)} <span class="badge">${count} คน</span>
       </button>
     `;
   }).join('');
@@ -1234,7 +1385,7 @@ function renderStudents(container) {
       <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1rem;">
         <div>
           <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; margin-bottom: 0.25rem;">
-            <span>👥 รายชื่อนักเรียน ห้อง <strong>${appState.activeClassroom}</strong></span>
+            <span>👥 รายชื่อนักเรียน ห้อง <strong>${esc(appState.activeClassroom)}</strong></span>
             <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-weight: 600;">
               ${currentStudents.length} คน
             </span>
@@ -1244,16 +1395,16 @@ function renderStudents(container) {
           </p>
         </div>
         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-          <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${appState.activeClassroom}')">
+          <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${esc(appState.activeClassroom)}')">
             ➕ แทรกนักเรียนในห้องนี้
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${appState.activeClassroom}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
+          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${esc(appState.activeClassroom)}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
             🔢 จัดเรียงเลขที่ใหม่ (1..N)
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="openImportModal('${appState.activeClassroom}')">
+          <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
             📥 นำเข้าจาก Excel
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="exportClassroomTemplate('${appState.activeClassroom}')">
+          <button class="btn btn-secondary btn-sm" onclick="exportClassroomTemplate('${esc(appState.activeClassroom)}')">
             📄 แม่แบบ Excel
           </button>
         </div>
@@ -1273,17 +1424,17 @@ function renderStudents(container) {
             ${currentStudents.length > 0 ? currentStudents.map(st => `
               <tr class="roster-row" style="border-bottom: 1px solid var(--border-light);">
                 <td style="padding: 0.55rem 0.75rem; text-align: center; font-weight: 600; color: var(--primary);">${st.no}</td>
-                <td style="padding: 0.55rem 0.75rem; color: var(--text-secondary); font-family: monospace; font-size: 0.88rem;">${st.studentId}</td>
-                <td style="padding: 0.55rem 0.75rem; font-weight: 500; color: var(--text-main);">${st.fullName}</td>
+                <td style="padding: 0.55rem 0.75rem; color: var(--text-secondary); font-family: monospace; font-size: 0.88rem;">${esc(st.studentId)}</td>
+                <td style="padding: 0.55rem 0.75rem; font-weight: 500; color: var(--text-main);">${esc(st.fullName)}</td>
                 <td style="padding: 0.55rem 0.75rem; text-align: right; white-space: nowrap;">
                   <div class="roster-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${st.classroom}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
+                    <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${esc(st.classroom)}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
                       ➕ แทรกต่อ
                     </button>
-                    <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${st.studentId}')" title="แก้ไขข้อมูลนักเรียน">
+                    <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${esc(st.studentId)}')" title="แก้ไขข้อมูลนักเรียน">
                       ✏️ แก้ไข
                     </button>
-                    <button class="btn btn-sm btn-danger-soft" onclick="deleteStudent('${st.studentId}')" title="ลบนักเรียนคนนี้">
+                    <button class="btn btn-sm btn-danger-soft" onclick="deleteStudent('${esc(st.studentId)}')" title="ลบนักเรียนคนนี้">
                       🗑️ ลบ
                     </button>
                   </div>
@@ -1293,13 +1444,13 @@ function renderStudents(container) {
               <tr>
                 <td colspan="4" style="padding: 3rem 1rem; text-align: center; color: var(--text-secondary);">
                   <div style="font-size: 2rem; margin-bottom: 0.5rem;">📂</div>
-                  <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">ยังไม่มีรายชื่อนักเรียนในห้อง ${appState.activeClassroom}</div>
+                  <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">ยังไม่มีรายชื่อนักเรียนในห้อง ${esc(appState.activeClassroom)}</div>
                   <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">คุณครูสามารถเพิ่มนักเรียนทีละคน หรือวางข้อมูลจาก Excel ได้ทันที</p>
-                  <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${appState.activeClassroom}', 1)">
+                  <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${esc(appState.activeClassroom)}', 1)">
                     ➕ เพิ่มนักเรียนคนแรก (เลขที่ 1)
                   </button>
                   &nbsp;
-                  <button class="btn btn-secondary btn-sm" onclick="openImportModal('${appState.activeClassroom}')">
+                  <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
                     📥 วางจาก Excel
                   </button>
                 </td>
@@ -1332,6 +1483,7 @@ function deleteStudent(studentId) {
       classStudents.forEach((s, idx) => { s.no = idx + 1; });
     }
 
+    appState.isDirty = true;
     saveLocalState();
     scheduleAutoSync('full');
     renderStudents(document.getElementById('app-view-container'));
@@ -1359,7 +1511,7 @@ function openInsertStudentModal(defaultClass, defaultNo) {
               <label class="form-label">ห้องเรียน:</label>
               <select id="insert-st-class" class="form-input">
                 ${appState.settings.classrooms.map(c => `
-                  <option value="${c}" ${c === targetClass ? 'selected' : ''}>${c}</option>
+                  <option value="${esc(c)}" ${c === targetClass ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
             </div>
@@ -1371,7 +1523,7 @@ function openInsertStudentModal(defaultClass, defaultNo) {
 
           <div class="form-group">
             <label class="form-label">รหัสประจำตัวนักเรียน:</label>
-            <input type="text" id="insert-st-id" class="form-input" value="${suggestedId}" placeholder="เช่น 41025" />
+            <input type="text" id="insert-st-id" class="form-input" value="${esc(suggestedId)}" placeholder="เช่น 41025" />
           </div>
 
           <div class="form-group">
@@ -1445,6 +1597,7 @@ function executeInsertStudent() {
   });
 
   appState.activeClassroom = targetClass;
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync('full');
   closeModal('insert-student-modal');
@@ -1475,7 +1628,7 @@ function openEditStudentModal(studentId) {
               <label class="form-label">ห้องเรียน:</label>
               <select id="edit-st-class" class="form-input">
                 ${appState.settings.classrooms.map(c => `
-                  <option value="${c}" ${c === st.classroom ? 'selected' : ''}>${c}</option>
+                  <option value="${esc(c)}" ${c === st.classroom ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
             </div>
@@ -1483,18 +1636,18 @@ function openEditStudentModal(studentId) {
 
           <div class="form-group">
             <label class="form-label">รหัสประจำตัว:</label>
-            <input type="text" id="edit-st-id" class="form-input" value="${st.studentId}" />
+            <input type="text" id="edit-st-id" class="form-input" value="${esc(st.studentId)}" />
           </div>
 
           <div class="form-group">
             <label class="form-label">ชื่อ - นามสกุล:</label>
-            <input type="text" id="edit-st-name" class="form-input" value="${st.fullName}" />
+            <input type="text" id="edit-st-name" class="form-input" value="${esc(st.fullName)}" />
           </div>
         </div>
 
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeModal('edit-student-modal')">ยกเลิก</button>
-          <button class="btn btn-primary" onclick="executeEditStudent('${studentId}')">✓ บันทึกการแก้ไข</button>
+          <button class="btn btn-primary" onclick="executeEditStudent('${esc(studentId)}')">✓ บันทึกการแก้ไข</button>
         </div>
       </div>
     </div>
@@ -1519,6 +1672,7 @@ function executeEditStudent(originalStudentId) {
     return a.no - b.no;
   });
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync('full');
   closeModal('edit-student-modal');
@@ -1537,6 +1691,7 @@ function reindexClassroomStudents(className) {
       s.no = idx + 1;
     });
 
+    appState.isDirty = true;
     saveLocalState();
     scheduleAutoSync('full');
     showToast(`จัดเรียงเลขที่ห้อง ${className} ใหม่ (1-${classStudents.length}) เรียบร้อย`);
@@ -1555,6 +1710,7 @@ function openAddClassroomModal() {
     }
     appState.settings.classrooms.push(trimmed);
     appState.activeClassroom = trimmed;
+    appState.isDirty = true;
     saveLocalState();
     scheduleAutoSync('full');
     renderHeaderControls();
@@ -1592,11 +1748,11 @@ function openClassroomManagerModal() {
                   const count = appState.students.filter(s => s.classroom === c).length;
                   return `
                     <tr style="border-bottom: 1px solid var(--border-light);">
-                      <td style="padding: 0.5rem; font-weight: 600;">${c}</td>
+                      <td style="padding: 0.5rem; font-weight: 600;">${esc(c)}</td>
                       <td style="padding: 0.5rem; color: var(--text-secondary);">${count} คน</td>
                       <td style="padding: 0.5rem; text-align: right;">
-                        <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${c}')">เปลี่ยนชื่อ</button>
-                        <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteClassroom('${c}')">ลบห้อง</button>
+                        <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${esc(c)}')">เปลี่ยนชื่อ</button>
+                        <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteClassroom('${esc(c)}')">ลบห้อง</button>
                       </td>
                     </tr>
                   `;
@@ -1628,6 +1784,7 @@ function handleAddRoomFromManager() {
   }
 
   appState.settings.classrooms.push(name);
+  appState.isDirty = true;
   saveLocalState();
   renderHeaderControls();
   openClassroomManagerModal(); // refresh
@@ -1656,6 +1813,7 @@ function renameClassroom(oldName) {
     });
     if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
 
+    appState.isDirty = true;
     saveLocalState();
     renderHeaderControls();
     openClassroomManagerModal();
@@ -1688,6 +1846,7 @@ function deleteClassroom(className) {
       appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
     }
 
+    appState.isDirty = true;
     saveLocalState();
     renderHeaderControls();
     openClassroomManagerModal();
@@ -1724,7 +1883,7 @@ function openImportModal(defaultClass) {
               <label class="form-label">เลือกห้องเรียนปลายทาง:</label>
               <select id="import-target-class" class="form-input" onchange="updateImportPreview()">
                 ${appState.settings.classrooms.map(c => `
-                  <option value="${c}" ${c === targetClass ? 'selected' : ''}>${c}</option>
+                  <option value="${esc(c)}" ${c === targetClass ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
             </div>
@@ -1893,9 +2052,9 @@ function updateImportPreview() {
           ${importPreviewData.slice(0, 15).map(s => `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 4px 8px;">${s.no}</td>
-              <td style="padding: 4px 8px;">${s.studentId}</td>
-              <td style="padding: 4px 8px;">${s.fullName}</td>
-              <td style="padding: 4px 8px;">${s.classroom}</td>
+              <td style="padding: 4px 8px;">${esc(s.studentId)}</td>
+              <td style="padding: 4px 8px;">${esc(s.fullName)}</td>
+              <td style="padding: 4px 8px;">${esc(s.classroom)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -1931,6 +2090,7 @@ function executeImport() {
   });
 
   appState.activeClassroom = targetClass;
+  appState.isDirty = true;
   saveLocalState();
   closeImportModal();
   showToast(`นำเข้ารายชื่อห้อง ${targetClass} สำเร็จ ${importPreviewData.length} คน!`);
@@ -1958,6 +2118,8 @@ async function pushImportToBackend(mode, targetClass, studentsList) {
       }),
       mode: 'no-cors'
     });
+    appState.isDirty = false;
+    saveLocalState();
     updateSyncIndicator('online');
   } catch (e) {
     updateSyncIndicator('offline');
@@ -1986,13 +2148,13 @@ function renderAssignments(container) {
     <div class="card">
       <div class="card-header">
         <div>
-          <h2 class="card-title">รายการงานที่มอบหมาย: วิชา ${subjectObj.name} (${subjectObj.code})</h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง ${appState.activeClassroom} (มี ${currentAssignments.length} งาน)</p>
+          <h2 class="card-title">รายการงานที่มอบหมาย: วิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)})</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง ${esc(appState.activeClassroom)} (มี ${currentAssignments.length} งาน)</p>
         </div>
       </div>
 
       <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
-        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem;">+ สร้างงานใหม่สำหรับห้อง ${appState.activeClassroom}</h4>
+        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem;">+ สร้างงานใหม่สำหรับห้อง ${esc(appState.activeClassroom)}</h4>
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: end;">
           <div>
             <label class="form-label">ชื่องาน / รายละเอียด</label>
@@ -2025,13 +2187,13 @@ function renderAssignments(container) {
           <tbody>
             ${currentAssignments.map(a => `
               <tr style="border-bottom: 1px solid var(--border-light);">
-                <td style="padding: 0.5rem; font-weight: 600; color: var(--primary);">${a.id}</td>
-                <td style="padding: 0.5rem; font-weight: 500;">${a.title}</td>
+                <td style="padding: 0.5rem; font-weight: 600; color: var(--primary);">${esc(a.id)}</td>
+                <td style="padding: 0.5rem; font-weight: 500;">${esc(a.title)}</td>
                 <td style="padding: 0.5rem;">${a.fullScore} คะแนน</td>
-                <td style="padding: 0.5rem; color: var(--text-secondary);">${a.dueDate || '-'}</td>
-                <td style="padding: 0.5rem;">${a.subject || appState.activeSubject}</td>
+                <td style="padding: 0.5rem; color: var(--text-secondary);">${esc(a.dueDate || '-')}</td>
+                <td style="padding: 0.5rem;">${esc(a.subject || appState.activeSubject)}</td>
                 <td style="padding: 0.5rem; text-align: right;">
-                  <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${a.id}')">🗑️ ลบ</button>
+                  <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${esc(a.id)}')">🗑️ ลบ</button>
                 </td>
               </tr>
             `).join('')}
@@ -2064,6 +2226,7 @@ function handleAddAssignment() {
     classroom: appState.activeClassroom
   });
 
+  appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync('full');
   showToast(`เพิ่มงาน "${title}" สำเร็จ`);
@@ -2079,6 +2242,7 @@ function deleteAssignment(assignId) {
       if (k.startsWith(`${assignId}_`)) delete appState.submissions[k];
     });
 
+    appState.isDirty = true;
     saveLocalState();
     scheduleAutoSync('full');
     renderAssignments(document.getElementById('app-view-container'));
@@ -2093,21 +2257,21 @@ function renderSettings(container) {
 
       <div class="form-group">
         <label class="form-label">ชื่อโรงเรียน</label>
-        <input type="text" id="cfg-school" class="form-input" value="${appState.settings.schoolName}" />
+        <input type="text" id="cfg-school" class="form-input" value="${esc(appState.settings.schoolName)}" />
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 0.75rem;">
         <div class="form-group">
           <label class="form-label">ภาคเรียนที่</label>
-          <input type="text" id="cfg-term" class="form-input" value="${appState.settings.term}" />
+          <input type="text" id="cfg-term" class="form-input" value="${esc(appState.settings.term)}" />
         </div>
         <div class="form-group">
           <label class="form-label">ปีการศึกษา</label>
-          <input type="text" id="cfg-year" class="form-input" value="${appState.settings.academicYear}" />
+          <input type="text" id="cfg-year" class="form-input" value="${esc(appState.settings.academicYear)}" />
         </div>
         <div class="form-group">
           <label class="form-label">ชื่อครูผู้สอน</label>
-          <input type="text" id="cfg-teacher" class="form-input" value="${appState.settings.teacherName}" />
+          <input type="text" id="cfg-teacher" class="form-input" value="${esc(appState.settings.teacherName)}" />
         </div>
       </div>
 
@@ -2117,8 +2281,8 @@ function renderSettings(container) {
         <div id="subject-list-config">
           ${appState.settings.subjects.map((sub, idx) => `
             <div style="display: grid; grid-template-columns: 110px 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
-              <input type="text" class="form-input cfg-sub-code" value="${sub.code}" />
-              <input type="text" class="form-input cfg-sub-name" value="${sub.name}" />
+              <input type="text" class="form-input cfg-sub-code" value="${esc(sub.code)}" />
+              <input type="text" class="form-input cfg-sub-name" value="${esc(sub.name)}" />
             </div>
           `).join('')}
         </div>
@@ -2126,7 +2290,7 @@ function renderSettings(container) {
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
         <label class="form-label">Google Apps Script Web App API URL</label>
-        <input type="text" id="cfg-gas-url" class="form-input" value="${appState.settings.gasUrl}" />
+        <input type="text" id="cfg-gas-url" class="form-input" value="${esc(appState.settings.gasUrl)}" />
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
@@ -2135,7 +2299,7 @@ function renderSettings(container) {
           <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(ไม่บังคับ - ป้องกันบุคคลอื่นเข้าถึงชีท)</span>
         </label>
         <div style="display: flex; gap: 0.5rem;">
-          <input type="password" id="cfg-token" class="form-input" value="${appState.settings.apiToken || ''}" placeholder="ระบุ PIN หรือรหัสผ่านป้องกัน (เว้นว่างไว้หากไม่ใช้)" />
+          <input type="password" id="cfg-token" class="form-input" value="${esc(appState.settings.apiToken || '')}" placeholder="ระบุ PIN หรือรหัสผ่านป้องกัน (เว้นว่างไว้หากไม่ใช้)" />
           <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility()" style="white-space: nowrap;">👁️ แสดง</button>
         </div>
       </div>
@@ -2206,6 +2370,25 @@ async function pullFromGoogleSheets(isManual = false) {
     return;
   }
 
+  // หากมีข้อมูลที่ค้างอยู่ในเครื่องยังไม่ได้ส่งขึ้น Google Sheets (isDirty) ให้สำรองขึ้นไปก่อน
+  if (appState.isDirty) {
+    try {
+      if (isManual) showToast('⏳ กำลังสำรองข้อมูลล่าสุดในเครื่องขึ้น Google Sheets ก่อนดึง...');
+      await pushFullStateToBackend();
+      appState.isDirty = false;
+      saveLocalState();
+    } catch (e) {
+      console.warn('Could not flush dirty state before pull:', e);
+      if (isManual) {
+        const proceed = confirm('⚠️ มีข้อมูลคะแนนใหม่ในเครื่องที่ยังส่งขึ้นชีทไม่สำเร็จ หากดึงข้อมูลตอนนี้ ข้อมูลในเครื่องอาจถูกแทนที่ ยืนยันจะดึงข้อมูลหรือไม่?');
+        if (!proceed) {
+          updateSyncIndicator('offline');
+          return;
+        }
+      }
+    }
+  }
+
   if (isManual) {
     showToast('⏳ กำลังดึงข้อมูลล่าสุดจาก Google Sheets...');
   }
@@ -2245,6 +2428,7 @@ async function pullFromGoogleSheets(isManual = false) {
         if (data.settings.term) appState.settings.term = data.settings.term;
       }
 
+      appState.isDirty = false;
       saveLocalState();
       renderHeaderControls();
       renderApp();
@@ -2357,6 +2541,8 @@ async function pushFullStateToBackend() {
       mode: 'no-cors'
     });
 
+    appState.isDirty = false;
+    saveLocalState();
     updateSyncIndicator('online');
   } catch (err) {
     console.error('Error in pushFullStateToBackend:', err);
@@ -2394,6 +2580,8 @@ async function pushSubmissionsToBackend() {
       mode: 'no-cors'
     });
 
+    appState.isDirty = false;
+    saveLocalState();
     updateSyncIndicator('online');
   } catch (err) {
     updateSyncIndicator('online');
@@ -2401,7 +2589,12 @@ async function pushSubmissionsToBackend() {
 }
 
 async function trySilentFetch() {
-  await pullFromGoogleSheets(false);
+  // หากมีข้อมูลที่ค้างอยู่ในเครื่องยังไม่ได้ส่งขึ้นชีท อย่าดึงข้อมูลมาทับ
+  if (!appState.isDirty) {
+    await pullFromGoogleSheets(false);
+  } else {
+    console.log('Skipping silent fetch because local state has un-synced changes (isDirty=true)');
+  }
 }
 
 async function triggerManualSync() {

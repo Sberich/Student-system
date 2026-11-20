@@ -1,8 +1,9 @@
 @echo off
 echo ====================================================
 echo  Starting Student Grading System Preview Server
-echo  URL: http://localhost:8080
+echo  URL: http://localhost:8090
 echo ====================================================
-start http://localhost:8080
-python -m http.server 8080 --directory frontend
+cd /d "%~dp0frontend"
+start http://localhost:8090
+python -m http.server 8090
 pause

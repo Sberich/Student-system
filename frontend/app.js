@@ -106,6 +106,19 @@ function loadLocalState() {
       appState = { ...appState, ...parsed };
       if (!appState.gradebook) appState.gradebook = {};
       if (!appState.gradebookRatio) appState.gradebookRatio = '70/30';
+      // ซ่อมแซมและปรับสมการความถูกต้องของ Gradebook 100%
+      if (appState.gradebook && Object.keys(appState.gradebook).length > 0) {
+        Object.keys(appState.gradebook).forEach(k => {
+          let rec = appState.gradebook[k];
+          // หากคะแนนข้อเขียนกลางภาคยังเป็นคะแนนดิบเต็ม 40 ให้หาร 2 เป็นคะแนนสุทธิ (เต็ม 20)
+          if (rec.midRaw > 20) {
+            rec.midRaw = Math.round((rec.midRaw / 2) * 10) / 10;
+          }
+          if (rec.finalDiv > 2) rec.finalDiv = 2;
+          if (rec.midDiv !== 1) rec.midDiv = 1;
+          appState.gradebook[k] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+        });
+      }
       hasSavedLocalState = true;
     }
   } catch (e) {
@@ -2711,34 +2724,52 @@ function calculateGradeRecord(rec, ratio) {
   const is8020 = (ratio === '80/20');
   
   // 1. ก่อนกลางภาค
+  // สัดส่วน 70/30: เต็ม 30 (หรือ 25) | สัดส่วน 80/20: เต็ม 30
+  const maxPre = 30;
   const attPre = Math.max(0, Number(rec.attPre) || 0);
   const workPre = Math.max(0, Number(rec.workPre) || 0);
-  const sumPre = Math.round((attPre + workPre) * 10) / 10;
+  let sumPre = Math.round((attPre + workPre) * 10) / 10;
+  if (rec.sumPre !== undefined && rec.sumPre !== null && rec.sumPre !== '' && (attPre === 0 && workPre === 0)) {
+    sumPre = Number(rec.sumPre);
+  }
+  sumPre = Math.min(maxPre, sumPre);
 
-  // 2. กลางภาค: ข้อเขียน (หารมือมาแล้ว) + คะแนนช่วย
+  // 2. สอบกลางภาค (ครูหารมือมาแล้ว: ข้อเขียน + คะแนนช่วย)
+  // สัดส่วน 70/30: เต็ม 20 | สัดส่วน 80/20: เต็ม 20
+  const maxMid = 20;
   const midRaw = Math.max(0, Number(rec.midRaw) || 0);
   const midHelp = Number(rec.midHelp) || 0;
-  const midScore = Math.max(0, Math.round((midRaw + midHelp) * 10) / 10);
+  const midScore = Math.min(maxMid, Math.max(0, Math.round((midRaw + midHelp) * 10) / 10));
 
   // 3. หลังกลางภาค
+  // สัดส่วน 70/30: เต็ม 20 (รวมระหว่างภาค 30+20+20=70)
+  // สัดส่วน 80/20: เต็ม 30 (รวมระหว่างภาค 30+20+30=80)
+  const maxPost = is8020 ? 30 : 20;
   const attPost = Math.max(0, Number(rec.attPost) || 0);
   const workPost = Math.max(0, Number(rec.workPost) || 0);
-  const sumPost = Math.round((attPost + workPost) * 10) / 10;
+  let sumPost = Math.round((attPost + workPost) * 10) / 10;
+  if (rec.sumPost !== undefined && rec.sumPost !== null && rec.sumPost !== '' && (attPost === 0 && workPost === 0)) {
+    sumPost = Number(rec.sumPost);
+  }
+  sumPost = Math.min(maxPost, sumPost);
 
   // 4. รวมระหว่างภาค
+  // สัดส่วน 70/30: เต็ม 70 = ก่อนกลาง (30) + กลางภาค (20) + หลังกลาง (20)
+  // สัดส่วน 80/20: เต็ม 80 = ก่อนกลาง (30) + กลางภาค (20) + หลังกลาง (30)
   const maxTerm = is8020 ? 80 : 70;
-  const rawTermScore = sumPre + midScore + sumPost;
-  const termScore = Math.min(maxTerm, Math.round(rawTermScore * 10) / 10);
+  const rawTerm = sumPre + midScore + sumPost;
+  const termScore = Math.min(maxTerm, Math.round(rawTerm * 10) / 10);
 
-  // 5. ปลายภาค: (ข้อเขียน / ตัวหาร) + คะแนนช่วย
+  // 5. สอบปลายภาค: (ข้อเขียน / ตัวหาร [ปกติหาร 2]) + คะแนนช่วย
+  // สัดส่วน 70/30: เต็ม 30 | สัดส่วน 80/20: เต็ม 20
   const maxFinal = is8020 ? 20 : 30;
   const finalRaw = Math.max(0, Number(rec.finalRaw) || 0);
-  const finalDiv = Number(rec.finalDiv) > 0 ? Number(rec.finalDiv) : 2;
+  const finalDiv = (Number(rec.finalDiv) > 0 && Number(rec.finalDiv) <= 10) ? Number(rec.finalDiv) : 2;
   const finalHelp = Number(rec.finalHelp) || 0;
   const rawFinalScore = (finalRaw / finalDiv) + finalHelp;
   const finalScore = Math.min(maxFinal, Math.max(0, Math.round(rawFinalScore * 10) / 10));
 
-  // 6. คะแนนรวม 100
+  // 6. คะแนนรวมทั้งสิ้น (เต็ม 100) = ระหว่างภาค + สรุปปลายภาค
   const totalScore = Math.min(100, Math.round((termScore + finalScore) * 10) / 10);
 
   // 7. ตัดเกรด & ตรวจจับ ร / มส จากช่อง "หมายเหตุ"
@@ -2773,7 +2804,7 @@ function calculateGradeRecord(rec, ratio) {
     workPre,
     sumPre,
     midRaw,
-    midDiv: 1, // ไม่ใช้ตัวหารในกลางภาคแล้ว
+    midDiv: 1, // กลางภาคหารมือมาแล้ว ไม่ใช้ตัวหาร
     midHelp,
     midScore,
     attPost,
@@ -2791,9 +2822,6 @@ function calculateGradeRecord(rec, ratio) {
   };
 }
 
-/**
- * ดึง Record คะแนนของนักเรียน ถ้ายังไม่มีให้สร้างโครงเริ่มต้น
- */
 function getOrCreateGradeRecord(student) {
   const subj = appState.activeSubject || 'ส31101';
   const room = student.classroom || appState.activeClassroom || 'ม.4/1';
@@ -3513,10 +3541,7 @@ async function loadOriginalSchoolGrades() {
       const subj = appState.activeSubject || 'ส31101';
       const key = subj + '_' + room + '_' + sid;
 
-      // ถ้าในข้อมูลเดิม midScore มีค่า ให้ใช้ midScore เป็น midRaw (เพราะหารมาแล้ว)
-      const midVal = Number(r.midScore || r.midRaw || 0);
-
-      appState.gradebook[key] = {
+      const rawRec = {
         subject: subj,
         classroom: room,
         studentId: sid,
@@ -3525,23 +3550,18 @@ async function loadOriginalSchoolGrades() {
         attPre: Number(r.attPre) || 0,
         workPre: Number(r.workPre) || 0,
         sumPre: Number(r.sumPre) || 0,
-        midRaw: midVal,
+        midRaw: Number(r.midRaw || 0),
         midDiv: 1,
-        midHelp: Number(r.midHelp) || 0,
-        midScore: midVal,
+        midHelp: Number(r.midHelp || 0),
         attPost: Number(r.attPost) || 0,
         workPost: Number(r.workPost) || 0,
         sumPost: Number(r.sumPost) || 0,
-        termScore: Number(r.termScore) || 0,
-        finalRaw: Number(r.finalRaw) || 0,
-        finalDiv: Number(r.finalDiv) || 2,
-        finalHelp: Number(r.finalHelp) || 0,
-        finalScore: Number(r.finalScore) || 0,
-        totalScore: Number(r.totalScore) || 0,
-        grade: String(r.grade || '0'),
-        sgsStatus: String(r.sgsStatus || 'ปกติ'),
-        note: r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : '')
+        finalRaw: Number(r.finalRaw || 0),
+        finalDiv: 2,
+        finalHelp: Number(r.finalHelp || 0),
+        note: r.note || (r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : ''))
       };
+      appState.gradebook[key] = calculateGradeRecord(rawRec, appState.gradebookRatio || '70/30');
     });
 
     appState.settings.classrooms = Array.from(roomSet);

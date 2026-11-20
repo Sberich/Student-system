@@ -298,15 +298,14 @@ function renderHeaderControls() {
   ).join('');
 
   container.innerHTML = `
-    <div class="context-selector-bar">
-      <span class="context-label">📖 วิชา:</span>
-      <select class="context-select" onchange="changeActiveSubject(this.value)">
+    <div class="context-unified-bar">
+      <span class="context-bar-icon">📖</span>
+      <select class="context-select context-select-sub" onchange="changeActiveSubject(this.value)" title="เลือกรายวิชา">
         ${subjectOpts}
       </select>
-    </div>
-    <div class="context-selector-bar">
-      <span class="context-label">🏫 ห้อง:</span>
-      <select class="context-select" onchange="changeActiveClassroom(this.value)">
+      <span class="context-sep">•</span>
+      <span class="context-bar-icon">🏫</span>
+      <select class="context-select context-select-room" onchange="changeActiveClassroom(this.value)" title="เลือกห้องเรียน">
         ${classOpts}
       </select>
     </div>
@@ -737,8 +736,7 @@ function renderGrading(container) {
 
   container.innerHTML = `
     <div class="assignment-bar">
-      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-        <span style="font-weight: 600; font-size: 0.95rem;">เลือกงาน:</span>
+      <div class="assign-bar-row-1">
         <select class="select-control" id="assignment-select" onchange="changeAssignment(this.value)">
           ${currentAssignments.map(a => `
             <option value="${esc(a.id)}" ${a.id === currentAssignment.id ? 'selected' : ''}>
@@ -747,12 +745,12 @@ function renderGrading(container) {
           `).join('')}
         </select>
         <div class="btn-group">
-          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)">◀ ก่อนหน้า</button>
-          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)">ถัดไป ▶</button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" title="งานก่อนหน้า">◀</button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" title="งานถัดไป">▶</button>
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <div class="assign-bar-row-2">
         <div class="mode-toggle-group">
           <button class="mode-btn ${appState.gradingMode === 'rapid' ? 'active' : ''}" onclick="setGradingMode('rapid')" title="แตะชื่อนักเรียน = ส่งแล้วและได้คะแนนเต็มทันที">
             ⚡ ตรวจด่วน
@@ -761,10 +759,7 @@ function renderGrading(container) {
             📝 ตรวจละเอียด
           </button>
         </div>
-        <span style="font-size: 0.85rem; color: var(--text-secondary);">
-          ส่งแล้ว <strong>${submittedCount}</strong> / ค้าง <strong>${pendingCount}</strong> (ห้อง ${esc(appState.activeClassroom)})
-        </span>
-        <button class="btn btn-success btn-sm" onclick="markAllRemainingAsSubmitted()">
+        <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()">
           ⚡ ส่งแล้วทุกคนที่เหลือ
         </button>
       </div>
@@ -1481,15 +1476,15 @@ function renderStudents(container) {
             นักเรียนทั้งหมดในระบบ: <strong>${totalAllClasses} คน</strong> ใน ${appState.settings.classrooms.length} ห้องเรียน
           </p>
         </div>
-        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+        <div class="student-header-actions">
           <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${esc(appState.activeClassroom)}')">
-            ➕ แทรกนักเรียนในห้องนี้
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${esc(appState.activeClassroom)}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
-            🔢 จัดเรียงเลขที่ใหม่ (1..N)
+            ➕ แทรกนักเรียน
           </button>
           <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
-            📥 นำเข้าจาก Excel
+            📥 นำเข้า Excel
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${esc(appState.activeClassroom)}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
+            🔢 เรียงเลขที่ใหม่
           </button>
           <button class="btn btn-secondary btn-sm" onclick="exportClassroomTemplate('${esc(appState.activeClassroom)}')">
             📄 แม่แบบ Excel
@@ -1501,28 +1496,31 @@ function renderStudents(container) {
         <table class="roster-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
           <thead>
             <tr style="border-bottom: 2px solid var(--border-light); text-align: left; background: var(--bg-subtle); position: sticky; top: 0; z-index: 10;">
-              <th style="padding: 0.65rem 0.75rem; width: 65px; text-align: center;">เลขที่</th>
-              <th style="padding: 0.65rem 0.75rem; width: 100px;">รหัสนักเรียน</th>
+              <th style="padding: 0.65rem 0.5rem; width: 48px; text-align: center;">เลขที่</th>
+              <th class="col-roster-id" style="padding: 0.65rem 0.75rem; width: 100px;">รหัสนักเรียน</th>
               <th style="padding: 0.65rem 0.75rem;">ชื่อ - นามสกุล</th>
-              <th style="padding: 0.65rem 0.75rem; text-align: right; width: 200px; white-space: nowrap;">จัดการ</th>
+              <th class="col-roster-actions" style="padding: 0.65rem 0.75rem; text-align: right; width: 180px; white-space: nowrap;">จัดการ</th>
             </tr>
           </thead>
           <tbody>
             ${currentStudents.length > 0 ? currentStudents.map(st => `
               <tr class="roster-row" style="border-bottom: 1px solid var(--border-light);">
-                <td style="padding: 0.55rem 0.75rem; text-align: center; font-weight: 600; color: var(--primary);">${st.no}</td>
-                <td style="padding: 0.55rem 0.75rem; color: var(--text-secondary); font-family: monospace; font-size: 0.88rem;">${esc(st.studentId)}</td>
-                <td style="padding: 0.55rem 0.75rem; font-weight: 500; color: var(--text-main);">${esc(st.fullName)}</td>
-                <td style="padding: 0.55rem 0.75rem; text-align: right; white-space: nowrap;">
+                <td style="padding: 0.55rem 0.5rem; text-align: center; font-weight: 600; color: var(--primary);">${st.no}</td>
+                <td class="col-roster-id" style="padding: 0.55rem 0.75rem; color: var(--text-secondary); font-family: monospace; font-size: 0.88rem;">${esc(st.studentId)}</td>
+                <td style="padding: 0.55rem 0.75rem; font-weight: 500; color: var(--text-main); white-space: nowrap;">
+                  <span class="roster-name-text">${esc(st.fullName)}</span>
+                  <span class="roster-id-sub mobile-only-inline">${esc(st.studentId)}</span>
+                </td>
+                <td class="col-roster-actions" style="padding: 0.55rem 0.75rem; text-align: right; white-space: nowrap;">
                   <div class="roster-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${esc(st.classroom)}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
-                      ➕ แทรกต่อ
+                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openInsertStudentModal('${esc(st.classroom)}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
+                      ➕ <span class="desktop-only-inline">แทรกต่อ</span>
                     </button>
-                    <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${esc(st.studentId)}')" title="แก้ไขข้อมูลนักเรียน">
-                      ✏️ แก้ไข
+                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openEditStudentModal('${esc(st.studentId)}')" title="แก้ไขข้อมูลนักเรียน">
+                      ✏️ <span class="desktop-only-inline">แก้ไข</span>
                     </button>
-                    <button class="btn btn-sm btn-danger-soft" onclick="deleteStudent('${esc(st.studentId)}')" title="ลบนักเรียนคนนี้">
-                      🗑️ ลบ
+                    <button class="btn btn-sm btn-danger-soft roster-act-btn" onclick="deleteStudent('${esc(st.studentId)}')" title="ลบนักเรียนคนนี้">
+                      🗑️
                     </button>
                   </div>
                 </td>
@@ -3116,49 +3114,24 @@ function updateGradebookStatsBarDOM() {
   const pct = (n) => countAll > 0 ? ((n / countAll) * 100).toFixed(1) + '%' : '0%';
 
   bar.innerHTML = `
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">👥 นักเรียนทั้งหมด</span>
-      <span class="gb-stat-val">${countAll} <small style="font-size: 0.75rem; font-weight: normal;">คน</small></span>
+    <div class="gb-stats-row-top">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <span>👥 ทั้งหมด <strong>${countAll}</strong> คน</span>
+        <span style="color: var(--text-muted);">•</span>
+        <span style="color: #15803D; font-weight: 600;">🌟 เกรด 3 ขึ้นไป <strong>${g3Plus}</strong> คน (${pct(g3Plus)})</span>
+        <span style="color: var(--text-muted);">•</span>
+        <span style="${(dist['ร'] + dist['มส']) > 0 ? 'color: #DC2626; font-weight: 700;' : 'color: var(--text-muted);'}">ติด ร/มส: <strong>${dist['ร'] + dist['มส']}</strong></span>
+      </div>
     </div>
-    <div class="gb-stat-card highlight">
-      <span class="gb-stat-label">🌟 เกรด 3 ขึ้นไป</span>
-      <span class="gb-stat-val">${g3Plus} <small style="font-size: 0.75rem; font-weight: normal;">(${pct(g3Plus)})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 4</span>
-      <span class="gb-stat-val grade-badge-4">${dist['4']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['4'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 3.5</span>
-      <span class="gb-stat-val grade-badge-3">${dist['3.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['3.5'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 3</span>
-      <span class="gb-stat-val grade-badge-3">${dist['3']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['3'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 2.5</span>
-      <span class="gb-stat-val grade-badge-2">${dist['2.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['2.5'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 2</span>
-      <span class="gb-stat-val grade-badge-2">${dist['2']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['2'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 1.5</span>
-      <span class="gb-stat-val grade-badge-1">${dist['1.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['1.5'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 1</span>
-      <span class="gb-stat-val grade-badge-1">${dist['1']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['1'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">เกรด 0</span>
-      <span class="gb-stat-val grade-badge-0">${dist['0']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['0'])})</small></span>
-    </div>
-    <div class="gb-stat-card">
-      <span class="gb-stat-label">ติด ร / มส</span>
-      <span class="gb-stat-val grade-badge-res">${dist['ร'] + dist['มส']} <small style="font-size: 0.7rem; font-weight: normal;">(ร:${dist['ร']}, มส:${dist['มส']})</small></span>
+    <div class="gb-stats-row-grades">
+      <span class="gb-grade-chip"><strong class="grade-badge-4">เกรด 4:</strong> ${dist['4']} <small>(${pct(dist['4'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-3">3.5:</strong> ${dist['3.5']} <small>(${pct(dist['3.5'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-3">3:</strong> ${dist['3']} <small>(${pct(dist['3'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-2">2.5:</strong> ${dist['2.5']} <small>(${pct(dist['2.5'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-2">2:</strong> ${dist['2']} <small>(${pct(dist['2'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-1">1.5:</strong> ${dist['1.5']} <small>(${pct(dist['1.5'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-1">1:</strong> ${dist['1']} <small>(${pct(dist['1'])})</small></span>
+      <span class="gb-grade-chip"><strong class="grade-badge-0">0:</strong> ${dist['0']} <small>(${pct(dist['0'])})</small></span>
     </div>
   `;
 }
@@ -3344,46 +3317,42 @@ function renderGradebook(container) {
         </div>
       </div>
 
-      <!-- แถบแจ้งเตือนคีย์บอร์ดลัด (Auto-advance hint) -->
-      <div class="gb-quick-nav-hint">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span style="font-size: 1.15rem;">⚡</span>
-          <span><b>โหมดกรอกคะแนนด่วน (เหมือนเช็กส่งงาน):</b> พิมพ์คะแนนแล้วกด <b>Enter</b> หรือ <b>ลูกศรลง ⬇️</b> ระบบจะบันทึกและเด้งลงคนถัดไปทันที (ไม่ต้องใช้เมาส์)</span>
+      <!-- แถบแจ้งเตือนคีย์บอร์ดลัด (Auto-advance hint - มินิมอล & ปิดได้) -->
+      <div class="gb-quick-nav-hint" id="gb-nav-hint">
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem;">
+          <span>⚡</span>
+          <span><b>โหมดกรอกด่วน:</b> พิมพ์แล้วกด <b>Enter / ⬇️</b> เพื่อเด้งลงคนถัดไป • ติด <b>ร/มส</b> ให้พิมพ์ในช่องหมายเหตุ</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
-          <span>กด <b>ลูกศรขึ้น ⬆️</b> เพื่อย้อน</span>
-          <span>•</span>
-          <span>ติด <b>ร / มส</b> ให้พิมพ์ในช่องหมายเหตุ</span>
-        </div>
+        <button type="button" onclick="document.getElementById('gb-nav-hint').style.display='none'" style="background: none; border: none; cursor: pointer; color: #1E40AF; font-size: 0.85rem; padding: 2px 6px;" title="ปิดคำแนะนำ">✕</button>
       </div>
 
       <!-- Gradebook Toolbar -->
       <div class="gradebook-toolbar">
-        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">สัดส่วนคะแนน:</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span style="font-weight: 600; font-size: 0.82rem; color: var(--text-primary);">สัดส่วน:</span>
             <div class="ratio-switcher">
               <button class="ratio-btn ${!is8020 ? 'active' : ''}" onclick="setGradebookRatio('70/30')">70 / 30</button>
               <button class="ratio-btn ${is8020 ? 'active' : ''}" onclick="setGradebookRatio('80/20')">80 / 20</button>
             </div>
           </div>
-          <span style="font-size: 0.8rem; color: var(--text-secondary); background: #F1F5F9; padding: 4px 8px; border-radius: 6px;">
-            ${is8020 ? '📌 ระหว่างภาค 80 (ก่อนกลาง 30, กลาง 20, หลังกลาง 30) + ปลายภาค 20' : '📌 ระหว่างภาค 70 (ก่อนกลาง 25, กลาง 20, หลังกลาง 25) + ปลายภาค 30'}
+          <span style="font-size: 0.75rem; color: var(--text-secondary); background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">
+            ${is8020 ? '📌 ระหว่างภาค 80 + ปลายภาค 20' : '📌 ระหว่างภาค 70 + ปลายภาค 30'}
           </span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <div class="gb-action-btn-group">
           <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
-            <span>💾</span> บันทึกคะแนนลง Google Sheets
+            <span>💾</span> บันทึก Sheets
+          </button>
+          <button class="btn btn-secondary btn-sm" style="color: #2563EB;" onclick="loadOriginalSchoolGrades()" title="โหลดข้อมูล 434 คนจากไฟล์โรงเรียน">
+            <span>📥</span> โหลดต้นฉบับ
           </button>
           <button class="btn btn-secondary btn-sm" onclick="exportGradebookSGS()">
             <span>📤</span> ส่งออก SGS (CSV)
           </button>
           <button class="btn btn-secondary btn-sm" onclick="window.print()">
-            <span>🖨️</span> พิมพ์ ปพ.5 (A4 แนวนอน)
-          </button>
-          <button class="btn btn-secondary btn-sm" style="color: #2563EB;" onclick="loadOriginalSchoolGrades()" title="โหลดข้อมูล 434 คนจากไฟล์โรงเรียน">
-            <span>📥</span> โหลดคะแนนต้นฉบับ
+            <span>🖨️</span> พิมพ์ ปพ.5
           </button>
         </div>
       </div>

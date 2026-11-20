@@ -2079,3 +2079,270 @@ body {
     font-weight: 700;
   }
 }
+
+
+/* ==========================================================================
+   Mobile UI Optimization & Grouping Refinements
+   (วิชา & ห้องแถวเดียว, สถิติเกรดย่อ 1-2 แถว, รวมปุ่ม 2x2, รายชื่อไม่ตัดคำ)
+   ========================================================================== */
+
+/* Unified Context Bar (วิชา & ห้องเรียน อยู่แถวเดียวกันเสมอ) */
+.context-selector-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.context-unified-bar {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+  gap: 4px;
+}
+
+.context-bar-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.context-sep {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: bold;
+  user-select: none;
+}
+
+.context-select {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  outline: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* Compact Grade Stats Ribbon */
+.gradebook-stats-bar {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.gb-stats-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 1px dashed var(--border-light);
+  padding-bottom: 0.35rem;
+}
+
+.gb-stats-row-grades {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+}
+
+.gb-grade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.gb-action-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.student-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.roster-id-sub {
+  display: none;
+}
+
+.desktop-only-inline {
+  display: inline;
+}
+
+/* ----------------- Mobile Specific Tweaks (<= 768px) ----------------- */
+@media (max-width: 768px) {
+  /* Header single-line fit */
+  .context-unified-bar {
+    padding: 2px 5px;
+    gap: 2px;
+    max-width: 220px;
+  }
+
+  .context-select-sub {
+    max-width: 95px;
+    font-size: 0.75rem;
+  }
+
+  .context-select-room {
+    max-width: 80px;
+    font-size: 0.75rem;
+  }
+
+  .context-bar-icon {
+    display: none; /* ประหยัดพื้นที่บนมือถือ */
+  }
+
+  /* Gradebook Action Buttons: 2x2 Grid */
+  .gb-action-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.35rem;
+  }
+
+  .gb-action-btn-group .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.3rem;
+    white-space: nowrap;
+  }
+
+  /* Students View Header Buttons: 2x2 Grid */
+  .student-header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .student-header-actions .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.3rem;
+  }
+
+  /* Student Roster Table on Mobile: No Awkward Word-break */
+  .col-roster-id {
+    display: none !important;
+  }
+
+  .col-roster-actions {
+    width: 82px !important;
+    padding: 0.4rem 0.3rem !important;
+  }
+
+  .roster-id-sub {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: monospace;
+    background: var(--bg-subtle);
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-left: 3px;
+  }
+
+  .desktop-only-inline {
+    display: none !important;
+  }
+
+  .roster-actions {
+    display: flex;
+    gap: 2px;
+    justify-content: flex-end;
+  }
+
+  .roster-act-btn {
+    padding: 3px 5px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .roster-name-text {
+    white-space: nowrap;
+    font-size: 0.86rem;
+    font-weight: 500;
+  }
+
+  /* Grading View Assignment Bar Rows */
+  .assign-bar-row-1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .assign-bar-row-1 .select-control {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .assign-bar-row-2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.35rem;
+  }
+
+  .assign-bar-row-2 .mode-toggle-group {
+    flex-shrink: 0;
+  }
+
+  .btn-mark-all {
+    font-size: 0.72rem !important;
+    padding: 0.35rem 0.5rem !important;
+    white-space: nowrap;
+  }
+
+  /* Overview Grid Mobile Optimizations */
+  .stats-ribbon {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .quick-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .action-tile-btn {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .action-tile-btn .tile-desc {
+    display: none; /* ซ่อนคำอธิบายยาวๆ ในหน้าจอมือถือ */
+  }
+}

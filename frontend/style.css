@@ -239,9 +239,28 @@ body {
   align-items: center;
   gap: 0.35rem;
   overflow-x: auto;
-  padding: 0.4rem 0.25rem;
-  margin-bottom: 1rem;
+  padding: 0.35rem 0.15rem;
+  margin-bottom: 0.75rem;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.classroom-pill-strip::-webkit-scrollbar {
+  height: 5px;
+}
+
+.classroom-pill-strip::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.classroom-pill-strip::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.classroom-pill-strip::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 .class-pill {
@@ -489,9 +508,54 @@ body {
   background: #B91C1C;
 }
 
+.btn-danger-soft {
+  color: #DC2626 !important;
+  background-color: #FEF2F2 !important;
+  border-color: #FECACA !important;
+}
+
+.btn-danger-soft:hover {
+  background-color: #FEE2E2 !important;
+  border-color: #FCA5A5 !important;
+  color: #B91C1C !important;
+}
+
 .btn-sm {
   padding: 0.35rem 0.625rem;
   font-size: 0.8rem;
+}
+
+/* Roster Table Styles */
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.roster-row {
+  transition: background-color 0.12s ease;
+}
+
+.roster-row:nth-child(even) {
+  background-color: #F8FAFC;
+}
+
+.roster-row:hover {
+  background-color: #EEF2F6 !important;
+}
+
+.roster-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.roster-actions .btn-sm {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 /* Student List Table */

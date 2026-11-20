@@ -898,9 +898,11 @@ function renderStudents(container) {
 
   container.innerHTML = `
     <!-- แถบสลับห้อง + ปุ่มจัดการห้อง -->
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
       <div class="classroom-pill-strip" style="margin-bottom: 0; flex: 1;">
-        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">เลือกดูห้อง:</span>
+        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; margin-right: 0.25rem;">
+          🏫 เลือกดูห้อง:
+        </span>
         ${classPillsHtml}
       </div>
       <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
@@ -914,69 +916,75 @@ function renderStudents(container) {
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1rem;">
         <div>
-          <h2 class="card-title">รายชื่อนักเรียน ห้อง ${appState.activeClassroom} (${currentStudents.length} คน)</h2>
+          <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; margin-bottom: 0.25rem;">
+            <span>👥 รายชื่อนักเรียน ห้อง <strong>${appState.activeClassroom}</strong></span>
+            <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-weight: 600;">
+              ${currentStudents.length} คน
+            </span>
+          </h2>
           <p style="font-size: 0.8rem; color: var(--text-secondary);">
             นักเรียนทั้งหมดในระบบ: <strong>${totalAllClasses} คน</strong> ใน ${appState.settings.classrooms.length} ห้องเรียน
           </p>
         </div>
         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="openInsertStudentModal('${appState.activeClassroom}')">
+          <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${appState.activeClassroom}')">
             ➕ แทรกนักเรียนในห้องนี้
           </button>
-          <button class="btn btn-secondary" onclick="reindexClassroomStudents('${appState.activeClassroom}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
+          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${appState.activeClassroom}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
             🔢 จัดเรียงเลขที่ใหม่ (1..N)
           </button>
-          <button class="btn btn-secondary" onclick="openImportModal('${appState.activeClassroom}')">
+          <button class="btn btn-secondary btn-sm" onclick="openImportModal('${appState.activeClassroom}')">
             📥 นำเข้าจาก Excel
           </button>
-          <button class="btn btn-secondary" onclick="exportClassroomTemplate('${appState.activeClassroom}')">
+          <button class="btn btn-secondary btn-sm" onclick="exportClassroomTemplate('${appState.activeClassroom}')">
             📄 แม่แบบ Excel
           </button>
         </div>
       </div>
 
-      <div style="max-height: 520px; overflow-y: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <div style="max-height: 540px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+        <table class="roster-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
           <thead>
-            <tr style="border-bottom: 2px solid var(--border-light); text-align: left; background: var(--bg-subtle);">
-              <th style="padding: 0.6rem 0.5rem; width: 60px;">เลขที่</th>
-              <th style="padding: 0.6rem 0.5rem; width: 90px;">รหัส</th>
-              <th style="padding: 0.6rem 0.5rem;">ชื่อ-นามสกุล</th>
-              <th style="padding: 0.6rem 0.5rem; width: 80px;">ห้องเรียน</th>
-              <th style="padding: 0.6rem 0.5rem; text-align: right; width: 220px;">การกระทำ</th>
+            <tr style="border-bottom: 2px solid var(--border-light); text-align: left; background: var(--bg-subtle); position: sticky; top: 0; z-index: 10;">
+              <th style="padding: 0.65rem 0.75rem; width: 65px; text-align: center;">เลขที่</th>
+              <th style="padding: 0.65rem 0.75rem; width: 100px;">รหัสนักเรียน</th>
+              <th style="padding: 0.65rem 0.75rem;">ชื่อ - นามสกุล</th>
+              <th style="padding: 0.65rem 0.75rem; text-align: right; width: 200px; white-space: nowrap;">จัดการ</th>
             </tr>
           </thead>
           <tbody>
             ${currentStudents.length > 0 ? currentStudents.map(st => `
-              <tr style="border-bottom: 1px solid var(--border-light);">
-                <td style="padding: 0.5rem; font-weight: 600; color: var(--primary);">${st.no}</td>
-                <td style="padding: 0.5rem; color: var(--text-secondary);">${st.studentId}</td>
-                <td style="padding: 0.5rem; font-weight: 500;">${st.fullName}</td>
-                <td style="padding: 0.5rem;">${st.classroom}</td>
-                <td style="padding: 0.5rem; text-align: right;">
-                  <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${st.classroom}', ${st.no + 1})" title="แทรกนักเรียนใหม่เป็นเลขที่ ${st.no + 1}">
-                    ➕ แทรกคนถัดไป
-                  </button>
-                  <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${st.studentId}')">
-                    ✏️ แก้ไข
-                  </button>
-                  <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteStudent('${st.studentId}')">
-                    ลบ
-                  </button>
+              <tr class="roster-row" style="border-bottom: 1px solid var(--border-light);">
+                <td style="padding: 0.55rem 0.75rem; text-align: center; font-weight: 600; color: var(--primary);">${st.no}</td>
+                <td style="padding: 0.55rem 0.75rem; color: var(--text-secondary); font-family: monospace; font-size: 0.88rem;">${st.studentId}</td>
+                <td style="padding: 0.55rem 0.75rem; font-weight: 500; color: var(--text-main);">${st.fullName}</td>
+                <td style="padding: 0.55rem 0.75rem; text-align: right; white-space: nowrap;">
+                  <div class="roster-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="openInsertStudentModal('${st.classroom}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
+                      ➕ แทรกต่อ
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="openEditStudentModal('${st.studentId}')" title="แก้ไขข้อมูลนักเรียน">
+                      ✏️ แก้ไข
+                    </button>
+                    <button class="btn btn-sm btn-danger-soft" onclick="deleteStudent('${st.studentId}')" title="ลบนักเรียนคนนี้">
+                      🗑️ ลบ
+                    </button>
+                  </div>
                 </td>
               </tr>
             `).join('') : `
               <tr>
-                <td colspan="5" style="padding: 2.5rem; text-align: center; color: var(--text-secondary);">
-                  ยังไม่มีรายชื่อนักเรียนในห้อง ${appState.activeClassroom}
-                  <br><br>
-                  <button class="btn btn-primary" onclick="openInsertStudentModal('${appState.activeClassroom}', 1)">
+                <td colspan="4" style="padding: 3rem 1rem; text-align: center; color: var(--text-secondary);">
+                  <div style="font-size: 2rem; margin-bottom: 0.5rem;">📂</div>
+                  <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">ยังไม่มีรายชื่อนักเรียนในห้อง ${appState.activeClassroom}</div>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">คุณครูสามารถเพิ่มนักเรียนทีละคน หรือวางข้อมูลจาก Excel ได้ทันที</p>
+                  <button class="btn btn-primary btn-sm" onclick="openInsertStudentModal('${appState.activeClassroom}', 1)">
                     ➕ เพิ่มนักเรียนคนแรก (เลขที่ 1)
                   </button>
                   &nbsp;
-                  <button class="btn btn-secondary" onclick="openImportModal('${appState.activeClassroom}')">
+                  <button class="btn btn-secondary btn-sm" onclick="openImportModal('${appState.activeClassroom}')">
                     📥 วางจาก Excel
                   </button>
                 </td>
@@ -1694,7 +1702,7 @@ function renderAssignments(container) {
                 <td style="padding: 0.5rem; color: var(--text-secondary);">${a.dueDate || '-'}</td>
                 <td style="padding: 0.5rem;">${a.subject || appState.activeSubject}</td>
                 <td style="padding: 0.5rem; text-align: right;">
-                  <button class="btn btn-sm btn-secondary" onclick="deleteAssignment('${a.id}')">ลบ</button>
+                  <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${a.id}')">🗑️ ลบ</button>
                 </td>
               </tr>
             `).join('')}

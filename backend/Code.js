@@ -1,6 +1,7 @@
 /**
  * ระบบบันทึกส่งงานนักเรียน (Student Assignment & Grading System)
  * Backend Google Apps Script Web App API
+ * รองรับ ม.4 (11 ห้อง) และ ม.5 (2 ห้อง) รวม 13 ห้องเรียน และ 5 รายวิชา
  */
 
 const SHEET_SETTINGS = 'Settings';
@@ -8,11 +9,27 @@ const SHEET_STUDENTS = 'Students';
 const SHEET_ASSIGNMENTS = 'Assignments';
 const SHEET_SUBMISSIONS = 'Submissions';
 
+// ห้องเรียนทั้งหมด 13 ห้อง (ม.4 จำนวน 11 ห้อง, ม.5 จำนวน 2 ห้อง)
+const DEFAULT_CLASSROOMS = [
+  'ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6',
+  'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11',
+  'ม.5/1', 'ม.5/2'
+];
+
+// รายวิชาที่สอน 5 รายวิชา
+const DEFAULT_SUBJECTS = [
+  { id: 'SUB01', code: 'ส31101', name: 'สังคมศึกษา 1 (ม.4)' },
+  { id: 'SUB02', code: 'ส31102', name: 'ประวัติศาสตร์ไทย 1 (ม.4)' },
+  { id: 'SUB03', code: 'ส30226', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)' },
+  { id: 'SUB04', code: 'ส32101', name: 'สังคมศึกษา 3 (ม.5)' },
+  { id: 'SUB05', code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)' }
+];
+
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
-    .addItem('✨ ใส่ข้อมูลตัวอย่าง (25 คน 10 งาน)', 'seedSampleData')
+    .addItem('✨ ใส่ข้อมูลตัวอย่าง (ม.4 & ม.5)', 'seedSampleData')
     .addToUi();
 }
 
@@ -32,7 +49,6 @@ function doGet(e) {
     const action = (e && e.parameter && e.parameter.action) || 'getInitialData';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // ตรวจสอบและสร้างชีทหากยังไม่มี
     ensureSheetsExist(ss);
 
     if (action === 'getInitialData') {
@@ -92,9 +108,20 @@ function doPost(e) {
       return createJsonResponse({ success: true, assignment: newAssignment });
     }
 
+    if (action === 'deleteAssignment') {
+      handleDeleteAssignment(ss, payload.id);
+      return createJsonResponse({ success: true });
+    }
+
     if (action === 'updateSettings') {
       handleUpdateSettings(ss, payload.settings || {});
       return createJsonResponse({ success: true });
+    }
+
+    // ฟังก์ชันนำเข้านักเรียนแบบกลุ่ม (รองรับแยกห้อง หรือเขียนทับเฉพาะห้อง)
+    if (action === 'importStudents') {
+      const count = handleImportStudents(ss, payload);
+      return createJsonResponse({ success: true, count: count });
     }
 
     if (action === 'saveStudentList') {
@@ -109,7 +136,7 @@ function doPost(e) {
 }
 
 /**
- * ดึงข้อมูลรวมทั้งหมดเพื่อแสดงผลหน้า Dashboard และตารางตรวจงาน
+ * ดึงข้อมูลรวมทั้งหมด
  */
 function fetchAllData(ss) {
   const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
@@ -118,12 +145,27 @@ function fetchAllData(ss) {
   const submissionsSheet = ss.getSheetByName(SHEET_SUBMISSIONS);
 
   // 1. Settings
-  const settings = {};
+  const settings = {
+    schoolName: 'โรงเรียนตัวอย่าง',
+    academicYear: '2569',
+    term: '2',
+    teacherName: 'คุณครูผู้สอน',
+    activeSubject: DEFAULT_SUBJECTS[0].code,
+    activeClassroom: 'ม.4/1',
+    subjects: DEFAULT_SUBJECTS,
+    classrooms: DEFAULT_CLASSROOMS
+  };
   const settingsValues = settingsSheet.getDataRange().getValues();
   for (let i = 1; i < settingsValues.length; i++) {
     const key = settingsValues[i][0];
     const val = settingsValues[i][1];
-    if (key) settings[key] = val;
+    if (key) {
+      if (key === 'subjects' || key === 'classrooms') {
+        try { settings[key] = JSON.parse(val); } catch (e) { settings[key] = val; }
+      } else {
+        settings[key] = val;
+      }
+    }
   }
 
   // 2. Students
@@ -133,11 +175,11 @@ function fetchAllData(ss) {
     const row = studentRows[i];
     if (row[1]) { // studentId
       students.push({
-        no: row[0],
+        no: Number(row[0]) || i,
         studentId: String(row[1]),
-        fullName: row[2],
-        classroom: row[3] || 'ป.4/1',
-        status: row[4] || 'ปกติ'
+        fullName: String(row[2]),
+        classroom: String(row[3] || 'ม.4/1'),
+        status: String(row[4] || 'ปกติ')
       });
     }
   }
@@ -147,7 +189,7 @@ function fetchAllData(ss) {
   const assignRows = assignmentsSheet.getDataRange().getValues();
   for (let i = 1; i < assignRows.length; i++) {
     const row = assignRows[i];
-    if (row[0]) { // assignmentId
+    if (row[0]) {
       let dueDateFormatted = '';
       if (row[3] instanceof Date) {
         dueDateFormatted = Utilities.formatDate(row[3], 'Asia/Bangkok', 'yyyy-MM-dd');
@@ -157,17 +199,16 @@ function fetchAllData(ss) {
 
       assignments.push({
         id: String(row[0]),
-        title: row[1],
+        title: String(row[1]),
         fullScore: Number(row[2]) || 10,
         dueDate: dueDateFormatted,
-        subject: row[4] || '',
-        classroom: row[5] || 'ป.4/1'
+        subject: String(row[4] || ''),
+        classroom: String(row[5] || 'ม.4/1')
       });
     }
   }
 
   // 4. Submissions
-  // Map by assignmentId + '_' + studentId
   const submissions = {};
   const subRows = submissionsSheet.getDataRange().getValues();
   for (let i = 1; i < subRows.length; i++) {
@@ -179,30 +220,34 @@ function fetchAllData(ss) {
       submissions[key] = {
         assignmentId: assignId,
         studentId: studentId,
-        status: row[2] || 'ค้างส่ง', // 'ส่งแล้ว', 'ค้างส่ง', 'ลา'
-        score: row[3] !== '' ? Number(row[3]) : null,
+        status: row[2] || 'ค้างส่ง',
+        score: row[3] !== '' && row[3] !== null && row[3] !== undefined ? Number(row[3]) : null,
         note: row[4] || '',
         updatedAt: row[5] ? String(row[5]) : ''
       };
     }
   }
 
+  // รวบรวมรายชื่อห้องเรียนที่มีจริงในระบบ
+  const classroomsInUse = [...new Set([...DEFAULT_CLASSROOMS, ...students.map(s => s.classroom)])];
+
   return {
     settings: settings,
     students: students,
     assignments: assignments,
     submissions: submissions,
-    classes: ['ป.4/1', 'ป.4/2', 'ป.5/1', 'ม.1/1', 'ม.4/1']
+    classes: classroomsInUse,
+    subjects: settings.subjects || DEFAULT_SUBJECTS
   };
 }
 
 /**
- * บันทึกคะแนนแบบกลุ่ม (Batch Save) เพื่อความรวดเร็วและลด Request
+ * บันทึกคะแนนแบบกลุ่ม (Batch Save)
  */
 function handleBatchSaveSubmissions(ss, submissionsList) {
   const sheet = ss.getSheetByName(SHEET_SUBMISSIONS);
   const data = sheet.getDataRange().getValues();
-  const rowIndexMap = {}; // key: assignId_studentId -> rowIndex (1-based)
+  const rowIndexMap = {};
 
   for (let i = 1; i < data.length; i++) {
     const key = `${String(data[i][0])}_${String(data[i][1])}`;
@@ -221,11 +266,9 @@ function handleBatchSaveSubmissions(ss, submissionsList) {
     const key = `${assignId}_${studentId}`;
 
     if (rowIndexMap[key]) {
-      // Update existing row
       const r = rowIndexMap[key];
       sheet.getRange(r, 3, 1, 4).setValues([[status, score, note, now]]);
     } else {
-      // Collect for append
       newRows.push([assignId, studentId, status, score, note, now]);
     }
   });
@@ -237,24 +280,94 @@ function handleBatchSaveSubmissions(ss, submissionsList) {
   return submissionsList;
 }
 
-/**
- * บันทึกรายบุคคล
- */
 function handleSaveSingleSubmission(ss, item) {
   handleBatchSaveSubmissions(ss, [item]);
 }
 
 /**
- * สร้างงานใหม่
+ * นำเข้ารายชื่อนักเรียนแบบกลุ่ม (Smart Bulk Import)
+ * mode: 'replace_classroom' (เขียนทับเฉพาะห้องที่เลือก), 'replace_all', หรือ 'append'
  */
+function handleImportStudents(ss, payload) {
+  const sheet = ss.getSheetByName(SHEET_STUDENTS);
+  const mode = payload.mode || 'replace_classroom';
+  const targetClass = payload.classroom || 'ม.4/1';
+  const incomingStudents = payload.students || [];
+
+  if (incomingStudents.length === 0) return 0;
+
+  let existingStudents = [];
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row[1]) {
+      existingStudents.push({
+        no: Number(row[0]),
+        studentId: String(row[1]),
+        fullName: String(row[2]),
+        classroom: String(row[3] || 'ม.4/1'),
+        status: String(row[4] || 'ปกติ')
+      });
+    }
+  }
+
+  let finalStudents = [];
+
+  if (mode === 'replace_classroom') {
+    // เก็บห้องอื่นไว้ทั้งหมด แล้วลบเฉพาะห้องนี้เพื่อแทนที่ด้วยรายชื่อใหม่
+    finalStudents = existingStudents.filter(s => s.classroom !== targetClass);
+    incomingStudents.forEach((st, idx) => {
+      finalStudents.push({
+        no: Number(st.no) || (idx + 1),
+        studentId: String(st.studentId || ''),
+        fullName: String(st.fullName || ''),
+        classroom: String(st.classroom || targetClass),
+        status: String(st.status || 'ปกติ')
+      });
+    });
+  } else if (mode === 'replace_all') {
+    finalStudents = incomingStudents;
+  } else { // append
+    finalStudents = existingStudents.concat(incomingStudents);
+  }
+
+  // เรียงลำดับตามห้องเรียน และเลขที่
+  finalStudents.sort((a, b) => {
+    if (a.classroom !== b.classroom) return a.classroom.localeCompare(b.classroom, 'th');
+    return a.no - b.no;
+  });
+
+  // เขียนกลับลงชีท
+  sheet.clearContents();
+  sheet.appendRow(['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']);
+  formatHeaderRow(sheet);
+
+  if (finalStudents.length > 0) {
+    const rows = finalStudents.map(st => [
+      st.no,
+      st.studentId,
+      st.fullName,
+      st.classroom,
+      st.status
+    ]);
+    sheet.getRange(2, 1, rows.length, 5).setValues(rows);
+  }
+
+  return incomingStudents.length;
+}
+
+function handleSaveStudentList(ss, studentsList) {
+  handleImportStudents(ss, { mode: 'replace_all', students: studentsList });
+}
+
 function handleCreateAssignment(ss, payload) {
   const sheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
   const id = 'A' + Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyMMddHHmmss');
   const title = payload.title || 'งานที่มอบหมายใหม่';
   const fullScore = Number(payload.fullScore) || 10;
   const dueDate = payload.dueDate || '';
-  const subject = payload.subject || 'คณิตศาสตร์ [ค15101]';
-  const classroom = payload.classroom || 'ป.4/1';
+  const subject = payload.subject || DEFAULT_SUBJECTS[0].code;
+  const classroom = payload.classroom || 'ม.4/1';
 
   sheet.appendRow([id, title, fullScore, dueDate, subject, classroom, new Date()]);
 
@@ -268,59 +381,35 @@ function handleCreateAssignment(ss, payload) {
   };
 }
 
-/**
- * อัปเดตข้อมูล Settings
- */
+function handleDeleteAssignment(ss, assignId) {
+  const sheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(assignId)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
 function handleUpdateSettings(ss, settingsObj) {
   const sheet = ss.getSheetByName(SHEET_SETTINGS);
   sheet.clearContents();
   sheet.appendRow(['Key', 'Value']);
   Object.keys(settingsObj).forEach(k => {
-    sheet.appendRow([k, settingsObj[k]]);
+    let val = settingsObj[k];
+    if (typeof val === 'object') val = JSON.stringify(val);
+    sheet.appendRow([k, val]);
   });
+  formatHeaderRow(sheet);
 }
 
-/**
- * บันทึกรายชื่อนักเรียน
- */
-function handleSaveStudentList(ss, studentsList) {
-  const sheet = ss.getSheetByName(SHEET_STUDENTS);
-  sheet.clearContents();
-  sheet.appendRow(['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']);
-  
-  if (studentsList && studentsList.length > 0) {
-    const rows = studentsList.map((st, idx) => [
-      st.no || (idx + 1),
-      String(st.studentId || (25000 + idx + 1)),
-      st.fullName || '',
-      st.classroom || 'ป.4/1',
-      st.status || 'ปกติ'
-    ]);
-    sheet.getRange(2, 1, rows.length, 5).setValues(rows);
-  }
-}
-
-/**
- * ตรวจสอบชีทและสร้าง Headers ให้เรียบร้อย
- */
 function ensureSheetsExist(ss) {
   const reqSheets = [
-    {
-      name: SHEET_SETTINGS,
-      headers: ['Key', 'Value']
-    },
-    {
-      name: SHEET_STUDENTS,
-      headers: ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']
-    },
-    {
-      name: SHEET_ASSIGNMENTS,
-      headers: ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']
-    },
-    {
-      name: SHEET_SUBMISSIONS,
-      headers: ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด']
-    }
+    { name: SHEET_SETTINGS, headers: ['Key', 'Value'] },
+    { name: SHEET_STUDENTS, headers: ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ'] },
+    { name: SHEET_ASSIGNMENTS, headers: ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'] },
+    { name: SHEET_SUBMISSIONS, headers: ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด'] }
   ];
 
   reqSheets.forEach(item => {
@@ -332,7 +421,6 @@ function ensureSheetsExist(ss) {
     }
   });
 
-  // ลบ Sheet1 เริ่มต้นถ้ามี
   const defaultSheet = ss.getSheetByName('Sheet1') || ss.getSheetByName('แผ่นงาน1');
   if (defaultSheet && ss.getSheets().length > 1) {
     try { ss.deleteSheet(defaultSheet); } catch (e) {}
@@ -348,7 +436,7 @@ function formatHeaderRow(sheet) {
 }
 
 /**
- * ฟังก์ชันสร้างข้อมูลเริ่มต้น (Sample Data เหมือนในรูปของอาจารย์)
+ * ใส่ข้อมูลตัวอย่าง (สร้าง ม.4/1 ถึง ม.4/11 และ ม.5/1, ม.5/2 พร้อม 5 รายวิชา)
  */
 function seedSampleData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -362,85 +450,72 @@ function seedSampleData() {
     ['schoolName', 'โรงเรียนสาธิตพัฒนาปัญญา'],
     ['academicYear', '2569'],
     ['term', '2'],
-    ['teacherName', 'คุณครูผู้สอนตัวอย่าง'],
-    ['subjectName', 'คณิตศาสตร์ [ค15101]'],
-    ['classroom', 'ป.4/1']
+    ['teacherName', 'คุณครูผู้สอน'],
+    ['activeSubject', 'ส31101'],
+    ['activeClassroom', 'ม.4/1'],
+    ['subjects', JSON.stringify(DEFAULT_SUBJECTS)],
+    ['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]
   ];
   settingsSheet.getRange(1, 1, sampleSettings.length, 2).setValues(sampleSettings);
   formatHeaderRow(settingsSheet);
 
-  // 2. Students (25 คน ตรงกับในรูปภาพ)
+  // 2. Students: สร้างตัวอย่าง ม.4/1 (35 คน) และ ม.4/2 (35 คน)
   const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
   studentsSheet.clearContents();
   const sampleStudents = [
     ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']
   ];
-  const thaiNames = [
-    'ด.ช. กิตติภพ กัลยาณมิตร', 'ด.ช. กัญจน์ ปรีชาชาญ', 'ด.ช. ขจรศักดิ์ สุขประเสริฐ',
-    'ด.ญ. ชนนิกานต์ รัตนากร', 'ด.ญ. ญาณิศา วิจิตรศิลป์', 'ด.ช. ณัฐดนัย สมบูรณ์ทรัพย์',
-    'ด.ญ. ธัญญลักษณ์ บุญชู', 'ด.ช. ธีรภัทร ชาญวิทย์', 'ด.ญ. นภัสสร สุทธิธรรม',
-    'ด.ช. บวรนันท์ มั่นคง', 'ด.ญ. ปรียาพร อริยทรัพย์', 'ด.ช. ภัทรกร ศรีสวัสดิ์',
-    'ด.ญ. วรรณวิสาข์ มิ่งขวัญ', 'ด.ช. ศุภวิชญ์ เกียรติไพบูลย์', 'ด.ญ. สลิลลา ทองทาบ',
-    'ด.ช. อัครพงศ์ เจริญผล', 'ด.ญ. กานต์พิชชา ภิรมย์รักษ์', 'ด.ช. จักรภพ ชัยชูเกียรติ',
-    'ด.ญ. จิดาภา ประเสริฐยิ่ง', 'ด.ช. ชัยวัฒน์ ภักดีชน', 'ด.ญ. ณิชาภา เกษมสุข',
-    'ด.ช. ธนกร พงษ์ศิริ', 'ด.ญ. ปานรพี ศศิประภา', 'ด.ช. ภูริพัฒน์ จันทร์กระจ่าง',
-    'ด.ญ. วรินทร ดิลกคุณ'
-  ];
 
-  for (let i = 0; i < thaiNames.length; i++) {
-    const studentId = 25001 + i;
-    sampleStudents.push([i + 1, String(studentId), thaiNames[i], 'ป.4/1', 'ปกติ']);
+  const firstNames = ['กิตติภพ', 'กัญจน์', 'ขจรศักดิ์', 'ชนนิกานต์', 'ญาณิศา', 'ณัฐดนัย', 'ธัญญลักษณ์', 'ธีรภัทร', 'นภัสสร', 'บวรนันท์', 'ปรียาพร', 'ภัทรกร', 'วรรณวิสาข์', 'ศุภวิชญ์', 'สลิลลา', 'อัครพงศ์', 'กานต์พิชชา', 'จักรภพ', 'จิดาภา', 'ชัยวัฒน์', 'ณิชาภา', 'ธนกร', 'ปานรพี', 'ภูริพัฒน์', 'วรินทร', 'ศิรดา', 'สหรัฐ', 'อนันต์', 'เปมิกา', 'มิ่งขวัญ', 'ศุภโชค', 'สุกัญญา', 'อภิชญา', 'ภาณุพงศ์', 'ธนดล'];
+  const lastNames = ['กัลยาณมิตร', 'ปรีชาชาญ', 'สุขประเสริฐ', 'รัตนากร', 'วิจิตรศิลป์', 'สมบูรณ์ทรัพย์', 'บุญชู', 'ชาญวิทย์', 'สุทธิธรรม', 'มั่นคง', 'อริยทรัพย์', 'ศรีสวัสดิ์', 'มิ่งขวัญ', 'เกียรติไพบูลย์', 'ทองทาบ', 'เจริญผล', 'ภิรมย์รักษ์', 'ชัยชูเกียรติ', 'ประเสริฐยิ่ง', 'ภักดีชน', 'เกษมสุข', 'พงษ์ศิริ', 'ศศิประภา', 'จันทร์กระจ่าง', 'ดิลกคุณ', 'สิริโชค', 'มั่งคั่ง', 'กมลรัตน์', 'โชคประเสริฐ', 'วัฒนากูล', 'เตชะกุล', 'เลิศประเสริฐ', 'สุขเกษม', 'บริรักษ์', 'ทวีโชค'];
+
+  // ม.4/1 (35 คน)
+  for (let i = 0; i < 35; i++) {
+    const prefix = i % 2 === 0 ? 'ด.ช. ' : 'ด.ญ. ';
+    sampleStudents.push([i + 1, String(41001 + i), prefix + firstNames[i] + ' ' + lastNames[i], 'ม.4/1', 'ปกติ']);
   }
+  // ม.4/2 (35 คน)
+  for (let i = 0; i < 35; i++) {
+    const prefix = i % 2 === 0 ? 'ด.ช. ' : 'ด.ญ. ';
+    sampleStudents.push([i + 1, String(42001 + i), prefix + firstNames[34 - i] + ' ' + lastNames[i], 'ม.4/2', 'ปกติ']);
+  }
+
   studentsSheet.getRange(1, 1, sampleStudents.length, 5).setValues(sampleStudents);
   formatHeaderRow(studentsSheet);
 
-  // 3. Assignments (10 งาน ตรงกับในหน้ารายงานของอาจารย์)
+  // 3. Assignments: 5 งานตัวอย่างสำหรับ ม.4/1
   const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
   assignmentsSheet.clearContents();
   const sampleAssignments = [
     ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'],
-    ['A01', '01 ใบงานเศษส่วน', 10, '2026-10-25', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A02', '02 แบบฝึกหัดหน่วยที่ 1', 10, '2026-10-29', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A03', '03 แผนภาพจำนวนคละ', 10, '2026-11-05', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A04', '04 ใบงานการบวกเศษส่วน', 10, '2026-11-12', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A05', '05 แบบฝึกหัดการลบ', 10, '2026-11-19', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A06', '06 กิจกรรมแก้โจทย์ปัญหา', 10, '2026-11-26', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A07', '07 ชิ้นงานสรุปความรู้', 10, '2026-12-03', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A08', '08 แบบฝึกหัดเพิ่มเติม 8', 10, '2026-12-10', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A09', '09 แบบฝึกหัดเพิ่มเติม 9', 10, '2026-12-17', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()],
-    ['A10', '10 แบบฝึกหัดเพิ่มเติม 10', 10, '2026-12-24', 'คณิตศาสตร์ [ค15101]', 'ป.4/1', new Date()]
+    ['A01', '01 ใบงานโครงสร้างสังคมและการขัดเกลา', 10, '2026-11-10', 'ส31101', 'ม.4/1', new Date()],
+    ['A02', '02 แผนผังความคิดสิทธิมนุษยชน', 10, '2026-11-17', 'ส31101', 'ม.4/1', new Date()],
+    ['A03', '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', 10, '2026-11-24', 'ส31101', 'ม.4/1', new Date()],
+    ['A04', '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', 10, '2026-12-01', 'ส31101', 'ม.4/1', new Date()],
+    ['A05', '05 ชิ้นงานสรุปหลักธรรมสากล', 10, '2026-12-08', 'ส31101', 'ม.4/1', new Date()]
   ];
   assignmentsSheet.getRange(1, 1, sampleAssignments.length, 7).setValues(sampleAssignments);
   formatHeaderRow(assignmentsSheet);
 
-  // 4. Submissions (สุ่มตัวอย่างคะแนนและสถานะ)
+  // 4. Submissions ตัวอย่าง
   const submissionsSheet = ss.getSheetByName(SHEET_SUBMISSIONS);
   submissionsSheet.clearContents();
   const sampleSubs = [
     ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด']
   ];
-
   const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
-  
-  // ให้งานที่ 1 และ 2 มีส่งเกือบครบ ส่วนงานหลังๆ มีส่งปานกลาง
-  for (let aIdx = 1; aIdx <= 10; aIdx++) {
-    const aId = 'A' + (aIdx < 10 ? '0' + aIdx : aIdx);
-    for (let sIdx = 0; sIdx < 25; sIdx++) {
-      const sId = String(25001 + sIdx);
-      // ความน่าจะเป็นในการส่ง
-      const submitRate = aIdx <= 2 ? 0.85 : 0.60;
-      const isSubmitted = Math.random() < submitRate;
-      
-      if (isSubmitted) {
-        // คะแนนสุ่ม 6 ถึง 10
-        const score = Math.floor(Math.random() * 5) + 6;
-        sampleSubs.push([aId, sId, 'ส่งแล้ว', score, '', now]);
+  for (let aIdx = 1; aIdx <= 5; aIdx++) {
+    const aId = 'A0' + aIdx;
+    for (let sIdx = 0; sIdx < 35; sIdx++) {
+      const sId = String(41001 + sIdx);
+      const isSub = Math.random() < 0.8;
+      if (isSub) {
+        sampleSubs.push([aId, sId, 'ส่งแล้ว', Math.floor(Math.random() * 4) + 7, '', now]);
       } else {
         sampleSubs.push([aId, sId, 'ค้างส่ง', '', '', now]);
       }
     }
   }
-
   submissionsSheet.getRange(1, 1, sampleSubs.length, 6).setValues(sampleSubs);
   formatHeaderRow(submissionsSheet);
 }

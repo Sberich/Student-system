@@ -1,7 +1,7 @@
 /**
- * ระบบบันทึกส่งงานนักเรียน (The Modern Educator Platform)
+ * Smart Grade (สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง)
  * รองรับ ม.4 (11 ห้อง: ม.4/1 - ม.4/11), ม.5 (2 ห้อง: ม.5/1, ม.5/2) รวม 13 ห้องเรียน
- * และรองรับการสอน 5 รายวิชา พร้อมระบบ Smart Bulk Import จาก Excel
+ * รองรับการสอน 5 รายวิชา, ระบบตัดเกรด SGS, และ PWA Mobile-First
  */
 
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwwpQptiXdGKmA7QVj7VtklNeilBa64DfVJ29pviwPyLQ2K4V5irMEGynTzffYve_gb/exec';
@@ -74,8 +74,73 @@ let importPreviewData = [];
 
 let hasSavedLocalState = false;
 
+// ----------------- Theme Switcher System -----------------
+function initTheme() {
+  const savedTheme = localStorage.getItem('smartgrade_theme') || 'blue';
+  setAppTheme(savedTheme, false);
+}
+
+function setAppTheme(themeName, showToastMsg = true) {
+  document.documentElement.setAttribute('data-theme', themeName);
+  localStorage.setItem('smartgrade_theme', themeName);
+
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  if (toggleBtn) {
+    const icons = {
+      'blue': '🔷',
+      'emerald': '🌿',
+      'purple': '💜',
+      'dark': '🌙'
+    };
+    toggleBtn.textContent = icons[themeName] || '🎨';
+  }
+
+  updateLogoGradient(themeName);
+
+  if (showToastMsg) {
+    const names = {
+      'blue': '🔷 ธีมฟ้าคราม (Classic)',
+      'emerald': '🌿 ธีมเขียวมินต์ (Fresh)',
+      'purple': '💜 ธีมม่วงคราม (Indigo)',
+      'dark': '🌙 โหมดมืด (Dark Mode)'
+    };
+    showToast(`เปลี่ยนธีม: ${names[themeName] || themeName}`);
+  }
+
+  if (appState.currentTab === 'settings') {
+    renderApp();
+  }
+}
+
+function cycleTheme() {
+  const themes = ['blue', 'emerald', 'purple', 'dark'];
+  const current = localStorage.getItem('smartgrade_theme') || 'blue';
+  const nextIdx = (themes.indexOf(current) + 1) % themes.length;
+  setAppTheme(themes[nextIdx], true);
+}
+
+function updateLogoGradient(theme) {
+  const grad = document.getElementById('brandGrad');
+  if (!grad) return;
+  const colors = {
+    'blue': { start: '#2563EB', end: '#1D4ED8', dot: '#93C5FD' },
+    'emerald': { start: '#059669', end: '#0F766E', dot: '#6EE7B7' },
+    'purple': { start: '#6366F1', end: '#4338CA', dot: '#A5B4FC' },
+    'dark': { start: '#475569', end: '#0F172A', dot: '#38BDF8' }
+  };
+  const c = colors[theme] || colors.blue;
+  const stops = grad.querySelectorAll('stop');
+  if (stops.length >= 2) {
+    stops[0].setAttribute('stop-color', c.start);
+    stops[1].setAttribute('stop-color', c.end);
+  }
+  const dot = document.getElementById('logoAccentDot');
+  if (dot) dot.setAttribute('fill', c.dot);
+}
+
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   loadLocalState();
   if (!hasSavedLocalState && (appState.students.length === 0 || appState.assignments.length === 0)) {
     seedDefaultState();
@@ -273,7 +338,7 @@ function changeActiveClassroom(className) {
 }
 
 function setupEventListeners() {
-  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+  document.querySelectorAll('.nav-tab-btn, .bottom-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       switchTab(btn.getAttribute('data-tab'));
     });
@@ -339,10 +404,11 @@ function handleGlobalKeydown(e) {
 
 function switchTab(tabName) {
   appState.currentTab = tabName;
-  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+  document.querySelectorAll('.nav-tab-btn, .bottom-nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
   });
   renderApp();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ----------------- Filter Utilities -----------------
@@ -2272,9 +2338,33 @@ function deleteAssignment(assignId) {
 
 // ----------------- View: Settings -----------------
 function renderSettings(container) {
+  const currentTheme = localStorage.getItem('smartgrade_theme') || 'blue';
+
   container.innerHTML = `
     <div class="card" style="max-width: 720px; margin: 0 auto;">
       <h2 class="card-title" style="margin-bottom: 1.25rem;">การตั้งค่าโรงเรียน & 5 รายวิชา</h2>
+
+      <!-- ธีมและสีสันของระบบ (Theme) -->
+      <div class="form-group" style="margin-bottom: 1.25rem; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem;">
+        <label class="form-label" style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">🎨 ธีมและสีสันของระบบ (Theme)</label>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
+          เลือกโทนสีที่สบายตา (โลโก้และสีทั้งระบบจะเปลี่ยนพร้อมกันทันที)
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
+          <button type="button" class="btn ${currentTheme === 'blue' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('blue')" style="font-size: 0.82rem;">
+            🔷 ฟ้าคราม (Classic)
+          </button>
+          <button type="button" class="btn ${currentTheme === 'emerald' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('emerald')" style="font-size: 0.82rem;">
+            🌿 เขียวมินต์ (Fresh)
+          </button>
+          <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.82rem;">
+            💜 ม่วงคราม (Indigo)
+          </button>
+          <button type="button" class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')" style="font-size: 0.82rem;">
+            🌙 โหมดมืด (Dark)
+          </button>
+        </div>
+      </div>
 
       <div class="form-group">
         <label class="form-label">ชื่อโรงเรียน</label>

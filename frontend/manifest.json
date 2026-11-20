@@ -1,12 +1,12 @@
 {
-  "name": "ระบบบันทึกส่งงานนักเรียน",
-  "short_name": "บันทึกส่งงาน",
-  "description": "ระบบบันทึกการส่งงานและให้คะแนนนักเรียน ออกแบบเพื่อครูผู้สอน รองรับ iPad มือถือ และ PC",
+  "name": "Smart Grade — ตรวจง่าย ตัดไว พร้อมส่ง",
+  "short_name": "Smart Grade",
+  "description": "Smart Grade ระบบบันทึกส่งงานและตัดเกรดอัจฉริยะ ออกแบบเพื่อครูผู้สอน",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#F8FAFC",
-  "theme_color": "#2B4C7E",
+  "theme_color": "#2563EB",
   "icons": [
     {
       "src": "icon-192.png",

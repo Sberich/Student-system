@@ -30,6 +30,7 @@ let appState = {
   selectedAssignmentId: '',
   selectedStudentId: '',
   filterStatus: 'all', // 'all', 'submitted', 'pending'
+  gradingMode: 'detailed', // 'detailed' or 'rapid'
   autoAdvance: true,
   isSyncing: false,
   settings: {
@@ -39,6 +40,7 @@ let appState = {
     academicYear: '2569',
     term: '2',
     teacherName: 'คุณครูผู้สอน',
+    apiToken: '',
     subjects: DEFAULT_SUBJECTS,
     classrooms: DEFAULT_CLASSROOMS
   },
@@ -46,6 +48,9 @@ let appState = {
   assignments: [],
   submissions: {} // key: `${assignmentId}_${studentId}`
 };
+
+// Undo stack สำหรับการตรวจงานล่าสุด
+let lastGradingAction = null;
 
 // State สำหรับหน้าต่าง Import
 let importPreviewData = [];
@@ -62,6 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (navigator.onLine && appState.settings.gasUrl) {
     trySilentFetch();
+  }
+
+  // ลงทะเบียน Service Worker สำหรับการใช้งานแบบ Offline และ PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.log('SW registration note:', err);
+      });
+    });
   }
 });
 
@@ -88,6 +102,8 @@ function saveLocalState() {
       activeClassroom: appState.activeClassroom,
       activeSubject: appState.activeSubject,
       selectedAssignmentId: appState.selectedAssignmentId,
+      filterStatus: appState.filterStatus,
+      gradingMode: appState.gradingMode,
       autoAdvance: appState.autoAdvance,
       settings: appState.settings,
       students: appState.students,
@@ -226,6 +242,41 @@ function setupEventListeners() {
   if (syncBtn) {
     syncBtn.addEventListener('click', triggerManualSync);
   }
+
+  // แป้นพิมพ์ลัดสำหรับคอมพิวเตอร์และ iPad ที่ต่อคีย์บอร์ด
+  window.addEventListener('keydown', handleGlobalKeydown);
+}
+
+function handleGlobalKeydown(e) {
+  if (appState.currentTab !== 'grading') return;
+  // หากกำลังพิมพ์ในช่องค้นหาหรือช่องกรอกตัวเลข ไม่ดักจับปุ่มลัด
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+    return;
+  }
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    navigateStudent(-1);
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    navigateStudent(1);
+  } else if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    if (appState.selectedStudentId) {
+      toggleStudentStatusById(appState.selectedStudentId);
+    }
+  } else if (e.key >= '0' && e.key <= '9') {
+    const currentAssignments = getFilteredAssignments();
+    const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
+    const score = Number(e.key);
+    if (currentAssignment && score <= (currentAssignment.fullScore || 10)) {
+      e.preventDefault();
+      applyScore(score);
+    }
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undoLastGrading();
+  }
 }
 
 function switchTab(tabName) {
@@ -252,19 +303,36 @@ function getActiveSubjectObj() {
   return appState.settings.subjects.find(s => s.code === appState.activeSubject) || { code: appState.activeSubject, name: '' };
 }
 
-// ----------------- Views Router -----------------
+// ----------------- Views Router (พร้อม Error Boundary) -----------------
 function renderApp() {
   const container = document.getElementById('app-view-container');
   if (!container) return;
 
-  switch (appState.currentTab) {
-    case 'overview': renderOverview(container); break;
-    case 'grading': renderGrading(container); break;
-    case 'report': renderReport(container); break;
-    case 'students': renderStudents(container); break;
-    case 'assignments': renderAssignments(container); break;
-    case 'settings': renderSettings(container); break;
-    default: renderOverview(container);
+  try {
+    switch (appState.currentTab) {
+      case 'overview': renderOverview(container); break;
+      case 'grading': renderGrading(container); break;
+      case 'report': renderReport(container); break;
+      case 'students': renderStudents(container); break;
+      case 'assignments': renderAssignments(container); break;
+      case 'settings': renderSettings(container); break;
+      default: renderOverview(container);
+    }
+  } catch (err) {
+    console.error('Fatal rendering error:', err);
+    container.innerHTML = `
+      <div class="card" style="text-align: center; padding: 2.5rem; max-width: 600px; margin: 2rem auto;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+        <h3 style="color: var(--danger); margin-bottom: 0.5rem;">เกิดข้อผิดพลาดในการแสดงผล</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          ${err.message || 'ไม่สามารถโหลดหน้าจอนี้ได้ ข้อมูลของคุณยังปลอดภัยอยู่ในเครื่อง'}
+        </p>
+        <div style="display: flex; gap: 0.75rem; justify-content: center;">
+          <button class="btn btn-primary" onclick="window.location.reload()">🔄 โหลดหน้าเว็บใหม่</button>
+          <button class="btn btn-secondary" onclick="pullFromGoogleSheets(true)">☁️ ดึงข้อมูลจากชีท</button>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -292,6 +360,54 @@ function renderOverview(container) {
 
   const percentage = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 0;
   const strokeDashoffset = 283 - (283 * percentage) / 100;
+
+  // คำนวณรายชื่อนักเรียนที่ค้างส่งสะสมสูงสุดในห้องนี้ (Top 5)
+  const studentPendingCounts = currentStudents.map(st => {
+    let pending = 0;
+    currentAssignments.forEach(assign => {
+      const key = `${assign.id}_${st.studentId}`;
+      const sub = appState.submissions[key];
+      if (!sub || sub.status !== 'ส่งแล้ว') pending++;
+    });
+    return { ...st, pendingCount: pending };
+  }).filter(s => s.pendingCount > 0)
+    .sort((a, b) => b.pendingCount - a.pendingCount)
+    .slice(0, 5);
+
+  let riskCardHtml = '';
+  if (currentAssignments.length > 0 && studentPendingCounts.length > 0) {
+    const itemsHtml = studentPendingCounts.map(st => `
+      <div class="risk-student-item">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-weight: 700; color: var(--text-muted); width: 28px;">#${st.no}</span>
+          <div>
+            <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">${st.fullName}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">รหัส ${st.studentId} • ห้อง ${st.classroom}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span class="risk-badge">⚠️ ค้าง ${st.pendingCount} งาน</span>
+          <button class="btn btn-secondary btn-sm" onclick="quickJumpToGrade('${st.studentId}')" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;">
+            ✏️ ตรวจงาน
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    riskCardHtml = `
+      <div class="card" style="margin-top: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main); margin: 0;">
+            <span>⚠️</span> นักเรียนที่ค้างส่งสะสมสูงสุด (ห้อง ${appState.activeClassroom})
+          </h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">ลำดับความสำคัญในการติดตามงานก่อนตัดเกรด</span>
+        </div>
+        <div>
+          ${itemsHtml}
+        </div>
+      </div>
+    `;
+  }
 
   // แถบห้องเรียนด่วน
   const classPillsHtml = appState.settings.classrooms.map(c => {
@@ -419,7 +535,14 @@ function renderOverview(container) {
         </div>
       </div>
     </div>
+
+    ${riskCardHtml}
   `;
+}
+
+function quickJumpToGrade(studentId) {
+  appState.selectedStudentId = studentId;
+  switchTab('grading');
 }
 
 // ----------------- View: Grading (Touch & Numpad) -----------------
@@ -504,7 +627,15 @@ function renderGrading(container) {
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <div class="mode-toggle-group">
+          <button class="mode-btn ${appState.gradingMode === 'rapid' ? 'active' : ''}" onclick="setGradingMode('rapid')" title="แตะชื่อนักเรียน = ส่งแล้วและได้คะแนนเต็มทันที">
+            ⚡ ตรวจด่วน
+          </button>
+          <button class="mode-btn ${appState.gradingMode === 'detailed' ? 'active' : ''}" onclick="setGradingMode('detailed')" title="แตะเลือกนักเรียน แล้วกดให้คะแนนบนแป้นตัวเลข">
+            📝 ตรวจละเอียด
+          </button>
+        </div>
         <span style="font-size: 0.85rem; color: var(--text-secondary);">
           ส่งแล้ว <strong>${submittedCount}</strong> / ค้าง <strong>${pendingCount}</strong> (ห้อง ${appState.activeClassroom})
         </span>
@@ -530,7 +661,7 @@ function renderGrading(container) {
             </button>
           </div>
           <span style="font-size: 0.8rem; color: var(--text-secondary);">
-            แตะนักเรียนเพื่อให้คะแนน
+            ${appState.gradingMode === 'rapid' ? '⚡ โหมดตรวจด่วน: แตะแถวนักเรียนเพื่อเช็คส่งเต็มคะแนน' : '📝 แตะนักเรียนเพื่อให้คะแนน'}
           </span>
         </div>
 
@@ -540,9 +671,12 @@ function renderGrading(container) {
             const sub = appState.submissions[key] || { status: 'ค้างส่ง', score: null };
             const isSelected = activeStudent && st.studentId === activeStudent.studentId;
             const isSubmitted = sub.status === 'ส่งแล้ว';
+            const rowClickAction = appState.gradingMode === 'rapid'
+              ? `quickGradeStudent('${st.studentId}')`
+              : `selectStudent('${st.studentId}')`;
 
             return `
-              <div class="student-row ${isSelected ? 'selected' : ''}" onclick="selectStudent('${st.studentId}')">
+              <div class="student-row ${isSelected ? 'selected' : ''}" onclick="${rowClickAction}">
                 <span class="student-no">${st.no}</span>
                 <span class="student-code col-code">${st.studentId}</span>
                 <span class="student-name">${st.fullName}</span>
@@ -698,25 +832,117 @@ function toggleAutoAdvance(checked) {
   saveLocalState();
 }
 
-function toggleStudentStatus(event, studentId) {
-  event.stopPropagation();
+function setGradingMode(mode) {
+  appState.gradingMode = mode;
+  saveLocalState();
+  renderGrading(document.getElementById('app-view-container'));
+  if (mode === 'rapid') {
+    showToast('⚡ เปิดโหมดตรวจด่วน: แตะชื่อนักเรียนเพื่อเช็คส่งเต็มคะแนนทันที');
+  } else {
+    showToast('📝 เปิดโหมดตรวจละเอียด: เลือกนักเรียนแล้วกดให้คะแนนบนแป้นตัวเลข');
+  }
+}
+
+function quickGradeStudent(studentId) {
   const currentAssignments = getFilteredAssignments();
   const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
   if (!currentAssignment) return;
+
+  const currentStudents = getFilteredStudents();
+  const student = currentStudents.find(s => s.studentId === studentId);
+  const studentName = student ? student.fullName : `รหัส ${studentId}`;
+
+  const key = `${currentAssignment.id}_${studentId}`;
+  const prevSub = appState.submissions[key] ? { ...appState.submissions[key] } : { status: 'ค้างส่ง', score: null };
+
+  // บันทึกข้อมูลสำหรับเลิกทำ (Undo)
+  lastGradingAction = {
+    studentId: studentId,
+    studentName: studentName,
+    assignmentId: currentAssignment.id,
+    previousState: prevSub
+  };
+
+  const nextStatus = prevSub.status === 'ส่งแล้ว' ? 'ค้างส่ง' : 'ส่งแล้ว';
+  const fullScore = currentAssignment.fullScore || 10;
+  const nextScore = nextStatus === 'ส่งแล้ว' ? fullScore : null;
+
+  appState.submissions[key] = {
+    ...prevSub,
+    status: nextStatus,
+    score: nextScore,
+    updatedAt: new Date().toISOString()
+  };
+
+  appState.selectedStudentId = studentId;
+  saveLocalState();
+  scheduleAutoSync();
+
+  if (nextStatus === 'ส่งแล้ว') {
+    showToastWithAction(`✓ ${studentName} ได้ ${nextScore}/${fullScore} คะแนน`, '↩️ เลิกทำ', undoLastGrading);
+  } else {
+    showToastWithAction(`✕ ${studentName} ปรับเป็นค้างส่ง`, '↩️ เลิกทำ', undoLastGrading);
+  }
+
+  if (appState.autoAdvance && nextStatus === 'ส่งแล้ว') {
+    navigateStudent(1);
+  } else {
+    renderGrading(document.getElementById('app-view-container'));
+  }
+}
+
+function undoLastGrading() {
+  if (!lastGradingAction) return;
+  const { studentId, studentName, assignmentId, previousState } = lastGradingAction;
+  const key = `${assignmentId}_${studentId}`;
+
+  appState.submissions[key] = { ...previousState };
+  appState.selectedStudentId = studentId;
+  appState.selectedAssignmentId = assignmentId;
+  lastGradingAction = null;
+
+  saveLocalState();
+  scheduleAutoSync();
+  renderGrading(document.getElementById('app-view-container'));
+  showToast(`↩️ คืนสถานะเดิมของ ${studentName} เรียบร้อยแล้ว`);
+}
+
+function toggleStudentStatusById(studentId) {
+  const currentAssignments = getFilteredAssignments();
+  const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
+  if (!currentAssignment) return;
+
+  const currentStudents = getFilteredStudents();
+  const student = currentStudents.find(s => s.studentId === studentId);
+  const studentName = student ? student.fullName : `รหัส ${studentId}`;
 
   const key = `${currentAssignment.id}_${studentId}`;
   const current = appState.submissions[key] || { status: 'ค้างส่ง', score: null };
   const nextStatus = current.status === 'ส่งแล้ว' ? 'ค้างส่ง' : 'ส่งแล้ว';
 
+  lastGradingAction = {
+    studentId: studentId,
+    studentName: studentName,
+    assignmentId: currentAssignment.id,
+    previousState: { ...current }
+  };
+
   appState.submissions[key] = {
     ...current,
     status: nextStatus,
-    score: nextStatus === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null
+    score: nextStatus === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null,
+    updatedAt: new Date().toISOString()
   };
 
   saveLocalState();
   scheduleAutoSync();
+  showToastWithAction(`${nextStatus === 'ส่งแล้ว' ? '✓' : '✕'} ${studentName} (${nextStatus})`, '↩️ เลิกทำ', undoLastGrading);
   renderGrading(document.getElementById('app-view-container'));
+}
+
+function toggleStudentStatus(event, studentId) {
+  event.stopPropagation();
+  toggleStudentStatusById(studentId);
 }
 
 function setStudentStatus(studentId, status) {
@@ -724,17 +950,30 @@ function setStudentStatus(studentId, status) {
   const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
   if (!currentAssignment) return;
 
+  const currentStudents = getFilteredStudents();
+  const student = currentStudents.find(s => s.studentId === studentId);
+  const studentName = student ? student.fullName : `รหัส ${studentId}`;
+
   const key = `${currentAssignment.id}_${studentId}`;
   const current = appState.submissions[key] || {};
+
+  lastGradingAction = {
+    studentId: studentId,
+    studentName: studentName,
+    assignmentId: currentAssignment.id,
+    previousState: { ...current }
+  };
 
   appState.submissions[key] = {
     ...current,
     status: status,
-    score: status === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null
+    score: status === 'ส่งแล้ว' ? (current.score != null ? current.score : currentAssignment.fullScore) : null,
+    updatedAt: new Date().toISOString()
   };
 
   saveLocalState();
   scheduleAutoSync();
+  showToastWithAction(`${status === 'ส่งแล้ว' ? '✓' : '✕'} ${studentName} (${status})`, '↩️ เลิกทำ', undoLastGrading);
   renderGrading(document.getElementById('app-view-container'));
 }
 
@@ -743,14 +982,31 @@ function applyScore(score) {
   const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
   if (!currentAssignment || !appState.selectedStudentId) return;
 
+  const currentStudents = getFilteredStudents();
+  const student = currentStudents.find(s => s.studentId === appState.selectedStudentId);
+  const studentName = student ? student.fullName : `รหัส ${appState.selectedStudentId}`;
+
   const key = `${currentAssignment.id}_${appState.selectedStudentId}`;
+  const prevSub = appState.submissions[key] ? { ...appState.submissions[key] } : { status: 'ค้างส่ง', score: null };
+
+  lastGradingAction = {
+    studentId: appState.selectedStudentId,
+    studentName: studentName,
+    assignmentId: currentAssignment.id,
+    previousState: prevSub
+  };
+
   appState.submissions[key] = {
+    ...prevSub,
     status: 'ส่งแล้ว',
-    score: Number(score)
+    score: Number(score),
+    updatedAt: new Date().toISOString()
   };
 
   saveLocalState();
   scheduleAutoSync();
+
+  showToastWithAction(`✓ ${studentName} ได้ ${score} คะแนน`, '↩️ เลิกทำ', undoLastGrading);
 
   if (appState.autoAdvance) {
     navigateStudent(1);
@@ -1684,6 +1940,7 @@ async function pushImportToBackend(mode, targetClass, studentsList) {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'importStudents',
+        token: appState.settings.apiToken || '',
         mode: mode,
         classroom: targetClass,
         students: studentsList
@@ -1861,6 +2118,17 @@ function renderSettings(container) {
         <input type="text" id="cfg-gas-url" class="form-input" value="${appState.settings.gasUrl}" />
       </div>
 
+      <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🔒 รหัสความปลอดภัย (Security PIN / Token)</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(ไม่บังคับ - ป้องกันบุคคลอื่นเข้าถึงชีท)</span>
+        </label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="password" id="cfg-token" class="form-input" value="${appState.settings.apiToken || ''}" placeholder="ระบุ PIN หรือรหัสผ่านป้องกัน (เว้นว่างไว้หากไม่ใช้)" />
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility()" style="white-space: nowrap;">👁️ แสดง</button>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
         <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
         <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
@@ -1890,12 +2158,19 @@ function renderSettings(container) {
   `;
 }
 
+function toggleTokenVisibility() {
+  const input = document.getElementById('cfg-token');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
 async function saveSettings() {
   appState.settings.schoolName = document.getElementById('cfg-school').value;
   appState.settings.term = document.getElementById('cfg-term').value;
   appState.settings.academicYear = document.getElementById('cfg-year').value;
   appState.settings.teacherName = document.getElementById('cfg-teacher').value;
   appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
+  appState.settings.apiToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : (appState.settings.apiToken || '');
 
   const codes = document.querySelectorAll('.cfg-sub-code');
   const names = document.querySelectorAll('.cfg-sub-name');
@@ -1926,7 +2201,8 @@ async function pullFromGoogleSheets(isManual = false) {
   updateSyncIndicator('syncing');
 
   try {
-    const res = await fetch(`${appState.settings.gasUrl}?action=getInitialData`);
+    const tokenParam = appState.settings.apiToken ? `&token=${encodeURIComponent(appState.settings.apiToken)}` : '';
+    const res = await fetch(`${appState.settings.gasUrl}?action=getInitialData${tokenParam}`);
     const json = await res.json();
 
     if (json.success && json.data) {
@@ -1963,13 +2239,13 @@ async function pullFromGoogleSheets(isManual = false) {
         showToast(`✓ ดึงข้อมูลสำเร็จ: พบนักเรียน ${appState.students.length} คน, ${appState.assignments.length} งาน`);
       }
     } else {
-      throw new Error(json.message || 'Data structure invalid');
+      throw new Error(json.error || json.message || 'Data structure invalid');
     }
   } catch (err) {
     console.error('Error pulling from Google Sheets:', err);
     updateSyncIndicator('offline');
     if (isManual) {
-      showToast('⚠️ ไม่สามารถดึงข้อมูลได้: โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      showToast(`⚠️ ${err.message || 'ไม่สามารถดึงข้อมูลได้ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'}`);
     }
   }
 }
@@ -2000,6 +2276,7 @@ async function pushSettingsToBackend() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'updateSettings',
+        token: appState.settings.apiToken || '',
         settings: {
           schoolName: appState.settings.schoolName,
           academicYear: appState.settings.academicYear,
@@ -2047,6 +2324,7 @@ async function pushFullStateToBackend() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'syncFullState',
+        token: appState.settings.apiToken || '',
         settings: {
           schoolName: appState.settings.schoolName,
           academicYear: appState.settings.academicYear,
@@ -2095,6 +2373,7 @@ async function pushSubmissionsToBackend() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'batchSaveSubmissions',
+        token: appState.settings.apiToken || '',
         submissions: list
       }),
       mode: 'no-cors'
@@ -2160,4 +2439,36 @@ function showToast(message) {
     toast.style.transition = 'opacity 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 2500);
+}
+
+function showToastWithAction(message, actionLabel, actionCallback) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-with-action';
+
+  const textSpan = document.createElement('span');
+  textSpan.innerText = message;
+  toast.appendChild(textSpan);
+
+  if (actionLabel && actionCallback) {
+    const actionBtn = document.createElement('button');
+    actionBtn.className = 'toast-action-btn';
+    actionBtn.innerText = actionLabel;
+    actionBtn.onclick = (e) => {
+      e.stopPropagation();
+      actionCallback();
+      toast.remove();
+    };
+    toast.appendChild(actionBtn);
+  }
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }

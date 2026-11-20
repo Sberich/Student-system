@@ -40,6 +40,16 @@ function initSheets() {
 }
 
 /**
+ * ฟังก์ชันตรวจสอบความปลอดภัยด้วย API Token
+ */
+function verifyToken_(token) {
+  const scriptProp = PropertiesService.getScriptProperties();
+  const expectedToken = scriptProp.getProperty('API_TOKEN');
+  if (!expectedToken || expectedToken.trim() === '') return true; // ยังไม่ได้ตั้ง Token ถือว่าเปิดให้ใช้งานได้
+  return token && String(token).trim() === expectedToken.trim();
+}
+
+/**
  * จัดการ CORS และ Output แบบ JSON
  */
 function createJsonResponse(data) {
@@ -53,9 +63,14 @@ function createJsonResponse(data) {
 function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getInitialData';
+    const token = e && e.parameter && e.parameter.token;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     ensureSheetsExist(ss);
+
+    if (action !== 'ping' && !verifyToken_(token)) {
+      return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });
+    }
 
     if (action === 'getInitialData') {
       const data = fetchAllData(ss);
@@ -99,6 +114,25 @@ function doPost(e) {
     }
 
     const action = payload.action;
+    const token = payload.token || (e && e.parameter && e.parameter.token);
+
+    if (action !== 'setApiToken' && !verifyToken_(token)) {
+      return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });
+    }
+
+    if (action === 'setApiToken') {
+      const scriptProp = PropertiesService.getScriptProperties();
+      const currentToken = scriptProp.getProperty('API_TOKEN') || '';
+      const oldToken = payload.oldToken || '';
+      const newToken = payload.newToken || '';
+
+      if (currentToken && currentToken !== oldToken) {
+        return createJsonResponse({ success: false, error: 'รหัสผ่าน Token เดิมไม่ถูกต้อง' });
+      }
+
+      scriptProp.setProperty('API_TOKEN', newToken.trim());
+      return createJsonResponse({ success: true, message: 'ตั้งค่า Token ความปลอดภัยเรียบร้อยแล้ว' });
+    }
 
     if (action === 'batchSaveSubmissions') {
       const results = handleBatchSaveSubmissions(ss, payload.submissions || []);

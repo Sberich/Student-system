@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ระบบบันทึกส่งงานนักเรียน | The Modern Educator</title>
+  <meta name="description" content="ระบบบันทึกการส่งงานและให้คะแนนนักเรียน ออกแบบเพื่อครูผู้สอน รองรับ iPad และมือถือ">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#2B4C7E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-badge">
+        <div class="brand-icon">📚</div>
+        <div>
+          <h1 class="brand-title">ระบบบันทึกส่งงานนักเรียน</h1>
+          <div class="brand-subtitle">The Modern Educator Platform</div>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="nav-tab-btn active" data-tab="overview">
+          <span>📊</span> ภาพรวม
+        </button>
+        <button class="nav-tab-btn" data-tab="grading">
+          <span>✏️</span> เช็กส่งงาน
+        </button>
+        <button class="nav-tab-btn" data-tab="report">
+          <span>📄</span> รายงาน/พิมพ์
+        </button>
+        <button class="nav-tab-btn" data-tab="students">
+          <span>👥</span> รายชื่อ
+        </button>
+        <button class="nav-tab-btn" data-tab="assignments">
+          <span>📚</span> งานที่สั่ง
+        </button>
+        <button class="nav-tab-btn" data-tab="settings">
+          <span>⚙️</span> ตั้งค่า
+        </button>
+      </nav>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div class="sync-status-indicator" id="manual-sync-btn" style="cursor: pointer;" title="คลิกเพื่อซิงค์ข้อมูลกับ Google Sheets">
+          <span class="status-dot" id="sync-indicator-dot"></span>
+          <span id="sync-indicator-label">บันทึกในเครื่องแล้ว</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="main-content" id="app-view-container">
+    <!-- Rendered dynamically by app.js -->
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>

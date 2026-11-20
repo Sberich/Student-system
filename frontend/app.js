@@ -55,10 +55,12 @@ let lastGradingAction = null;
 // State สำหรับหน้าต่าง Import
 let importPreviewData = [];
 
+let hasSavedLocalState = false;
+
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
   loadLocalState();
-  if (appState.students.length === 0 || appState.assignments.length === 0) {
+  if (!hasSavedLocalState && (appState.students.length === 0 || appState.assignments.length === 0)) {
     seedDefaultState();
   }
   setupEventListeners();
@@ -85,6 +87,7 @@ function loadLocalState() {
     if (saved) {
       const parsed = JSON.parse(saved);
       appState = { ...appState, ...parsed };
+      hasSavedLocalState = true;
     }
   } catch (e) {
     console.error('Error loading local state:', e);
@@ -1626,10 +1629,13 @@ function handleAddRoomFromManager() {
 
   appState.settings.classrooms.push(name);
   saveLocalState();
-  scheduleAutoSync('full');
   renderHeaderControls();
   openClassroomManagerModal(); // refresh
   showToast(`เพิ่มห้อง ${name} สำเร็จ`);
+  renderApp();
+  pushFullStateToBackend().catch(err => {
+    console.error('Error syncing after classroom addition:', err);
+  });
 }
 
 function renameClassroom(oldName) {
@@ -1651,10 +1657,13 @@ function renameClassroom(oldName) {
     if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
 
     saveLocalState();
-    scheduleAutoSync('full');
     renderHeaderControls();
     openClassroomManagerModal();
     showToast(`เปลี่ยนชื่อห้องเป็น ${trimmed} เรียบร้อย`);
+    renderApp();
+    pushFullStateToBackend().catch(err => {
+      console.error('Error syncing after classroom rename:', err);
+    });
   }
 }
 
@@ -1680,11 +1689,13 @@ function deleteClassroom(className) {
     }
 
     saveLocalState();
-    scheduleAutoSync('full');
     renderHeaderControls();
     openClassroomManagerModal();
     showToast(`ลบห้อง ${className} เรียบร้อย`);
     renderApp();
+    pushFullStateToBackend().catch(err => {
+      console.error('Error syncing after classroom deletion:', err);
+    });
   }
 }
 
@@ -2217,10 +2228,14 @@ async function pullFromGoogleSheets(isManual = false) {
       if (data.submissions) {
         appState.submissions = data.submissions;
       }
-      if (data.classes && data.classes.length > 0) {
+      if (data.settings && data.settings.classrooms && Array.isArray(data.settings.classrooms) && data.settings.classrooms.length > 0) {
+        appState.settings.classrooms = data.settings.classrooms;
+      } else if (data.classes && data.classes.length > 0) {
         appState.settings.classrooms = data.classes;
       }
-      if (data.subjects && data.subjects.length > 0) {
+      if (data.settings && data.settings.subjects && Array.isArray(data.settings.subjects) && data.settings.subjects.length > 0) {
+        appState.settings.subjects = data.settings.subjects;
+      } else if (data.subjects && data.subjects.length > 0) {
         appState.settings.subjects = data.subjects;
       }
       if (data.settings) {

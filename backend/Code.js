@@ -284,8 +284,15 @@ function fetchAllData(ss) {
     }
   }
 
-  // รวบรวมรายชื่อห้องเรียนที่มีจริงในระบบ
-  const classroomsInUse = [...new Set([...DEFAULT_CLASSROOMS, ...students.map(s => s.classroom)])];
+  // รวบรวมรายชื่อห้องเรียน: ยึดตามที่บันทึกไว้ใน settings.classrooms เป็นหลัก
+  // หากมีห้องที่นักเรียนสังกัดอยู่จริงในชีท Students ให้รวมเข้ามาด้วย (ป้องกันห้องตกหล่น)
+  // แต่จะไม่ดึงห้องตัวอย่างเริ่มต้น (DEFAULT_CLASSROOMS) ที่ครูลบออกไปแล้วกลับมาอีก
+  let configuredClassrooms = Array.isArray(settings.classrooms) && settings.classrooms.length > 0 
+    ? settings.classrooms 
+    : DEFAULT_CLASSROOMS;
+  const studentClassrooms = students.map(s => s.classroom).filter(Boolean);
+  const classroomsInUse = [...new Set([...configuredClassrooms, ...studentClassrooms])];
+  settings.classrooms = classroomsInUse;
 
   return {
     settings: settings,

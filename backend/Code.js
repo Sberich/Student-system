@@ -118,6 +118,19 @@ function doPost(e) {
       return createJsonResponse({ success: true });
     }
 
+    if (action === 'syncFullState') {
+      if (payload.settings) handleUpdateSettings(ss, payload.settings);
+      if (payload.students && payload.students.length > 0) handleSaveStudentList(ss, payload.students);
+      if (payload.assignments && payload.assignments.length > 0) handleSaveAssignmentsList(ss, payload.assignments);
+      if (payload.submissions && payload.submissions.length > 0) handleBatchSaveSubmissions(ss, payload.submissions);
+      return createJsonResponse({ success: true, message: 'ซิงค์ข้อมูลทั้งหมดสำเร็จ' });
+    }
+
+    if (action === 'saveAssignmentsList') {
+      handleSaveAssignmentsList(ss, payload.assignments || []);
+      return createJsonResponse({ success: true });
+    }
+
     // ฟังก์ชันนำเข้านักเรียนแบบกลุ่ม (รองรับแยกห้อง หรือเขียนทับเฉพาะห้อง)
     if (action === 'importStudents') {
       const count = handleImportStudents(ss, payload);
@@ -389,6 +402,26 @@ function handleDeleteAssignment(ss, assignId) {
       sheet.deleteRow(i + 1);
       break;
     }
+  }
+}
+
+function handleSaveAssignmentsList(ss, assignmentsList) {
+  const sheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
+  sheet.clearContents();
+  sheet.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
+  formatHeaderRow(sheet);
+
+  if (assignmentsList && assignmentsList.length > 0) {
+    const rows = assignmentsList.map(a => [
+      String(a.id || ''),
+      String(a.title || 'ชื่องาน'),
+      Number(a.fullScore) || 10,
+      String(a.dueDate || ''),
+      String(a.subject || ''),
+      String(a.classroom || 'ม.4/1'),
+      a.createdAt || new Date()
+    ]);
+    sheet.getRange(2, 1, rows.length, 7).setValues(rows);
   }
 }
 

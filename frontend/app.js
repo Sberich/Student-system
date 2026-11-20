@@ -4,7 +4,7 @@
  * และรองรับการสอน 5 รายวิชา พร้อมระบบ Smart Bulk Import จาก Excel
  */
 
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxkrB2zP2g-gEpHd32yI4RQ4pf_QE-b_YqD-BA_yYcnxWqPE5NOBXjii_jYIrlAsQKz/exec';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx/exec';
 const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU/edit';
 
 const STORAGE_KEY = 'educator_app_state_v2';
@@ -74,6 +74,11 @@ function loadLocalState() {
     }
   } catch (e) {
     console.error('Error loading local state:', e);
+  }
+
+  // ป้องกัน URL เก่าที่อาจค้างใน Browser Cache
+  if (!appState.settings.gasUrl || appState.settings.gasUrl.includes('AKfycbxkrB2zP2g-gEpHd32yI4RQ4pf_QE-b_YqD-BA_yYcnxWqPE5NOBXjii_jYIrlAsQKz')) {
+    appState.settings.gasUrl = DEFAULT_GAS_URL;
   }
 }
 
@@ -1113,7 +1118,7 @@ function executeInsertStudent() {
 
   appState.activeClassroom = targetClass;
   saveLocalState();
-  scheduleAutoSync();
+  scheduleAutoSync('full');
   closeModal('insert-student-modal');
   showToast(`แทรก "${fullName}" ที่เลขที่ ${insertNo} (ห้อง ${targetClass}) เรียบร้อย`);
   renderApp();
@@ -1187,7 +1192,7 @@ function executeEditStudent(originalStudentId) {
   });
 
   saveLocalState();
-  scheduleAutoSync();
+  scheduleAutoSync('full');
   closeModal('edit-student-modal');
   showToast('บันทึกข้อมูลเรียบร้อย');
   renderApp();
@@ -1205,7 +1210,7 @@ function reindexClassroomStudents(className) {
     });
 
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     showToast(`จัดเรียงเลขที่ห้อง ${className} ใหม่ (1-${classStudents.length}) เรียบร้อย`);
     renderStudents(document.getElementById('app-view-container'));
   }
@@ -1223,7 +1228,7 @@ function openAddClassroomModal() {
     appState.settings.classrooms.push(trimmed);
     appState.activeClassroom = trimmed;
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     renderHeaderControls();
     showToast(`เพิ่มห้อง ${trimmed} เรียบร้อยแล้ว`);
     renderApp();
@@ -1296,7 +1301,7 @@ function handleAddRoomFromManager() {
 
   appState.settings.classrooms.push(name);
   saveLocalState();
-  scheduleAutoSync();
+  scheduleAutoSync('full');
   renderHeaderControls();
   openClassroomManagerModal(); // refresh
   showToast(`เพิ่มห้อง ${name} สำเร็จ`);
@@ -1321,7 +1326,7 @@ function renameClassroom(oldName) {
     if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
 
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     renderHeaderControls();
     openClassroomManagerModal();
     showToast(`เปลี่ยนชื่อห้องเป็น ${trimmed} เรียบร้อย`);
@@ -1350,7 +1355,7 @@ function deleteClassroom(className) {
     }
 
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     renderHeaderControls();
     openClassroomManagerModal();
     showToast(`ลบห้อง ${className} เรียบร้อย`);
@@ -1723,7 +1728,7 @@ function handleAddAssignment() {
   });
 
   saveLocalState();
-  scheduleAutoSync();
+  scheduleAutoSync('full');
   showToast(`เพิ่มงาน "${title}" สำเร็จ`);
   renderAssignments(document.getElementById('app-view-container'));
 }
@@ -1732,7 +1737,7 @@ function deleteAssignment(assignId) {
   if (confirm('คุณแน่ใจว่าต้องการลบงานนี้หรือไม่?')) {
     appState.assignments = appState.assignments.filter(a => a.id !== assignId);
     saveLocalState();
-    scheduleAutoSync();
+    scheduleAutoSync('full');
     renderAssignments(document.getElementById('app-view-container'));
   }
 }
@@ -1810,12 +1815,12 @@ function renderSettings(container) {
   `;
 }
 
-function saveSettings() {
+async function saveSettings() {
   appState.settings.schoolName = document.getElementById('cfg-school').value;
   appState.settings.term = document.getElementById('cfg-term').value;
   appState.settings.academicYear = document.getElementById('cfg-year').value;
   appState.settings.teacherName = document.getElementById('cfg-teacher').value;
-  appState.settings.gasUrl = document.getElementById('cfg-gas-url').value;
+  appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
 
   const codes = document.querySelectorAll('.cfg-sub-code');
   const names = document.querySelectorAll('.cfg-sub-name');
@@ -1829,7 +1834,8 @@ function saveSettings() {
 
   saveLocalState();
   renderHeaderControls();
-  showToast('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+  showToast('💾 บันทึกในเครื่องแล้ว กำลังส่งการตั้งค่าขึ้น Google Sheets...');
+  await pushSettingsToBackend();
 }
 
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
@@ -1896,13 +1902,99 @@ async function pullFromGoogleSheets(isManual = false) {
 // ----------------- Google Apps Script Sync Engine -----------------
 let syncDebounceTimer = null;
 
-function scheduleAutoSync() {
+function scheduleAutoSync(type = 'submissions') {
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   updateSyncIndicator('syncing');
 
   syncDebounceTimer = setTimeout(() => {
-    pushSubmissionsToBackend();
+    if (type === 'full') {
+      pushFullStateToBackend();
+    } else {
+      pushSubmissionsToBackend();
+    }
   }, 2500);
+}
+
+async function pushSettingsToBackend() {
+  if (!appState.settings.gasUrl) return;
+  updateSyncIndicator('syncing');
+
+  try {
+    await fetch(appState.settings.gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'updateSettings',
+        settings: {
+          schoolName: appState.settings.schoolName,
+          academicYear: appState.settings.academicYear,
+          term: appState.settings.term,
+          teacherName: appState.settings.teacherName,
+          activeSubject: appState.activeSubject,
+          activeClassroom: appState.activeClassroom,
+          subjects: appState.settings.subjects,
+          classrooms: appState.settings.classrooms
+        }
+      }),
+      mode: 'no-cors'
+    });
+
+    updateSyncIndicator('online');
+    showToast('✓ บันทึกการตั้งค่าลง Google Sheets สำเร็จแล้ว');
+  } catch (err) {
+    console.error('Error saving settings to GAS:', err);
+    updateSyncIndicator('offline');
+    showToast('⚠️ ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ (บันทึกในเครื่องแล้ว)');
+  }
+}
+
+async function pushFullStateToBackend() {
+  if (!appState.settings.gasUrl) return;
+  updateSyncIndicator('syncing');
+
+  try {
+    const list = [];
+    Object.keys(appState.submissions).forEach(key => {
+      const parts = key.split('_');
+      if (parts.length === 2) {
+        const sub = appState.submissions[key];
+        list.push({
+          assignmentId: parts[0],
+          studentId: parts[1],
+          status: sub.status,
+          score: sub.score
+        });
+      }
+    });
+
+    await fetch(appState.settings.gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'syncFullState',
+        settings: {
+          schoolName: appState.settings.schoolName,
+          academicYear: appState.settings.academicYear,
+          term: appState.settings.term,
+          teacherName: appState.settings.teacherName,
+          activeSubject: appState.activeSubject,
+          activeClassroom: appState.activeClassroom,
+          subjects: appState.settings.subjects,
+          classrooms: appState.settings.classrooms
+        },
+        students: appState.students,
+        assignments: appState.assignments,
+        submissions: list
+      }),
+      mode: 'no-cors'
+    });
+
+    updateSyncIndicator('online');
+  } catch (err) {
+    console.error('Error in pushFullStateToBackend:', err);
+    updateSyncIndicator('offline');
+    throw err;
+  }
 }
 
 async function pushSubmissionsToBackend() {
@@ -1944,12 +2036,17 @@ async function trySilentFetch() {
 }
 
 async function triggerManualSync() {
-  showToast('กำลังเชื่อมต่อกับ Google Sheets...');
+  if (!appState.settings.gasUrl) {
+    alert('กรุณาระบุ Web App URL ในหน้าตั้งค่า');
+    return;
+  }
+
+  showToast('⏳ กำลังส่งข้อมูลทั้งหมดขึ้น Google Sheets...');
   updateSyncIndicator('syncing');
 
   try {
-    await pushSubmissionsToBackend();
-    showToast('✓ บันทึกข้อมูลขึ้น Google Sheets สำเร็จ');
+    await pushFullStateToBackend();
+    showToast('✓ ส่งข้อมูลทั้งหมดขึ้น Google Sheets สำเร็จเรียบร้อยแล้ว');
     updateSyncIndicator('online');
   } catch (e) {
     showToast('⚠️ ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ในขณะนี้ (บันทึกในเครื่องแล้ว)');

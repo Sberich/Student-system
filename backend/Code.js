@@ -8,6 +8,7 @@ const SHEET_SETTINGS = 'Settings';
 const SHEET_STUDENTS = 'Students';
 const SHEET_ASSIGNMENTS = 'Assignments';
 const SHEET_SUBMISSIONS = 'Submissions';
+const SHEET_GRADEBOOK = 'Gradebook';
 
 // ห้องเรียนทั้งหมด 13 ห้อง (ม.4 จำนวน 11 ห้อง, ม.5 จำนวน 2 ห้อง)
 const DEFAULT_CLASSROOMS = [
@@ -29,8 +30,15 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
+    .addItem('🎓 ตรวจสอบชีททะเบียนคะแนน & SGS', 'initGradebookSheet')
     .addItem('✨ ใส่ข้อมูลตัวอย่าง (ม.4 & ม.5)', 'seedSampleData')
     .addToUi();
+}
+
+function initGradebookSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSheetsExist(ss);
+  SpreadsheetApp.getUi().alert('🎓 ตรวจสอบและสร้างชีท Gradebook (ทะเบียนคะแนน & SGS) เรียบร้อยแล้ว');
 }
 
 function initSheets() {
@@ -159,11 +167,17 @@ function doPost(e) {
       return createJsonResponse({ success: true });
     }
 
+    if (action === 'saveGradebook') {
+      const saved = handleSaveGradebook(ss, payload.records || payload.gradebook || []);
+      return createJsonResponse({ success: true, count: saved.length });
+    }
+
     if (action === 'syncFullState') {
       if (payload.settings) handleUpdateSettings(ss, payload.settings);
       if (payload.students && payload.students.length > 0) handleSaveStudentList(ss, payload.students);
       if (payload.assignments && payload.assignments.length > 0) handleSaveAssignmentsList(ss, payload.assignments);
       if (payload.submissions && payload.submissions.length > 0) handleBatchSaveSubmissions(ss, payload.submissions);
+      if (payload.gradebook && payload.gradebook.length > 0) handleSaveGradebook(ss, payload.gradebook);
       return createJsonResponse({ success: true, message: 'ซิงค์ข้อมูลทั้งหมดสำเร็จ' });
     }
 
@@ -284,6 +298,45 @@ function fetchAllData(ss) {
     }
   }
 
+  // 5. Gradebook (ทะเบียนคะแนน & ตัดเกรด SGS)
+  const gradebook = [];
+  const gradebookSheet = ss.getSheetByName(SHEET_GRADEBOOK);
+  if (gradebookSheet) {
+    const gbRows = gradebookSheet.getDataRange().getValues();
+    for (let i = 1; i < gbRows.length; i++) {
+      const row = gbRows[i];
+      if (row[3]) { // studentId
+        gradebook.push({
+          subject: String(row[0] || ''),
+          classroom: String(row[1] || ''),
+          no: Number(row[2]) || i,
+          studentId: String(row[3]),
+          fullName: String(row[4] || ''),
+          attPre: Number(row[5]) || 0,
+          workPre: Number(row[6]) || 0,
+          sumPre: Number(row[7]) || 0,
+          midRaw: Number(row[8]) || 0,
+          midDiv: Number(row[9]) || 2,
+          midHelp: Number(row[10]) || 0,
+          midScore: Number(row[11]) || 0,
+          attPost: Number(row[12]) || 0,
+          workPost: Number(row[13]) || 0,
+          sumPost: Number(row[14]) || 0,
+          termScore: Number(row[15]) || 0,
+          finalRaw: Number(row[16]) || 0,
+          finalDiv: Number(row[17]) || 2,
+          finalHelp: Number(row[18]) || 0,
+          finalScore: Number(row[19]) || 0,
+          totalScore: Number(row[20]) || 0,
+          grade: String(row[21] !== undefined && row[21] !== null ? row[21] : '0'),
+          sgsStatus: String(row[22] || 'ปกติ'),
+          note: String(row[23] || ''),
+          updatedAt: String(row[24] || '')
+        });
+      }
+    }
+  }
+
   // รวบรวมรายชื่อห้องเรียน: ยึดตามที่บันทึกไว้ใน settings.classrooms เป็นหลัก
   // หากมีห้องที่นักเรียนสังกัดอยู่จริงในชีท Students ให้รวมเข้ามาด้วย (ป้องกันห้องตกหล่น)
   // แต่จะไม่ดึงห้องตัวอย่างเริ่มต้น (DEFAULT_CLASSROOMS) ที่ครูลบออกไปแล้วกลับมาอีก
@@ -299,9 +352,96 @@ function fetchAllData(ss) {
     students: students,
     assignments: assignments,
     submissions: submissions,
+    gradebook: gradebook,
     classes: classroomsInUse,
     subjects: settings.subjects || DEFAULT_SUBJECTS
   };
+}
+
+/**
+ * บันทึกคะแนนทะเบียน ปพ.5 / SGS แบบ In-Memory Batch Write
+ */
+function handleSaveGradebook(ss, gradebookList) {
+  if (!gradebookList || gradebookList.length === 0) return [];
+  const sheet = ss.getSheetByName(SHEET_GRADEBOOK);
+  const data = sheet.getDataRange().getValues();
+  const rowIndexMap = {};
+
+  const headers = [
+    'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
+    'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
+    'กลางภาค_ข้อเขียน', 'กลางภาค_หาร', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
+    'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
+    'รวมระหว่างภาค',
+    'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
+    'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+  ];
+
+  if (data.length === 0 || !data[0] || data[0].length < headers.length) {
+    sheet.clearContents();
+    sheet.appendRow(headers);
+    formatHeaderRow(sheet);
+    data[0] = headers;
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0] || '') + '_' + String(data[i][1] || '') + '_' + String(data[i][3] || '');
+    rowIndexMap[key] = i;
+  }
+
+  const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+
+  gradebookList.forEach(item => {
+    const subj = String(item.subject || '');
+    const room = String(item.classroom || '');
+    const sid = String(item.studentId || '');
+    const key = subj + '_' + room + '_' + sid;
+
+    const rowArray = [
+      subj,
+      room,
+      Number(item.no) || '',
+      sid,
+      String(item.fullName || item.name || ''),
+      item.attPre !== null && item.attPre !== undefined && item.attPre !== '' ? Number(item.attPre) : 0,
+      item.workPre !== null && item.workPre !== undefined && item.workPre !== '' ? Number(item.workPre) : 0,
+      item.sumPre !== null && item.sumPre !== undefined && item.sumPre !== '' ? Number(item.sumPre) : 0,
+      item.midRaw !== null && item.midRaw !== undefined && item.midRaw !== '' ? Number(item.midRaw) : 0,
+      item.midDiv !== null && item.midDiv !== undefined && item.midDiv !== '' ? Number(item.midDiv) : 2,
+      item.midHelp !== null && item.midHelp !== undefined && item.midHelp !== '' ? Number(item.midHelp) : 0,
+      item.midScore !== null && item.midScore !== undefined && item.midScore !== '' ? Number(item.midScore) : 0,
+      item.attPost !== null && item.attPost !== undefined && item.attPost !== '' ? Number(item.attPost) : 0,
+      item.workPost !== null && item.workPost !== undefined && item.workPost !== '' ? Number(item.workPost) : 0,
+      item.sumPost !== null && item.sumPost !== undefined && item.sumPost !== '' ? Number(item.sumPost) : 0,
+      item.termScore !== null && item.termScore !== undefined && item.termScore !== '' ? Number(item.termScore) : 0,
+      item.finalRaw !== null && item.finalRaw !== undefined && item.finalRaw !== '' ? Number(item.finalRaw) : 0,
+      item.finalDiv !== null && item.finalDiv !== undefined && item.finalDiv !== '' ? Number(item.finalDiv) : 2,
+      item.finalHelp !== null && item.finalHelp !== undefined && item.finalHelp !== '' ? Number(item.finalHelp) : 0,
+      item.finalScore !== null && item.finalScore !== undefined && item.finalScore !== '' ? Number(item.finalScore) : 0,
+      item.totalScore !== null && item.totalScore !== undefined && item.totalScore !== '' ? Number(item.totalScore) : 0,
+      String(item.grade !== undefined && item.grade !== null ? item.grade : '0'),
+      String(item.sgsStatus || 'ปกติ'),
+      String(item.note || ''),
+      now
+    ];
+
+    const existingIdx = rowIndexMap[key];
+    if (existingIdx !== undefined) {
+      data[existingIdx] = rowArray;
+    } else {
+      data.push(rowArray);
+      rowIndexMap[key] = data.length - 1;
+    }
+  });
+
+  if (data.length > 0) {
+    sheet.getRange(1, 1, data.length, headers.length).setValues(data);
+    if (data.length > 1) {
+      sheet.getRange(2, 4, data.length - 1, 1).setNumberFormat('@');
+    }
+  }
+
+  return gradebookList;
 }
 
 /**
@@ -513,7 +653,19 @@ function ensureSheetsExist(ss) {
     { name: SHEET_SETTINGS, headers: ['Key', 'Value'] },
     { name: SHEET_STUDENTS, headers: ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ'] },
     { name: SHEET_ASSIGNMENTS, headers: ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'] },
-    { name: SHEET_SUBMISSIONS, headers: ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด'] }
+    { name: SHEET_SUBMISSIONS, headers: ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด'] },
+    {
+      name: SHEET_GRADEBOOK,
+      headers: [
+        'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
+        'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
+        'กลางภาค_ข้อเขียน', 'กลางภาค_หาร', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
+        'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
+        'รวมระหว่างภาค',
+        'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
+        'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+      ]
+    }
   ];
 
   reqSheets.forEach(item => {

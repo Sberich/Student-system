@@ -1284,3 +1284,310 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* ==========================================================================
+   🎓 ทะเบียนคะแนน & ตัดเกรด (SGS Gradebook Styles)
+   ========================================================================== */
+.gradebook-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.gradebook-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--bg-surface);
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.ratio-switcher {
+  display: inline-flex;
+  background: #F1F5F9;
+  padding: 3px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+}
+
+.ratio-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ratio-btn.active {
+  background: var(--primary);
+  color: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.gradebook-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.gb-stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: var(--shadow-xs);
+}
+
+.gb-stat-card .gb-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.gb-stat-card .gb-stat-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.gb-stat-card.highlight {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+}
+
+.gb-stat-card.highlight .gb-stat-val {
+  color: #1D4ED8;
+}
+
+/* Panoramic Gradebook Table */
+.gradebook-table-wrapper {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+  position: relative;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gb-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.gb-table th, 
+.gb-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #E2E8F0;
+  border-right: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.gb-table thead tr:first-child th {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 6px;
+  border-top: none;
+}
+
+.gb-table thead tr:last-child th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #F8FAFC;
+  color: var(--text-secondary);
+  padding: 6px 4px;
+}
+
+/* Section Header Colors */
+.th-sec-student { background-color: #F1F5F9; color: #334155; }
+.th-sec-pre     { background-color: #ECFDF5; color: #065F46; border-left: 2px solid #10B981; }
+.th-sec-mid     { background-color: #FFFBEB; color: #92400E; border-left: 2px solid #F59E0B; }
+.th-sec-post    { background-color: #F0F9FF; color: #075985; border-left: 2px solid #0EA5E9; }
+.th-sec-term    { background-color: #EEF2FF; color: #3730A3; border-left: 2px solid #6366F1; font-weight: 800; }
+.th-sec-final   { background-color: #FAF5FF; color: #6B21A8; border-left: 2px solid #A855F7; }
+.th-sec-total   { background-color: #F0FDF4; color: #166534; border-left: 2px solid #22C55E; font-weight: 800; }
+.th-sec-grade   { background-color: #FEF3C7; color: #78350F; border-left: 2px solid #D97706; font-weight: 800; }
+
+/* Sticky Columns */
+.gb-sticky-no {
+  position: sticky;
+  left: 0;
+  min-width: 40px;
+  background-color: #FFFFFF;
+  z-index: 2;
+}
+
+.gb-sticky-id {
+  position: sticky;
+  left: 40px;
+  min-width: 70px;
+  background-color: #FFFFFF;
+  z-index: 2;
+}
+
+.gb-sticky-name {
+  position: sticky;
+  left: 110px;
+  min-width: 170px;
+  max-width: 220px;
+  text-align: left;
+  background-color: #FFFFFF;
+  z-index: 2;
+  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gb-table thead .gb-sticky-no,
+.gb-table thead .gb-sticky-id,
+.gb-table thead .gb-sticky-name {
+  z-index: 4;
+}
+
+/* Row Hover & Alternating */
+.gb-table tbody tr:nth-child(even) td {
+  background-color: #FBFDFE;
+}
+
+.gb-table tbody tr:nth-child(even) .gb-sticky-no,
+.gb-table tbody tr:nth-child(even) .gb-sticky-id,
+.gb-table tbody tr:nth-child(even) .gb-sticky-name {
+  background-color: #F8FAFC;
+}
+
+.gb-table tbody tr:hover td {
+  background-color: #F1F5F9;
+}
+
+.gb-table tbody tr:hover .gb-sticky-no,
+.gb-table tbody tr:hover .gb-sticky-id,
+.gb-table tbody tr:hover .gb-sticky-name {
+  background-color: #E2E8F0;
+}
+
+/* Score Inputs */
+.gb-score-input {
+  width: 48px;
+  padding: 3px 2px;
+  font-size: 16px; /* iOS zoom prevention */
+  text-align: center;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  background: #FFFFFF;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.gb-score-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  background: #EFF6FF;
+}
+
+.gb-score-input.mini {
+  width: 40px;
+  font-size: 14px;
+}
+
+/* Calculated Summary Cells */
+.td-calc {
+  font-weight: 600;
+  background-color: rgba(241, 245, 249, 0.6);
+}
+
+.td-term-total {
+  font-weight: 700;
+  color: #1E3A8A;
+  background-color: #EEF2FF;
+}
+
+.td-grand-total {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #166534;
+  background-color: #DCFCE7;
+}
+
+.td-grade-val {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.grade-badge-4   { color: #15803D; font-weight: 800; }
+.grade-badge-3   { color: #1D4ED8; font-weight: 700; }
+.grade-badge-2   { color: #D97706; font-weight: 700; }
+.grade-badge-1   { color: #C2410C; font-weight: 700; }
+.grade-badge-0   { color: #DC2626; font-weight: 800; }
+.grade-badge-res { color: #DC2626; background: #FEE2E2; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+/* Print Gradebook */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm 6mm;
+  }
+
+  body {
+    background: #FFFFFF !important;
+  }
+
+  .app-header,
+  .gradebook-toolbar,
+  .nav-tabs,
+  .sync-status-indicator,
+  .btn,
+  #toast-container {
+    display: none !important;
+  }
+
+  .gradebook-table-wrapper {
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .gb-table {
+    font-size: 9pt !important;
+  }
+
+  .gb-table th,
+  .gb-table td {
+    padding: 3px 2px !important;
+    border: 0.5pt solid #000000 !important;
+  }
+
+  .gb-score-input {
+    border: none !important;
+    background: transparent !important;
+    width: auto !important;
+    font-size: 9pt !important;
+  }
+
+  .gb-sticky-no,
+  .gb-sticky-id,
+  .gb-sticky-name {
+    position: static !important;
+    box-shadow: none !important;
+  }
+}

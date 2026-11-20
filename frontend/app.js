@@ -4,7 +4,7 @@
  * และรองรับการสอน 5 รายวิชา พร้อมระบบ Smart Bulk Import จาก Excel
  */
 
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx/exec';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwwpQptiXdGKmA7QVj7VtklNeilBa64DfVJ29pviwPyLQ2K4V5irMEGynTzffYve_gb/exec';
 const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU/edit';
 
 const STORAGE_KEY = 'educator_app_state_v2';
@@ -61,7 +61,9 @@ let appState = {
   },
   students: [],
   assignments: [],
-  submissions: {} // key: `${assignmentId}_${studentId}`
+  submissions: {}, // key: `${assignmentId}_${studentId}`
+  gradebookRatio: '70/30', // '70/30' or '80/20'
+  gradebook: {} // key: `${subject}_${classroom}_${studentId}`
 };
 
 // Undo stack สำหรับการตรวจงานล่าสุด
@@ -102,6 +104,8 @@ function loadLocalState() {
     if (saved) {
       const parsed = JSON.parse(saved);
       appState = { ...appState, ...parsed };
+      if (!appState.gradebook) appState.gradebook = {};
+      if (!appState.gradebookRatio) appState.gradebookRatio = '70/30';
       hasSavedLocalState = true;
     }
   } catch (e) {
@@ -109,7 +113,9 @@ function loadLocalState() {
   }
 
   // ป้องกัน URL เก่าที่อาจค้างใน Browser Cache
-  if (!appState.settings.gasUrl || appState.settings.gasUrl.includes('AKfycbxkrB2zP2g-gEpHd32yI4RQ4pf_QE-b_YqD-BA_yYcnxWqPE5NOBXjii_jYIrlAsQKz')) {
+  if (!appState.settings.gasUrl || 
+      appState.settings.gasUrl.includes('AKfycbxkrB2zP2g') || 
+      appState.settings.gasUrl.includes('AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx')) {
     appState.settings.gasUrl = DEFAULT_GAS_URL;
   }
 }
@@ -128,7 +134,9 @@ function saveLocalState() {
       settings: appState.settings,
       students: appState.students,
       assignments: appState.assignments,
-      submissions: appState.submissions
+      submissions: appState.submissions,
+      gradebookRatio: appState.gradebookRatio,
+      gradebook: appState.gradebook
     }));
   } catch (e) {
     console.error('Error saving local state:', e);
@@ -349,6 +357,7 @@ function renderApp() {
     switch (appState.currentTab) {
       case 'overview': renderOverview(container); break;
       case 'grading': renderGrading(container); break;
+      case 'gradebook': renderGradebook(container); break;
       case 'report': renderReport(container); break;
       case 'students': renderStudents(container); break;
       case 'assignments': renderAssignments(container); break;
@@ -2410,6 +2419,13 @@ async function pullFromGoogleSheets(isManual = false) {
       if (data.submissions) {
         appState.submissions = data.submissions;
       }
+      if (data.gradebook && Array.isArray(data.gradebook) && data.gradebook.length > 0) {
+        if (!appState.gradebook) appState.gradebook = {};
+        data.gradebook.forEach(record => {
+          const key = (record.subject || '') + '_' + (record.classroom || '') + '_' + (record.studentId || '');
+          appState.gradebook[key] = record;
+        });
+      }
       if (data.settings && data.settings.classrooms && Array.isArray(data.settings.classrooms) && data.settings.classrooms.length > 0) {
         appState.settings.classrooms = data.settings.classrooms;
       } else if (data.classes && data.classes.length > 0) {
@@ -2535,7 +2551,8 @@ async function pushFullStateToBackend() {
         },
         students: appState.students,
         assignments: appState.assignments,
-        submissions: list
+        submissions: list,
+        gradebook: Object.values(appState.gradebook || {})
       }),
       mode: 'no-cors'
     });
@@ -2678,4 +2695,782 @@ function showToastWithAction(message, actionLabel, actionCallback) {
     toast.style.transition = 'opacity 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3500);
+}
+
+
+// ==========================================================================
+// 🎓 ทะเบียนคะแนน & ตัดเกรด (SGS Gradebook Calculation Engine)
+// ==========================================================================
+
+/**
+ * คำนวณคะแนนตามสัดส่วน (70/30 หรือ 80/20) และสูตรข้อเขียน + ตัวหาร + คะแนนช่วย
+ */
+function calculateGradeRecord(rec, ratio) {
+  const is8020 = (ratio === '80/20');
+  
+  // 1. ก่อนกลางภาค
+  const attPre = Math.max(0, Number(rec.attPre) || 0);
+  const workPre = Math.max(0, Number(rec.workPre) || 0);
+  const sumPre = Math.round((attPre + workPre) * 10) / 10;
+
+  // 2. กลางภาค: (ข้อเขียน / ตัวหาร) + คะแนนช่วย
+  const midRaw = Math.max(0, Number(rec.midRaw) || 0);
+  const midDiv = Number(rec.midDiv) > 0 ? Number(rec.midDiv) : 2;
+  const midHelp = Number(rec.midHelp) || 0;
+  const midScore = Math.max(0, Math.round(((midRaw / midDiv) + midHelp) * 10) / 10);
+
+  // 3. หลังกลางภาค
+  const attPost = Math.max(0, Number(rec.attPost) || 0);
+  const workPost = Math.max(0, Number(rec.workPost) || 0);
+  const sumPost = Math.round((attPost + workPost) * 10) / 10;
+
+  // 4. รวมระหว่างภาค
+  const maxTerm = is8020 ? 80 : 70;
+  const rawTermScore = sumPre + midScore + sumPost;
+  const termScore = Math.min(maxTerm, Math.round(rawTermScore * 10) / 10);
+
+  // 5. ปลายภาค: (ข้อเขียน / ตัวหาร) + คะแนนช่วย
+  const maxFinal = is8020 ? 20 : 30;
+  const finalRaw = Math.max(0, Number(rec.finalRaw) || 0);
+  const finalDiv = Number(rec.finalDiv) > 0 ? Number(rec.finalDiv) : 2;
+  const finalHelp = Number(rec.finalHelp) || 0;
+  const rawFinalScore = (finalRaw / finalDiv) + finalHelp;
+  const finalScore = Math.min(maxFinal, Math.max(0, Math.round(rawFinalScore * 10) / 10));
+
+  // 6. คะแนนรวม 100
+  const totalScore = Math.min(100, Math.round((termScore + finalScore) * 10) / 10);
+
+  // 7. ตัดเกรด
+  let grade = '0';
+  const sgsStatus = String(rec.sgsStatus || 'ปกติ').trim();
+
+  if (sgsStatus === 'ร') {
+    grade = 'ร';
+  } else if (sgsStatus === 'มส') {
+    grade = 'มส';
+  } else {
+    if (totalScore >= 80) grade = '4';
+    else if (totalScore >= 75) grade = '3.5';
+    else if (totalScore >= 70) grade = '3';
+    else if (totalScore >= 65) grade = '2.5';
+    else if (totalScore >= 60) grade = '2';
+    else if (totalScore >= 55) grade = '1.5';
+    else if (totalScore >= 50) grade = '1';
+    else grade = '0';
+  }
+
+  return {
+    ...rec,
+    attPre,
+    workPre,
+    sumPre,
+    midRaw,
+    midDiv,
+    midHelp,
+    midScore,
+    attPost,
+    workPost,
+    sumPost,
+    termScore,
+    finalRaw,
+    finalDiv,
+    finalHelp,
+    finalScore,
+    totalScore,
+    grade,
+    sgsStatus
+  };
+}
+
+/**
+ * ดึง Record คะแนนของนักเรียน ถ้ายังไม่มีให้สร้างโครงเริ่มต้น
+ */
+function getOrCreateGradeRecord(student) {
+  const subj = appState.activeSubject || 'ส31101';
+  const room = student.classroom || appState.activeClassroom || 'ม.4/1';
+  const sid = String(student.studentId || '');
+  const key = subj + '_' + room + '_' + sid;
+
+  if (!appState.gradebook) appState.gradebook = {};
+
+  if (!appState.gradebook[key]) {
+    // คำนวณคะแนนเก็บเริ่มต้นจาก submissions ถ้ามี
+    let computedWork = 0;
+    const assignments = getFilteredAssignments();
+    if (assignments.length > 0) {
+      assignments.forEach(a => {
+        const subKey = a.id + '_' + sid;
+        const sub = appState.submissions[subKey];
+        if (sub && sub.score !== null && sub.score !== undefined) {
+          computedWork += Number(sub.score);
+        }
+      });
+    }
+
+    const defaultRec = {
+      subject: subj,
+      classroom: room,
+      studentId: sid,
+      no: student.no || 1,
+      fullName: student.fullName || '',
+      attPre: 7,
+      workPre: computedWork > 0 ? computedWork : 8,
+      sumPre: 15,
+      midRaw: 14,
+      midDiv: 2,
+      midHelp: 0,
+      midScore: 7,
+      attPost: 8,
+      workPost: 10,
+      sumPost: 18,
+      termScore: 40,
+      finalRaw: 16,
+      finalDiv: 2,
+      finalHelp: 5,
+      finalScore: 13,
+      totalScore: 53,
+      grade: '1',
+      sgsStatus: 'ปกติ',
+      note: ''
+    };
+    appState.gradebook[key] = calculateGradeRecord(defaultRec, appState.gradebookRatio || '70/30');
+  }
+
+  return appState.gradebook[key];
+}
+
+/**
+ * สลับสัดส่วนคะแนน 70/30 และ 80/20
+ */
+function setGradebookRatio(ratio) {
+  appState.gradebookRatio = ratio;
+  // คำนวณใหม่ทั้งหมดตามสัดส่วนใหม่
+  if (appState.gradebook) {
+    Object.keys(appState.gradebook).forEach(key => {
+      appState.gradebook[key] = calculateGradeRecord(appState.gradebook[key], ratio);
+    });
+  }
+  appState.isDirty = true;
+  saveLocalState();
+  renderApp();
+  showToast('สลับสัดส่วนคะแนนเป็น ' + ratio + ' และคำนวณใหม่เรียบร้อยแล้ว');
+}
+
+/**
+ * ปรับปรุงคะแนนรายช่องแบบ Real-time
+ */
+function updateGradebookCell(studentId, field, value) {
+  const subj = appState.activeSubject || 'ส31101';
+  const room = appState.activeClassroom || 'ม.4/1';
+  const sid = String(studentId);
+  const key = subj + '_' + room + '_' + sid;
+
+  let rec = appState.gradebook[key];
+  if (!rec) {
+    const student = appState.students.find(s => String(s.studentId) === sid);
+    if (!student) return;
+    rec = getOrCreateGradeRecord(student);
+  }
+
+  if (field === 'sgsStatus' || field === 'note') {
+    rec[field] = value;
+  } else {
+    rec[field] = value === '' ? 0 : Number(value);
+  }
+
+  // คำนวณผลใหม่
+  const calculated = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+  appState.gradebook[key] = calculated;
+  appState.isDirty = true;
+  saveLocalState();
+  updateSyncIndicator('offline');
+
+  // อัปเดต DOM ในแถวนั้นทันทีเพื่อความเร็วและไม่หลุดโฟกัส
+  updateGradebookRowDOM(sid, calculated);
+  updateGradebookStatsBarDOM();
+}
+
+/**
+ * อัปเดตเฉพาะเซลล์คำนวณในแถวของนักเรียน
+ */
+function updateGradebookRowDOM(sid, rec) {
+  const row = document.getElementById('gb-row-' + sid);
+  if (!row) return;
+
+  const sumPreEl = row.querySelector('.gb-sum-pre');
+  const midScoreEl = row.querySelector('.gb-mid-score');
+  const sumPostEl = row.querySelector('.gb-sum-post');
+  const termScoreEl = row.querySelector('.gb-term-score');
+  const finalScoreEl = row.querySelector('.gb-final-score');
+  const totalScoreEl = row.querySelector('.gb-total-score');
+  const gradeEl = row.querySelector('.gb-grade-val');
+
+  if (sumPreEl) sumPreEl.textContent = rec.sumPre;
+  if (midScoreEl) midScoreEl.textContent = rec.midScore;
+  if (sumPostEl) sumPostEl.textContent = rec.sumPost;
+  if (termScoreEl) termScoreEl.textContent = rec.termScore;
+  if (finalScoreEl) finalScoreEl.textContent = rec.finalScore;
+  if (totalScoreEl) totalScoreEl.textContent = rec.totalScore;
+  if (gradeEl) {
+    gradeEl.textContent = rec.grade;
+    gradeEl.className = 'gb-grade-val ' + getGradeBadgeClass(rec.grade);
+  }
+}
+
+function getGradeBadgeClass(grade) {
+  if (grade === '4') return 'grade-badge-4';
+  if (grade === '3.5' || grade === '3') return 'grade-badge-3';
+  if (grade === '2.5' || grade === '2') return 'grade-badge-2';
+  if (grade === '1.5' || grade === '1') return 'grade-badge-1';
+  if (grade === '0') return 'grade-badge-0';
+  return 'grade-badge-res';
+}
+
+/**
+ * คำนวณและอัปเดตสถิติผลการเรียนด้านบน
+ */
+function updateGradebookStatsBarDOM() {
+  const students = getFilteredStudents();
+  const subj = appState.activeSubject || 'ส31101';
+  const room = appState.activeClassroom || 'ม.4/1';
+
+  let countAll = students.length;
+  let dist = { '4': 0, '3.5': 0, '3': 0, '2.5': 0, '2': 0, '1.5': 0, '1': 0, '0': 0, 'ร': 0, 'มส': 0 };
+  let g3Plus = 0;
+
+  students.forEach(s => {
+    const key = subj + '_' + room + '_' + String(s.studentId);
+    const rec = appState.gradebook[key] || getOrCreateGradeRecord(s);
+    const g = String(rec.grade);
+    if (dist[g] !== undefined) {
+      dist[g]++;
+    } else {
+      dist['0']++;
+    }
+    if (g === '4' || g === '3.5' || g === '3') {
+      g3Plus++;
+    }
+  });
+
+  const bar = document.getElementById('gradebook-stats-bar');
+  if (!bar) return;
+
+  const pct = (n) => countAll > 0 ? ((n / countAll) * 100).toFixed(1) + '%' : '0%';
+
+  bar.innerHTML = `
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">👥 นักเรียนทั้งหมด</span>
+      <span class="gb-stat-val">${countAll} <small style="font-size: 0.75rem; font-weight: normal;">คน</small></span>
+    </div>
+    <div class="gb-stat-card highlight">
+      <span class="gb-stat-label">🌟 เกรด 3 ขึ้นไป</span>
+      <span class="gb-stat-val">${g3Plus} <small style="font-size: 0.75rem; font-weight: normal;">(${pct(g3Plus)})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 4</span>
+      <span class="gb-stat-val grade-badge-4">${dist['4']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['4'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 3.5</span>
+      <span class="gb-stat-val grade-badge-3">${dist['3.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['3.5'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 3</span>
+      <span class="gb-stat-val grade-badge-3">${dist['3']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['3'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 2.5</span>
+      <span class="gb-stat-val grade-badge-2">${dist['2.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['2.5'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 2</span>
+      <span class="gb-stat-val grade-badge-2">${dist['2']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['2'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 1.5</span>
+      <span class="gb-stat-val grade-badge-1">${dist['1.5']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['1.5'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 1</span>
+      <span class="gb-stat-val grade-badge-1">${dist['1']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['1'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">เกรด 0</span>
+      <span class="gb-stat-val grade-badge-0">${dist['0']} <small style="font-size: 0.7rem; font-weight: normal;">(${pct(dist['0'])})</small></span>
+    </div>
+    <div class="gb-stat-card">
+      <span class="gb-stat-label">ติด ร / มส</span>
+      <span class="gb-stat-val grade-badge-res">${dist['ร'] + dist['มส']} <small style="font-size: 0.7rem; font-weight: normal;">(ร:${dist['ร']}, มส:${dist['มส']})</small></span>
+    </div>
+  `;
+}
+
+/**
+ * เรนเดอร์หน้าจอ ทะเบียนคะแนน & ตัดเกรด (SGS Gradebook View)
+ */
+function renderGradebook(container) {
+  const students = getFilteredStudents();
+  const activeSubj = getActiveSubjectObj();
+  const ratio = appState.gradebookRatio || '70/30';
+  const is8020 = (ratio === '80/20');
+
+  // ห้องเรียนทั้งหมด
+  const classrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+
+  let classPillsHtml = classrooms.map(c => {
+    const count = appState.students.filter(s => s.classroom === c).length;
+    const activeClass = (c === appState.activeClassroom) ? 'active' : '';
+    return `<button class="filter-pill ${activeClass}" onclick="switchGradebookClassroom('${esc(c)}')">${esc(c)} <small>(${count} คน)</small></button>`;
+  }).join('');
+
+  let tableRowsHtml = '';
+  if (students.length === 0) {
+    tableRowsHtml = `
+      <tr>
+        <td colspan="23" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+          <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📂</div>
+          <p>ยังไม่มีรายชื่อนักเรียนในห้อง ${esc(appState.activeClassroom)}</p>
+          <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
+            <button class="btn btn-primary btn-sm" onclick="loadOriginalSchoolGrades()">📥 โหลดข้อมูลนักเรียนต้นฉบับ (ม.4 ธาตุพนม)</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('students')">👥 จัดการรายชื่อนักเรียน</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  } else {
+    tableRowsHtml = students.map((s, idx) => {
+      const rec = getOrCreateGradeRecord(s);
+      return `
+        <tr id="gb-row-${esc(s.studentId)}">
+          <!-- ข้อมูลนักเรียน (Sticky) -->
+          <td class="gb-sticky-no">${esc(s.no || idx + 1)}</td>
+          <td class="gb-sticky-id">${esc(s.studentId)}</td>
+          <td class="gb-sticky-name" title="${esc(s.fullName)}">${esc(s.fullName)}</td>
+
+          <!-- ก่อนกลางภาค -->
+          <td>
+            <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
+              value="${rec.attPre}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'attPre', this.value)" 
+              title="เวลาเรียนก่อนกลาง (เต็ม 10)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
+              value="${rec.workPre}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'workPre', this.value)" 
+              title="คะแนนเก็บงานก่อนกลาง">
+          </td>
+          <td class="td-calc gb-sum-pre">${rec.sumPre}</td>
+
+          <!-- กลางภาค -->
+          <td>
+            <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
+              value="${rec.midRaw}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'midRaw', this.value)" 
+              title="สอบกลางภาค (ข้อเขียนดิบ)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
+              value="${rec.midDiv || 2}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'midDiv', this.value)" 
+              title="ตัวหาร (ปกติหาร 2)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
+              value="${rec.midHelp || 0}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'midHelp', this.value)" 
+              title="คะแนนช่วย / สอบแก้ตัว">
+          </td>
+          <td class="td-calc gb-mid-score" style="color: #92400E; font-weight: 700;">${rec.midScore}</td>
+
+          <!-- หลังกลางภาค -->
+          <td>
+            <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
+              value="${rec.attPost}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'attPost', this.value)" 
+              title="เวลาเรียนหลังกลาง (เต็ม 10)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
+              value="${rec.workPost}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'workPost', this.value)" 
+              title="คะแนนเก็บงานหลังกลาง">
+          </td>
+          <td class="td-calc gb-sum-post">${rec.sumPost}</td>
+
+          <!-- รวมระหว่างภาค -->
+          <td class="td-term-total gb-term-score">${rec.termScore}</td>
+
+          <!-- ปลายภาค -->
+          <td>
+            <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
+              value="${rec.finalRaw}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'finalRaw', this.value)" 
+              title="สอบปลายภาค (ข้อเขียนดิบ)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
+              value="${rec.finalDiv || 2}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'finalDiv', this.value)" 
+              title="ตัวหาร (ปกติหาร 2)">
+          </td>
+          <td>
+            <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
+              value="${rec.finalHelp || 0}" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'finalHelp', this.value)" 
+              title="คะแนนช่วย / สอบแก้ตัว">
+          </td>
+          <td class="td-calc gb-final-score" style="color: #6B21A8; font-weight: 700;">${rec.finalScore}</td>
+
+          <!-- รวม 100 คะแนน -->
+          <td class="td-grand-total gb-total-score">${rec.totalScore}</td>
+
+          <!-- ผลการเรียน & SGS -->
+          <td class="td-grade-val">
+            <span class="gb-grade-val ${getGradeBadgeClass(rec.grade)}">${rec.grade}</span>
+          </td>
+          <td>
+            <select class="form-select form-select-sm" style="font-size: 0.75rem; padding: 2px 4px; width: 68px;" 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'sgsStatus', this.value)">
+              <option value="ปกติ" ${rec.sgsStatus === 'ปกติ' ? 'selected' : ''}>ปกติ</option>
+              <option value="ร" ${rec.sgsStatus === 'ร' ? 'selected' : ''}>ติด ร</option>
+              <option value="มส" ${rec.sgsStatus === 'มส' ? 'selected' : ''}>ติด มส</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" class="gb-score-input" style="width: 80px; text-align: left; font-size: 13px;" 
+              value="${esc(rec.note || '')}" 
+              placeholder="บันทึก..." 
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)">
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  container.innerHTML = `
+    <div class="gradebook-container">
+      <!-- Classroom Filter Bar -->
+      <div class="filter-bar" style="overflow-x: auto; white-space: nowrap; padding-bottom: 0.25rem;">
+        <span class="filter-label">เลือกดูห้อง:</span>
+        ${classPillsHtml}
+      </div>
+
+      <!-- Gradebook Toolbar -->
+      <div class="gradebook-toolbar">
+        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">สัดส่วนคะแนน:</span>
+            <div class="ratio-switcher">
+              <button class="ratio-btn ${!is8020 ? 'active' : ''}" onclick="setGradebookRatio('70/30')">70 / 30</button>
+              <button class="ratio-btn ${is8020 ? 'active' : ''}" onclick="setGradebookRatio('80/20')">80 / 20</button>
+            </div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-secondary); background: #F1F5F9; padding: 4px 8px; border-radius: 6px;">
+            ${is8020 ? '📌 ระหว่างภาค 80 (ก่อนกลาง 30, กลาง 20, หลังกลาง 30) + ปลายภาค 20' : '📌 ระหว่างภาค 70 (ก่อนกลาง 25, กลาง 20, หลังกลาง 25) + ปลายภาค 30'}
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
+            <span>💾</span> บันทึกคะแนนลง Google Sheets
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="exportGradebookSGS()">
+            <span>📤</span> ส่งออก SGS (CSV)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="window.print()">
+            <span>🖨️</span> พิมพ์ ปพ.5 (A4 แนวนอน)
+          </button>
+          <button class="btn btn-secondary btn-sm" style="color: #2563EB;" onclick="loadOriginalSchoolGrades()" title="โหลดข้อมูล 434 คนจากไฟล์โรงเรียน">
+            <span>📥</span> โหลดคะแนนต้นฉบับ
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Grade Stats Bar -->
+      <div class="gradebook-stats-bar" id="gradebook-stats-bar">
+        <!-- Rendered by updateGradebookStatsBarDOM() -->
+      </div>
+
+      <!-- Panoramic Landscape Grade Table -->
+      <div class="gradebook-table-wrapper">
+        <table class="gb-table">
+          <thead>
+            <tr>
+              <th colspan="3" class="th-sec-student">ข้อมูลนักเรียน</th>
+              <th colspan="3" class="th-sec-pre">คะแนนเก็บก่อนกลางภาค</th>
+              <th colspan="4" class="th-sec-mid">สอบกลางภาค</th>
+              <th colspan="3" class="th-sec-post">คะแนนเก็บหลังกลางภาค</th>
+              <th colspan="1" class="th-sec-term">ระหว่างภาค</th>
+              <th colspan="4" class="th-sec-final">สอบปลายภาค</th>
+              <th colspan="1" class="th-sec-total">รวม 100</th>
+              <th colspan="3" class="th-sec-grade">ผลการเรียน & SGS</th>
+            </tr>
+            <tr>
+              <!-- ข้อมูลนักเรียน -->
+              <th class="gb-sticky-no">เลขที่</th>
+              <th class="gb-sticky-id">รหัส</th>
+              <th class="gb-sticky-name">ชื่อ - สกุล</th>
+
+              <!-- ก่อนกลางภาค -->
+              <th>มา (10)</th>
+              <th>งาน</th>
+              <th style="font-weight: 700;">รวม</th>
+
+              <!-- สอบกลางภาค -->
+              <th>ข้อเขียน</th>
+              <th>ตัวหาร</th>
+              <th>คะแนนช่วย</th>
+              <th style="font-weight: 700;">สรุปกลาง</th>
+
+              <!-- หลังกลางภาค -->
+              <th>มา (10)</th>
+              <th>งาน</th>
+              <th style="font-weight: 700;">รวม</th>
+
+              <!-- รวมระหว่างภาค -->
+              <th style="font-weight: 800; color: #1E3A8A;">รวม (${is8020 ? 80 : 70})</th>
+
+              <!-- สอบปลายภาค -->
+              <th>ข้อเขียน</th>
+              <th>ตัวหาร</th>
+              <th>คะแนนช่วย</th>
+              <th style="font-weight: 700;">สรุปปลาย (${is8020 ? 20 : 30})</th>
+
+              <!-- รวมทั้งสิ้น -->
+              <th style="font-weight: 900; color: #166534;">รวม (100)</th>
+
+              <!-- เกรด & SGS -->
+              <th>เกรด</th>
+              <th>สถานะ SGS</th>
+              <th>หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  updateGradebookStatsBarDOM();
+}
+
+/**
+ * สลับห้องเรียนในหน้าทะเบียนคะแนน
+ */
+function switchGradebookClassroom(classroom) {
+  appState.activeClassroom = classroom;
+  saveLocalState();
+  renderApp();
+}
+
+/**
+ * บันทึกคะแนนทั้งหมดของห้องนี้ลง Google Sheets ในชีท Gradebook
+ */
+async function saveGradebookToSheet() {
+  if (!appState.settings.gasUrl) {
+    alert('โปรดระบุ Web App URL ในหน้าตั้งค่าก่อนบันทึก');
+    return;
+  }
+
+  const students = getFilteredStudents();
+  if (students.length === 0) {
+    showToast('⚠️ ไม่พบข้อมูลนักเรียนในห้องนี้');
+    return;
+  }
+
+  showToast('⏳ กำลังบันทึกทะเบียนคะแนนลง Google Sheets...');
+  updateSyncIndicator('syncing');
+
+  const recordsToSave = students.map(s => getOrCreateGradeRecord(s));
+
+  try {
+    const res = await fetch(appState.settings.gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'saveGradebook',
+        token: appState.settings.apiToken || '',
+        records: recordsToSave
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      appState.isDirty = false;
+      saveLocalState();
+      updateSyncIndicator('saved');
+      showToast('✅ บันทึกคะแนน ' + recordsToSave.length + ' คนลง Google Sheets (ชีท Gradebook) สำเร็จ');
+    } else {
+      updateSyncIndicator('offline');
+      alert('บันทึกลง Google Sheets ไม่สำเร็จ: ' + (result.error || result.message || ''));
+    }
+  } catch (err) {
+    updateSyncIndicator('offline');
+    console.error('Save gradebook error:', err);
+    alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+  }
+}
+
+/**
+ * ส่งออกทะเบียนคะแนนเป็น CSV ที่เข้ากันได้กับ SGS และ Excel
+ */
+function exportGradebookSGS() {
+  const students = getFilteredStudents();
+  if (students.length === 0) {
+    alert('ไม่มีข้อมูลนักเรียนสำหรับส่งออก');
+    return;
+  }
+
+  const subj = getActiveSubjectObj();
+  const room = appState.activeClassroom;
+  const ratio = appState.gradebookRatio || '70/30';
+
+  const headers = [
+    'เลขที่', 'รหัสประจำตัว', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'วิชา',
+    'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
+    'กลางภาค_ข้อเขียน', 'กลางภาค_ตัวหาร', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
+    'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
+    'รวมระหว่างภาค',
+    'ปลายภาค_ข้อเขียน', 'ปลายภาค_ตัวหาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
+    'คะแนนรวม100', 'เกรด', 'สถานะ_SGS', 'หมายเหตุ'
+  ];
+
+  const rows = [headers];
+
+  students.forEach(s => {
+    const rec = getOrCreateGradeRecord(s);
+    rows.push([
+      rec.no || s.no,
+      `="${rec.studentId}"`,
+      rec.fullName,
+      room,
+      subj.code,
+      rec.attPre,
+      rec.workPre,
+      rec.sumPre,
+      rec.midRaw,
+      rec.midDiv,
+      rec.midHelp,
+      rec.midScore,
+      rec.attPost,
+      rec.workPost,
+      rec.sumPost,
+      rec.termScore,
+      rec.finalRaw,
+      rec.finalDiv,
+      rec.finalHelp,
+      rec.finalScore,
+      rec.totalScore,
+      rec.grade,
+      rec.sgsStatus,
+      rec.note || ''
+    ]);
+  });
+
+  const csvContent = '\uFEFF' + rows.map(r => 
+    r.map(cell => {
+      let str = String(cell === null || cell === undefined ? '' : cell);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        str = '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ปพ5_SGS_${subj.code}_${room}_สัดส่วน${ratio.replace('/', '-')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 ส่งออกไฟล์คะแนน SGS เรียบร้อยแล้ว');
+}
+
+/**
+ * โหลดข้อมูลต้นฉบับ 434 คนจากไฟล์ backup_grades_2569.json ของโรงเรียนธาตุพนม
+ */
+async function loadOriginalSchoolGrades() {
+  const confirmLoad = confirm('ต้องการโหลดข้อมูลผลการเรียนต้นฉบับ (ม.4 ครบทั้ง 11 ห้อง 434 คน) เข้าสู่ระบบใช่หรือไม่? ข้อมูลจะถูกเชื่อมต่อและแสดงผลในทุกห้องทันที');
+  if (!confirmLoad) return;
+
+  try {
+    showToast('⏳ กำลังโหลดข้อมูลต้นฉบับ...');
+    const res = await fetch('./data/backup_grades_2569.json');
+    if (!res.ok) throw new Error('ไม่พบไฟล์ข้อมูล backup_grades_2569.json');
+    const records = await res.json();
+
+    if (!Array.isArray(records) || records.length === 0) {
+      throw new Error('ไฟล์ข้อมูลว่างเปล่า');
+    }
+
+    if (!appState.gradebook) appState.gradebook = {};
+
+    // รวมรายชื่อนักเรียนและคะแนน
+    const existingIds = new Set(appState.students.map(s => String(s.studentId)));
+    const roomSet = new Set(appState.settings.classrooms || DEFAULT_CLASSROOMS);
+
+    records.forEach(r => {
+      const room = r.room || 'ม.4/1';
+      roomSet.add(room);
+
+      // ถ้านักเรียนยังไม่มีใน appState.students ให้เพิ่มเข้าไป
+      const sid = String(r.studentId);
+      if (!existingIds.has(sid)) {
+        appState.students.push({
+          no: Number(r.no) || 1,
+          studentId: sid,
+          fullName: r.name,
+          classroom: room,
+          status: 'ปกติ'
+        });
+        existingIds.add(sid);
+      }
+
+      // บันทึกเข้า gradebook
+      const subj = appState.activeSubject || 'ส31101';
+      const key = subj + '_' + room + '_' + sid;
+
+      appState.gradebook[key] = {
+        subject: subj,
+        classroom: room,
+        studentId: sid,
+        no: Number(r.no) || 1,
+        fullName: r.name,
+        attPre: Number(r.attPre) || 0,
+        workPre: Number(r.workPre) || 0,
+        sumPre: Number(r.sumPre) || 0,
+        midRaw: Number(r.midRaw) || 0,
+        midDiv: Number(r.midDiv) || 2,
+        midHelp: Number(r.midHelp) || 0,
+        midScore: Number(r.midScore) || 0,
+        attPost: Number(r.attPost) || 0,
+        workPost: Number(r.workPost) || 0,
+        sumPost: Number(r.sumPost) || 0,
+        termScore: Number(r.termScore) || 0,
+        finalRaw: Number(r.finalRaw) || 0,
+        finalDiv: Number(r.finalDiv) || 2,
+        finalHelp: Number(r.finalHelp) || 0,
+        finalScore: Number(r.finalScore) || 0,
+        totalScore: Number(r.totalScore) || 0,
+        grade: String(r.grade || '0'),
+        sgsStatus: String(r.sgsStatus || 'ปกติ'),
+        note: ''
+      };
+    });
+
+    appState.settings.classrooms = Array.from(roomSet);
+    appState.isDirty = true;
+    saveLocalState();
+    renderApp();
+    showToast('🎉 นำเข้าข้อมูลนักเรียนและคะแนนครบ 434 คนเรียบร้อยแล้ว!');
+  } catch (err) {
+    console.error('Error loading backup grades:', err);
+    alert('ไม่สามารถโหลดไฟล์ข้อมูลต้นฉบับได้: ' + err.message);
+  }
 }

@@ -2703,7 +2703,9 @@ function showToastWithAction(message, actionLabel, actionCallback) {
 // ==========================================================================
 
 /**
- * คำนวณคะแนนตามสัดส่วน (70/30 หรือ 80/20) และสูตรข้อเขียน + ตัวหาร + คะแนนช่วย
+ * คำนวณคะแนนตามสัดส่วน (70/30 หรือ 80/20) และสูตรข้อเขียน + คะแนนช่วย
+ * - กลางภาค: ตัดตัวหารออก ครูหารมาแล้ว บวกคะแนนช่วยทันที
+ * - ตัดเกรด ร / มส: ยุบไปตรวจจับจากช่อง "หมายเหตุ" หากพิมพ์ ร หรือ มส
  */
 function calculateGradeRecord(rec, ratio) {
   const is8020 = (ratio === '80/20');
@@ -2713,11 +2715,10 @@ function calculateGradeRecord(rec, ratio) {
   const workPre = Math.max(0, Number(rec.workPre) || 0);
   const sumPre = Math.round((attPre + workPre) * 10) / 10;
 
-  // 2. กลางภาค: (ข้อเขียน / ตัวหาร) + คะแนนช่วย
+  // 2. กลางภาค: ข้อเขียน (หารมือมาแล้ว) + คะแนนช่วย
   const midRaw = Math.max(0, Number(rec.midRaw) || 0);
-  const midDiv = Number(rec.midDiv) > 0 ? Number(rec.midDiv) : 2;
   const midHelp = Number(rec.midHelp) || 0;
-  const midScore = Math.max(0, Math.round(((midRaw / midDiv) + midHelp) * 10) / 10);
+  const midScore = Math.max(0, Math.round((midRaw + midHelp) * 10) / 10);
 
   // 3. หลังกลางภาค
   const attPost = Math.max(0, Number(rec.attPost) || 0);
@@ -2740,15 +2741,22 @@ function calculateGradeRecord(rec, ratio) {
   // 6. คะแนนรวม 100
   const totalScore = Math.min(100, Math.round((termScore + finalScore) * 10) / 10);
 
-  // 7. ตัดเกรด
-  let grade = '0';
-  const sgsStatus = String(rec.sgsStatus || 'ปกติ').trim();
+  // 7. ตัดเกรด & ตรวจจับ ร / มส จากช่อง "หมายเหตุ"
+  const noteStr = String(rec.note || '').trim();
+  const isMS = /มส/.test(noteStr);
+  const isR = !isMS && (/^ร(\s|$|[\(\-\.\/])/.test(noteStr) || /ติด\s*ร/.test(noteStr) || noteStr === 'ร');
 
-  if (sgsStatus === 'ร') {
+  let grade = '0';
+  let sgsStatus = 'ปกติ';
+
+  if (isR) {
     grade = 'ร';
-  } else if (sgsStatus === 'มส') {
+    sgsStatus = 'ร';
+  } else if (isMS) {
     grade = 'มส';
+    sgsStatus = 'มส';
   } else {
+    sgsStatus = 'ปกติ';
     if (totalScore >= 80) grade = '4';
     else if (totalScore >= 75) grade = '3.5';
     else if (totalScore >= 70) grade = '3';
@@ -2765,7 +2773,7 @@ function calculateGradeRecord(rec, ratio) {
     workPre,
     sumPre,
     midRaw,
-    midDiv,
+    midDiv: 1, // ไม่ใช้ตัวหารในกลางภาคแล้ว
     midHelp,
     midScore,
     attPost,
@@ -2778,7 +2786,8 @@ function calculateGradeRecord(rec, ratio) {
     finalScore,
     totalScore,
     grade,
-    sgsStatus
+    sgsStatus,
+    note: rec.note || ''
   };
 }
 
@@ -2794,7 +2803,6 @@ function getOrCreateGradeRecord(student) {
   if (!appState.gradebook) appState.gradebook = {};
 
   if (!appState.gradebook[key]) {
-    // คำนวณคะแนนเก็บเริ่มต้นจาก submissions ถ้ามี
     let computedWork = 0;
     const assignments = getFilteredAssignments();
     if (assignments.length > 0) {
@@ -2816,20 +2824,19 @@ function getOrCreateGradeRecord(student) {
       attPre: 7,
       workPre: computedWork > 0 ? computedWork : 8,
       sumPre: 15,
-      midRaw: 14,
-      midDiv: 2,
+      midRaw: 12,
       midHelp: 0,
-      midScore: 7,
+      midScore: 12,
       attPost: 8,
       workPost: 10,
       sumPost: 18,
-      termScore: 40,
+      termScore: 45,
       finalRaw: 16,
       finalDiv: 2,
       finalHelp: 5,
       finalScore: 13,
-      totalScore: 53,
-      grade: '1',
+      totalScore: 58,
+      grade: '1.5',
       sgsStatus: 'ปกติ',
       note: ''
     };
@@ -2844,7 +2851,6 @@ function getOrCreateGradeRecord(student) {
  */
 function setGradebookRatio(ratio) {
   appState.gradebookRatio = ratio;
-  // คำนวณใหม่ทั้งหมดตามสัดส่วนใหม่
   if (appState.gradebook) {
     Object.keys(appState.gradebook).forEach(key => {
       appState.gradebook[key] = calculateGradeRecord(appState.gradebook[key], ratio);
@@ -2854,6 +2860,40 @@ function setGradebookRatio(ratio) {
   saveLocalState();
   renderApp();
   showToast('สลับสัดส่วนคะแนนเป็น ' + ratio + ' และคำนวณใหม่เรียบร้อยแล้ว');
+}
+
+/**
+ * แป้นพิมพ์ลัด & ระบบเด้งลงอัตโนมัติ (Auto-Advance) เหมือนเช็กส่งงาน / Excel
+ * กด Enter หรือ ลูกศรลง ⬇️: บันทึกและเด้งไปคนถัดไปทันที
+ * กด ลูกศรขึ้น ⬆️: ย้อนกลับไปคนก่อนหน้า
+ */
+function handleGradebookKeyDown(e, currentRowIdx, colName) {
+  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    // สั่งบันทึกค่าในช่องปัจจุบันทันที
+    if (e.target) {
+      e.target.dispatchEvent(new Event('change'));
+    }
+    navigateToGradebookCell(currentRowIdx + 1, colName);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (e.target) {
+      e.target.dispatchEvent(new Event('change'));
+    }
+    navigateToGradebookCell(currentRowIdx - 1, colName);
+  }
+}
+
+/**
+ * เลื่อน Focus ไปยังเซลล์เป้าหมายในคอลัมน์เดียวกัน พร้อม Auto-select
+ */
+function navigateToGradebookCell(targetRowIdx, colName) {
+  const targetInput = document.querySelector(`.gb-score-input[data-row="${targetRowIdx}"][data-col="${colName}"]`);
+  if (targetInput) {
+    targetInput.focus();
+    targetInput.select();
+    targetInput.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
 }
 
 /**
@@ -2872,7 +2912,7 @@ function updateGradebookCell(studentId, field, value) {
     rec = getOrCreateGradeRecord(student);
   }
 
-  if (field === 'sgsStatus' || field === 'note') {
+  if (field === 'note') {
     rec[field] = value;
   } else {
     rec[field] = value === '' ? 0 : Number(value);
@@ -3017,17 +3057,23 @@ function renderGradebook(container) {
   // ห้องเรียนทั้งหมด
   const classrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
 
-  let classPillsHtml = classrooms.map(c => {
+  // แถบเลือกห้องเรียนดีไซน์ใหม่ สวยงาม มินิมอล ไม่มี scrollbar ขัดตา
+  const classPillsHtml = classrooms.map(c => {
     const count = appState.students.filter(s => s.classroom === c).length;
-    const activeClass = (c === appState.activeClassroom) ? 'active' : '';
-    return `<button class="filter-pill ${activeClass}" onclick="switchGradebookClassroom('${esc(c)}')">${esc(c)} <small>(${count} คน)</small></button>`;
+    const isActive = (c === appState.activeClassroom);
+    return `
+      <button class="gb-room-pill ${isActive ? 'active' : ''}" onclick="switchGradebookClassroom('${esc(c)}')">
+        <span>${esc(c)}</span>
+        <span class="pill-count">${count} คน</span>
+      </button>
+    `;
   }).join('');
 
   let tableRowsHtml = '';
   if (students.length === 0) {
     tableRowsHtml = `
       <tr>
-        <td colspan="23" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <td colspan="20" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
           <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📂</div>
           <p>ยังไม่มีรายชื่อนักเรียนในห้อง ${esc(appState.activeClassroom)}</p>
           <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
@@ -3050,34 +3096,40 @@ function renderGradebook(container) {
           <!-- ก่อนกลางภาค -->
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
+              data-row="${idx}" data-col="attPre" data-sid="${esc(s.studentId)}"
               value="${rec.attPre}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPre', this.value)" 
               title="เวลาเรียนก่อนกลาง (เต็ม 10)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
+              data-row="${idx}" data-col="workPre" data-sid="${esc(s.studentId)}"
               value="${rec.workPre}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPre', this.value)" 
               title="คะแนนเก็บงานก่อนกลาง">
           </td>
           <td class="td-calc gb-sum-pre">${rec.sumPre}</td>
 
-          <!-- กลางภาค -->
+          <!-- กลางภาค (ตัดตัวหารออกแล้ว: ข้อเขียนหารมาแล้ว + คะแนนช่วย) -->
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
+              data-row="${idx}" data-col="midRaw" data-sid="${esc(s.studentId)}"
               value="${rec.midRaw}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'midRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midRaw', this.value)" 
-              title="สอบกลางภาค (ข้อเขียนดิบ)">
-          </td>
-          <td>
-            <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
-              value="${rec.midDiv || 2}" 
-              onchange="updateGradebookCell('${esc(s.studentId)}', 'midDiv', this.value)" 
-              title="ตัวหาร (ปกติหาร 2)">
+              title="สอบกลางภาค (คะแนนจริงที่หารแล้ว)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
+              data-row="${idx}" data-col="midHelp" data-sid="${esc(s.studentId)}"
               value="${rec.midHelp || 0}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'midHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midHelp', this.value)" 
               title="คะแนนช่วย / สอบแก้ตัว">
           </td>
@@ -3086,13 +3138,19 @@ function renderGradebook(container) {
           <!-- หลังกลางภาค -->
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
+              data-row="${idx}" data-col="attPost" data-sid="${esc(s.studentId)}"
               value="${rec.attPost}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPost', this.value)" 
               title="เวลาเรียนหลังกลาง (เต็ม 10)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
+              data-row="${idx}" data-col="workPost" data-sid="${esc(s.studentId)}"
               value="${rec.workPost}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPost', this.value)" 
               title="คะแนนเก็บงานหลังกลาง">
           </td>
@@ -3104,19 +3162,28 @@ function renderGradebook(container) {
           <!-- ปลายภาค -->
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
+              data-row="${idx}" data-col="finalRaw" data-sid="${esc(s.studentId)}"
               value="${rec.finalRaw}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalRaw', this.value)" 
               title="สอบปลายภาค (ข้อเขียนดิบ)">
           </td>
           <td>
             <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
+              data-row="${idx}" data-col="finalDiv" data-sid="${esc(s.studentId)}"
               value="${rec.finalDiv || 2}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalDiv')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalDiv', this.value)" 
               title="ตัวหาร (ปกติหาร 2)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
+              data-row="${idx}" data-col="finalHelp" data-sid="${esc(s.studentId)}"
               value="${rec.finalHelp || 0}" 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalHelp', this.value)" 
               title="คะแนนช่วย / สอบแก้ตัว">
           </td>
@@ -3125,23 +3192,19 @@ function renderGradebook(container) {
           <!-- รวม 100 คะแนน -->
           <td class="td-grand-total gb-total-score">${rec.totalScore}</td>
 
-          <!-- ผลการเรียน & SGS -->
+          <!-- ผลการเรียน & ช่องหมายเหตุสำหรับกรอก ร / มส -->
           <td class="td-grade-val">
             <span class="gb-grade-val ${getGradeBadgeClass(rec.grade)}">${rec.grade}</span>
           </td>
           <td>
-            <select class="form-select form-select-sm" style="font-size: 0.75rem; padding: 2px 4px; width: 68px;" 
-              onchange="updateGradebookCell('${esc(s.studentId)}', 'sgsStatus', this.value)">
-              <option value="ปกติ" ${rec.sgsStatus === 'ปกติ' ? 'selected' : ''}>ปกติ</option>
-              <option value="ร" ${rec.sgsStatus === 'ร' ? 'selected' : ''}>ติด ร</option>
-              <option value="มส" ${rec.sgsStatus === 'มส' ? 'selected' : ''}>ติด มส</option>
-            </select>
-          </td>
-          <td>
-            <input type="text" class="gb-score-input" style="width: 80px; text-align: left; font-size: 13px;" 
+            <input type="text" class="gb-score-input gb-note-input" 
+              data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
               value="${esc(rec.note || '')}" 
-              placeholder="บันทึก..." 
-              onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)">
+              placeholder="ปกติ / ร / มส..." 
+              onfocus="this.select()"
+              onkeydown="handleGradebookKeyDown(event, ${idx}, 'note')"
+              onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)"
+              title="พิมพ์ 'ร' หรือ 'มส' ในช่องนี้เพื่อตัดเกรดเป็น ร หรือ มส">
           </td>
         </tr>
       `;
@@ -3150,10 +3213,30 @@ function renderGradebook(container) {
 
   container.innerHTML = `
     <div class="gradebook-container">
-      <!-- Classroom Filter Bar -->
-      <div class="filter-bar" style="overflow-x: auto; white-space: nowrap; padding-bottom: 0.25rem;">
-        <span class="filter-label">เลือกดูห้อง:</span>
-        ${classPillsHtml}
+      <!-- แถบเลือกห้องเรียนดีไซน์ใหม่ มินิมอล สบายตา -->
+      <div class="gb-classroom-card">
+        <div class="gb-classroom-header">
+          <span class="gb-classroom-title">
+            <span>🏫</span> เลือกห้องเรียน
+          </span>
+          <span class="gb-classroom-count-badge">${classrooms.length} ห้องเรียน</span>
+        </div>
+        <div class="gb-classroom-slider">
+          ${classPillsHtml}
+        </div>
+      </div>
+
+      <!-- แถบแจ้งเตือนคีย์บอร์ดลัด (Auto-advance hint) -->
+      <div class="gb-quick-nav-hint">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.15rem;">⚡</span>
+          <span><b>โหมดกรอกคะแนนด่วน (เหมือนเช็กส่งงาน):</b> พิมพ์คะแนนแล้วกด <b>Enter</b> หรือ <b>ลูกศรลง ⬇️</b> ระบบจะบันทึกและเด้งลงคนถัดไปทันที (ไม่ต้องใช้เมาส์)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
+          <span>กด <b>ลูกศรขึ้น ⬆️</b> เพื่อย้อน</span>
+          <span>•</span>
+          <span>ติด <b>ร / มส</b> ให้พิมพ์ในช่องหมายเหตุ</span>
+        </div>
       </div>
 
       <!-- Gradebook Toolbar -->
@@ -3199,12 +3282,12 @@ function renderGradebook(container) {
             <tr>
               <th colspan="3" class="th-sec-student">ข้อมูลนักเรียน</th>
               <th colspan="3" class="th-sec-pre">คะแนนเก็บก่อนกลางภาค</th>
-              <th colspan="4" class="th-sec-mid">สอบกลางภาค</th>
+              <th colspan="3" class="th-sec-mid">สอบกลางภาค</th>
               <th colspan="3" class="th-sec-post">คะแนนเก็บหลังกลางภาค</th>
               <th colspan="1" class="th-sec-term">ระหว่างภาค</th>
               <th colspan="4" class="th-sec-final">สอบปลายภาค</th>
               <th colspan="1" class="th-sec-total">รวม 100</th>
-              <th colspan="3" class="th-sec-grade">ผลการเรียน & SGS</th>
+              <th colspan="2" class="th-sec-grade">ผลการเรียน</th>
             </tr>
             <tr>
               <!-- ข้อมูลนักเรียน -->
@@ -3217,9 +3300,8 @@ function renderGradebook(container) {
               <th>งาน</th>
               <th style="font-weight: 700;">รวม</th>
 
-              <!-- สอบกลางภาค -->
+              <!-- สอบกลางภาค (ไม่มีตัวหารแล้ว) -->
               <th>ข้อเขียน</th>
-              <th>ตัวหาร</th>
               <th>คะแนนช่วย</th>
               <th style="font-weight: 700;">สรุปกลาง</th>
 
@@ -3240,10 +3322,9 @@ function renderGradebook(container) {
               <!-- รวมทั้งสิ้น -->
               <th style="font-weight: 900; color: #166534;">รวม (100)</th>
 
-              <!-- เกรด & SGS -->
+              <!-- เกรด & หมายเหตุ (กรอก ร/มส) -->
               <th>เกรด</th>
-              <th>สถานะ SGS</th>
-              <th>หมายเหตุ</th>
+              <th>หมายเหตุ (กรอก ร / มส)</th>
             </tr>
           </thead>
           <tbody>
@@ -3331,7 +3412,7 @@ function exportGradebookSGS() {
   const headers = [
     'เลขที่', 'รหัสประจำตัว', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'วิชา',
     'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
-    'กลางภาค_ข้อเขียน', 'กลางภาค_ตัวหาร', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
+    'กลางภาค_ข้อเขียน', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
     'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
     'รวมระหว่างภาค',
     'ปลายภาค_ข้อเขียน', 'ปลายภาค_ตัวหาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
@@ -3352,7 +3433,6 @@ function exportGradebookSGS() {
       rec.workPre,
       rec.sumPre,
       rec.midRaw,
-      rec.midDiv,
       rec.midHelp,
       rec.midScore,
       rec.attPost,
@@ -3411,7 +3491,6 @@ async function loadOriginalSchoolGrades() {
 
     if (!appState.gradebook) appState.gradebook = {};
 
-    // รวมรายชื่อนักเรียนและคะแนน
     const existingIds = new Set(appState.students.map(s => String(s.studentId)));
     const roomSet = new Set(appState.settings.classrooms || DEFAULT_CLASSROOMS);
 
@@ -3419,7 +3498,6 @@ async function loadOriginalSchoolGrades() {
       const room = r.room || 'ม.4/1';
       roomSet.add(room);
 
-      // ถ้านักเรียนยังไม่มีใน appState.students ให้เพิ่มเข้าไป
       const sid = String(r.studentId);
       if (!existingIds.has(sid)) {
         appState.students.push({
@@ -3432,9 +3510,11 @@ async function loadOriginalSchoolGrades() {
         existingIds.add(sid);
       }
 
-      // บันทึกเข้า gradebook
       const subj = appState.activeSubject || 'ส31101';
       const key = subj + '_' + room + '_' + sid;
+
+      // ถ้าในข้อมูลเดิม midScore มีค่า ให้ใช้ midScore เป็น midRaw (เพราะหารมาแล้ว)
+      const midVal = Number(r.midScore || r.midRaw || 0);
 
       appState.gradebook[key] = {
         subject: subj,
@@ -3445,10 +3525,10 @@ async function loadOriginalSchoolGrades() {
         attPre: Number(r.attPre) || 0,
         workPre: Number(r.workPre) || 0,
         sumPre: Number(r.sumPre) || 0,
-        midRaw: Number(r.midRaw) || 0,
-        midDiv: Number(r.midDiv) || 2,
+        midRaw: midVal,
+        midDiv: 1,
         midHelp: Number(r.midHelp) || 0,
-        midScore: Number(r.midScore) || 0,
+        midScore: midVal,
         attPost: Number(r.attPost) || 0,
         workPost: Number(r.workPost) || 0,
         sumPost: Number(r.sumPost) || 0,
@@ -3460,7 +3540,7 @@ async function loadOriginalSchoolGrades() {
         totalScore: Number(r.totalScore) || 0,
         grade: String(r.grade || '0'),
         sgsStatus: String(r.sgsStatus || 'ปกติ'),
-        note: ''
+        note: r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : '')
       };
     });
 

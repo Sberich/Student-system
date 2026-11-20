@@ -1591,3 +1591,142 @@ body {
     box-shadow: none !important;
   }
 }
+
+/* Sleek Classroom Navigation Ribbon */
+.gb-classroom-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0.625rem 1rem;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gb-classroom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.gb-classroom-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gb-classroom-count-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: #EFF6FF;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid #BFDBFE;
+}
+
+.gb-classroom-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem 0.4rem 0.15rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.gb-classroom-slider::-webkit-scrollbar {
+  height: 4px;
+}
+
+.gb-classroom-slider::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gb-classroom-slider::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.gb-classroom-slider::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+.gb-room-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  color: #334155;
+  font-size: 0.825rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.gb-room-pill:hover {
+  border-color: #93C5FD;
+  background: #F0F9FF;
+  color: #1D4ED8;
+  transform: translateY(-1px);
+}
+
+.gb-room-pill.active {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF !important;
+  border-color: #1D4ED8;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
+}
+
+.gb-room-pill .pill-count {
+  font-size: 0.725rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: #F1F5F9;
+  color: #64748B;
+  transition: all 0.2s;
+}
+
+.gb-room-pill.active .pill-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+/* Quick Nav Helper Banner */
+.gb-quick-nav-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  color: #1E40AF;
+  flex-wrap: wrap;
+}
+
+.gb-note-input {
+  width: 110px !important;
+  text-align: left !important;
+  font-size: 13px !important;
+  padding: 4px 6px !important;
+}
+
+.gb-note-input:focus {
+  width: 140px !important;
+}

@@ -582,7 +582,7 @@ function renderOverview(container) {
               <span class="stat-pill-label">👥 นักเรียน</span>
               <span class="stat-pill-val">${totalStudents} <small>คน</small></span>
             </div>
-            <div class="stat-pill-item">
+            <div class="stat-pill-item" onclick="switchTab('assignments')" style="cursor: pointer;" title="แตะเพื่อดู/จัดการงานที่สั่ง">
               <span class="stat-pill-label">📚 ชิ้นงาน</span>
               <span class="stat-pill-val">${totalAssignments} <small>ชิ้น</small></span>
             </div>
@@ -749,6 +749,7 @@ function renderGrading(container) {
         <div class="btn-group">
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" title="งานก่อนหน้า">◀</button>
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" title="งานถัดไป">▶</button>
+          <button class="btn btn-secondary btn-sm" onclick="switchTab('assignments')" title="จัดการงานที่สั่ง / เพิ่มงานใหม่">📚</button>
         </div>
       </div>
 
@@ -3377,11 +3378,11 @@ function renderGradebook(container) {
               data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
               tabindex="${1800 + idx}" enterkeyhint="next"
               value="${esc(rec.note || '')}" 
-              placeholder="ปกติ / ร / มส..." 
+              placeholder="" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'note')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)"
-              title="พิมพ์ 'ร' หรือ 'มส' ในช่องนี้เพื่อตัดเกรดเป็น ร หรือ มส">
+              title="หากติด ร หรือ มส ให้พิมพ์ 'ร' หรือ 'มส' ในช่องนี้ (หากปกติให้เว้นว่างไว้)">
           </td>
         </tr>
       `;
@@ -3504,9 +3505,9 @@ function renderGradebook(container) {
               <!-- รวมทั้งสิ้น -->
               <th style="font-weight: 900; color: #166534;">รวม (100)</th>
 
-              <!-- เกรด & หมายเหตุ (กรอก ร/มส) -->
+              <!-- เกรด & ร/มส -->
               <th>เกรด</th>
-              <th>หมายเหตุ (กรอก ร / มส)</th>
+              <th title="หากติด ร หรือ มส ให้พิมพ์ในช่องนี้">ร / มส</th>
             </tr>
           </thead>
           <tbody>

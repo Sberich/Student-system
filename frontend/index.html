@@ -122,6 +122,27 @@
     </button>
   </nav>
 
+  <!-- แป้นกดคะแนนลอย (Floating Scoring Bar) สำหรับ iPad, Tablet และมือถือในหน้าตัดเกรด -->
+  <div id="gb-floating-keypad" class="gb-floating-keypad" style="display: none;">
+    <div class="gbf-inner">
+      <div class="gbf-header">
+        <div class="gbf-student-info">
+          <span class="gbf-badge-no" id="gbf-no">เลขที่ 1</span>
+          <span class="gbf-student-name" id="gbf-name">นายกันการ นุราช</span>
+          <span class="gbf-col-badge" id="gbf-col">ข้อเขียนปลายภาค</span>
+        </div>
+        <div class="gbf-val-box">
+          <span class="gbf-val-label">คะแนน:</span>
+          <span class="gbf-val-num" id="gbf-val-display">-</span>
+          <button type="button" class="gbf-close-btn" onclick="closeGradebookFloatingKeypad()" title="ปิดแป้นกดคะแนนลอย">✕</button>
+        </div>
+      </div>
+      <div class="gbf-actions" id="gbf-actions">
+        <!-- Rendered dynamically by app.js based on active column -->
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 

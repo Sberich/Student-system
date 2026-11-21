@@ -1873,18 +1873,44 @@ body {
 }
 
 /* Quick Nav Helper Banner */
+/* Quick Nav Helper Banner - จัดกึ่งกลาง สมดุล */
 .gb-quick-nav-hint {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: center;
+  text-align: center;
   background: #EFF6FF;
   border: 1px solid #BFDBFE;
   border-radius: var(--radius-md);
-  padding: 0.5rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.55rem 2.2rem 0.55rem 1rem;
+  font-size: 0.82rem;
   color: #1E40AF;
-  flex-wrap: wrap;
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.gb-quick-nav-hint-close {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #1E40AF;
+  font-size: 0.95rem;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+[data-theme="dark"] .gb-quick-nav-hint {
+  background: rgba(30, 58, 138, 0.25);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93C5FD;
+}
+
+[data-theme="dark"] .gb-quick-nav-hint-close {
+  color: #93C5FD;
 }
 
 /* คอลัมน์และช่องกรอก ร / มส (กะทัดรัด พอดีตัวอักษร ร/มส กึ่งกลาง) */
@@ -2991,4 +3017,562 @@ body {
   .main-content {
     padding-bottom: 96px !important;
   }
+}
+
+
+/* ==========================================================================
+   ภาระงาน (Assignments) Responsive Cards & Clean Form
+   ========================================================================== */
+.new-assign-card {
+  background: var(--bg-subtle);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border-light);
+}
+
+.new-assign-card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--text-main);
+}
+
+.new-assign-form-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1.3fr auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.assign-table-wrapper {
+  display: block;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.assign-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.assign-table th {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 2px solid var(--border-light);
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.assign-table td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.assign-id-cell {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.assign-title-cell {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.assign-score-cell {
+  font-weight: 500;
+}
+
+.assign-date-cell {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.assign-subj-cell {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.assign-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .new-assign-form-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .form-group-title {
+    grid-column: 1 / -1;
+  }
+  .form-group-score {
+    grid-column: 1 / 2;
+  }
+  .form-group-date {
+    grid-column: 2 / 3;
+  }
+  .form-group-btn {
+    grid-column: 1 / -1;
+    margin-top: 0.25rem;
+  }
+  .btn-block-mobile {
+    width: 100%;
+    justify-content: center;
+    padding: 0.65rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .assign-table-wrapper {
+    display: none !important;
+  }
+
+  .assign-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .assign-m-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 0.8rem 0.9rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  [data-theme="dark"] .assign-m-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .assign-m-card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: space-between;
+  }
+
+  .assign-m-badge {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .assign-m-title {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    flex: 1;
+    line-height: 1.3;
+  }
+
+  .assign-m-score {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #047857;
+    background: #E6F4EA;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  [data-theme="dark"] .assign-m-score {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6EE7B7;
+  }
+
+  .assign-m-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--border-light);
+  }
+
+  .assign-m-meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  .assign-m-meta b {
+    color: var(--text-main);
+  }
+
+  .assign-m-del-btn {
+    padding: 3px 10px;
+    font-size: 0.78rem;
+  }
+}
+
+/* ==========================================================================
+   Gradebook Floating Scoring Bar (แป้นพิมพ์คะแนนลอยสำหรับ iPad, Tablet, Mobile)
+   ========================================================================== */
+.gb-floating-keypad {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 680px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.22), 0 4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 1200;
+  overflow: hidden;
+  animation: gbfSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes gbfSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+[data-theme="dark"] .gb-floating-keypad {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(51, 65, 85, 0.95);
+  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.gbf-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.gbf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: rgba(241, 245, 249, 0.85);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+[data-theme="dark"] .gbf-header {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+.gbf-student-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.gbf-badge-no {
+  background: #EEF2FF;
+  color: #4338CA;
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .gbf-badge-no {
+  background: rgba(99, 102, 241, 0.25);
+  color: #A5B4FC;
+}
+
+.gbf-student-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.gbf-col-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .gbf-col-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FCD34D;
+}
+
+.gbf-val-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gbf-val-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.gbf-val-num {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--primary);
+  min-width: 36px;
+  text-align: right;
+  line-height: 1;
+}
+
+.gbf-close-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.gbf-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+[data-theme="dark"] .gbf-close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+}
+
+.gbf-actions {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gbf-row-presets {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gbf-row-presets::-webkit-scrollbar {
+  display: none;
+}
+
+.gbf-row-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.gbf-presets-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.gbf-presets-list::-webkit-scrollbar {
+  display: none;
+}
+
+.gbf-btn {
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.gbf-btn:active {
+  transform: scale(0.94);
+}
+
+.gbf-preset-btn {
+  padding: 0 11px;
+  font-size: 0.86rem;
+  background: rgba(241, 245, 249, 0.8);
+  color: #334155;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .gbf-preset-btn {
+  background: rgba(30, 41, 59, 0.8);
+  color: #E2E8F0;
+}
+
+.gbf-btn-del {
+  padding: 0 11px;
+  font-size: 1rem;
+  color: #DC2626;
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+[data-theme="dark"] .gbf-btn-del {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #F87171;
+}
+
+.gbf-btn-clear {
+  padding: 0 10px;
+  font-size: 0.78rem;
+  color: #64748B;
+  background: #F8FAFC;
+}
+
+[data-theme="dark"] .gbf-btn-clear {
+  background: rgba(30, 41, 59, 0.6);
+  color: #94A3B8;
+}
+
+.gbf-row-digits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gbf-digits-strip {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.gbf-digit-btn {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.gbf-digit-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.gbf-nav-strip {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.gbf-btn-prev {
+  padding: 0 10px;
+  font-size: 0.82rem;
+  background: #F1F5F9;
+  color: #475569;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .gbf-btn-prev {
+  background: rgba(51, 65, 85, 0.8);
+  color: #CBD5E1;
+}
+
+.gbf-btn-ok {
+  padding: 0 14px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  background: var(--primary) !important;
+  color: #FFFFFF !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  white-space: nowrap;
+}
+
+.gbf-btn-ok:hover {
+  filter: brightness(1.05);
+}
+
+/* Note row in keypad (ติด ร / มส) */
+.gbf-row-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.gbf-btn-r {
+  flex: 1;
+  height: 42px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #991B1B;
+  background: #FEE2E2;
+  border-color: #FCA5A5;
+}
+
+.gbf-btn-ms {
+  flex: 1;
+  height: 42px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #9A3412;
+  background: #FFEDD5;
+  border-color: #FDBA74;
+}
+
+[data-theme="dark"] .gbf-btn-r {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+}
+
+[data-theme="dark"] .gbf-btn-ms {
+  background: rgba(249, 115, 22, 0.2);
+  color: #FDBA74;
+}
+
+/* Active Cell Glow in Gradebook Table */
+.gbf-cell-active {
+  outline: 3px solid #10B981 !important;
+  outline-offset: -1px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5) !important;
+  background: #ECFDF5 !important;
+}
+
+[data-theme="dark"] .gbf-cell-active {
+  outline: 3px solid #10B981 !important;
+  background: rgba(16, 185, 129, 0.25) !important;
 }

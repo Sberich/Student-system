@@ -408,6 +408,9 @@ function handleGlobalKeydown(e) {
 
 function switchTab(tabName) {
   appState.currentTab = tabName;
+  if (tabName !== 'gradebook' && typeof closeGradebookFloatingKeypad === 'function') {
+    closeGradebookFloatingKeypad();
+  }
   document.querySelectorAll('.nav-tab-btn, .bottom-nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
   });
@@ -2283,59 +2286,86 @@ function renderAssignments(container) {
 
   container.innerHTML = `
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; align-items: center;">
         <div>
           <h2 class="card-title">รายการภาระงาน: วิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)})</h2>
           <p style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง ${esc(appState.activeClassroom)} (มี ${currentAssignments.length} งาน)</p>
         </div>
       </div>
 
-      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
-        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem;">+ สร้างงานใหม่สำหรับห้อง ${esc(appState.activeClassroom)}</h4>
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: end;">
-          <div>
+      <!-- กล่องสร้างภาระงานใหม่ Responsive (จัดเป็นระเบียบทั้งมือถือและคอม) -->
+      <div class="new-assign-card">
+        <h4 class="new-assign-card-title">+ สร้างภาระงานใหม่สำหรับห้อง ${esc(appState.activeClassroom)}</h4>
+        <div class="new-assign-form-grid">
+          <div class="form-group-title">
             <label class="form-label">ชื่องาน / รายละเอียด</label>
             <input type="text" id="new-assign-title" class="form-input" placeholder="เช่น 06 แบบฝึกหัดการเมืองการปกครอง" />
           </div>
-          <div>
+          <div class="form-group-score">
             <label class="form-label">คะแนนเต็ม</label>
-            <input type="number" id="new-assign-score" class="form-input" value="5" />
+            <input type="number" id="new-assign-score" class="form-input" value="5" min="1" max="100" />
           </div>
-          <div>
+          <div class="form-group-date">
             <label class="form-label">กำหนดส่ง</label>
             <input type="date" id="new-assign-date" class="form-input" />
           </div>
-          <button class="btn btn-primary" onclick="handleAddAssignment()">เพิ่มงาน</button>
+          <div class="form-group-btn">
+            <button class="btn btn-primary btn-block-mobile" onclick="handleAddAssignment()">
+              <span>+ เพิ่มภาระงาน</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style="max-height: 500px; overflow-y: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <!-- Desktop & Tablet Table View -->
+      <div class="assign-table-wrapper">
+        <table class="assign-table">
           <thead>
-            <tr style="border-bottom: 2px solid var(--border-light); text-align: left;">
-              <th style="padding: 0.5rem;">รหัสงาน</th>
-              <th style="padding: 0.5rem;">ชื่องาน</th>
-              <th style="padding: 0.5rem;">คะแนนเต็ม</th>
-              <th style="padding: 0.5rem;">กำหนดส่ง</th>
-              <th style="padding: 0.5rem;">วิชา</th>
-              <th style="padding: 0.5rem; text-align: right;">การกระทำ</th>
+            <tr>
+              <th style="width: 70px;">รหัส</th>
+              <th>ชื่อภาระงาน</th>
+              <th style="width: 110px;">คะแนนเต็ม</th>
+              <th style="width: 130px;">กำหนดส่ง</th>
+              <th style="width: 100px;">วิชา</th>
+              <th style="width: 90px; text-align: right;">การกระทำ</th>
             </tr>
           </thead>
           <tbody>
             ${currentAssignments.map(a => `
-              <tr style="border-bottom: 1px solid var(--border-light);">
-                <td style="padding: 0.5rem; font-weight: 600; color: var(--primary);">${esc(a.id)}</td>
-                <td style="padding: 0.5rem; font-weight: 500;">${esc(a.title)}</td>
-                <td style="padding: 0.5rem;">${a.fullScore} คะแนน</td>
-                <td style="padding: 0.5rem; color: var(--text-secondary);">${esc(a.dueDate || '-')}</td>
-                <td style="padding: 0.5rem;">${esc(a.subject || appState.activeSubject)}</td>
-                <td style="padding: 0.5rem; text-align: right;">
+              <tr>
+                <td class="assign-id-cell">${esc(a.id)}</td>
+                <td class="assign-title-cell">${esc(a.title)}</td>
+                <td class="assign-score-cell">${a.fullScore} คะแนน</td>
+                <td class="assign-date-cell">${esc(a.dueDate || '-')}</td>
+                <td class="assign-subj-cell">${esc(a.subject || appState.activeSubject)}</td>
+                <td style="text-align: right;">
                   <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${esc(a.id)}')">🗑️ ลบ</button>
                 </td>
               </tr>
             `).join('')}
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile Clean Cards View (มุมมองมือถือ ไม่บีบอัดคอลัมน์) -->
+      <div class="assign-mobile-cards">
+        ${currentAssignments.length === 0 ? `
+          <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">ยังไม่มีภาระงานในห้องนี้</div>
+        ` : currentAssignments.map(a => `
+          <div class="assign-m-card">
+            <div class="assign-m-card-top">
+              <span class="assign-m-badge">${esc(a.id)}</span>
+              <div class="assign-m-title">${esc(a.title)}</div>
+              <span class="assign-m-score">${a.fullScore} คะแนน</span>
+            </div>
+            <div class="assign-m-card-bottom">
+              <span class="assign-m-meta">📅 กำหนดส่ง: <b>${esc(a.dueDate || '-')}</b></span>
+              <button class="btn btn-sm btn-danger-soft assign-m-del-btn" onclick="deleteAssignment('${esc(a.id)}')">
+                🗑️ ลบ
+              </button>
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
@@ -3406,11 +3436,10 @@ function renderGradebook(container) {
 
       <!-- แถบแจ้งเตือนคีย์บอร์ดลัด (Auto-advance hint - มินิมอล & ปิดได้) -->
       <div class="gb-quick-nav-hint" id="gb-nav-hint">
-        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem;">
-          <span>⚡</span>
-          <span><b>โหมดกรอกด่วน:</b> พิมพ์แล้วกด <b>Enter / ⬇️</b> เพื่อเด้งลงคนถัดไป • ติด <b>ร/มส</b> ให้พิมพ์ในช่องหมายเหตุ</span>
+        <div style="flex: 1; text-align: center; font-size: 0.82rem; line-height: 1.4;">
+          <span>⚡ <b>โหมดกรอกด่วน:</b> กด <b>Enter / ⬇️</b> เพื่อลงคนถัดไป • หากติด <b>ร</b> หรือ <b>มส</b> ให้พิมพ์ <b>ร</b> หรือ <b>มส</b> ลงไป</span>
         </div>
-        <button type="button" onclick="document.getElementById('gb-nav-hint').style.display='none'" style="background: none; border: none; cursor: pointer; color: #1E40AF; font-size: 0.85rem; padding: 2px 6px;" title="ปิดคำแนะนำ">✕</button>
+        <button type="button" class="gb-quick-nav-hint-close" onclick="document.getElementById('gb-nav-hint').style.display='none'" title="ปิดคำแนะนำ">✕</button>
       </div>
 
       <!-- Gradebook Toolbar -->
@@ -3426,6 +3455,9 @@ function renderGradebook(container) {
         </div>
 
         <div class="gb-action-btn-group">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" title="เปิด/ปิด แป้นพิมพ์คะแนนลอยบนไอแพดและแท็บเล็ต">
+            📱 แป้นลอย
+          </button>
           <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
             <span>💾</span> บันทึก Sheets
           </button>
@@ -3729,3 +3761,222 @@ async function loadOriginalSchoolGrades() {
     alert('ไม่สามารถโหลดไฟล์ข้อมูลต้นฉบับได้: ' + err.message);
   }
 }
+
+
+// ==========================================================================
+// Floating Scoring Keypad Bar สำหรับ iPad, Tablet และมือถือ (ตัดเกรด)
+// ==========================================================================
+
+const GBF_COL_NAMES = {
+  attPre: 'จิตพิสัย (ก่อนกลาง)',
+  workPre: 'คะแนนเก็บ (ก่อนกลาง)',
+  midRaw: 'สอบกลางภาค (ข้อเขียน)',
+  midHelp: 'กลางภาค (คะแนนช่วย)',
+  attPost: 'จิตพิสัย (หลังกลาง)',
+  workPost: 'คะแนนเก็บ (หลังกลาง)',
+  finalRaw: 'สอบปลายภาค (ข้อเขียน)',
+  finalHelp: 'ปลายภาค (คะแนนช่วย)',
+  note: 'หมายเหตุ (ร / มส)'
+};
+
+let gbfActiveInput = null;
+let gbfRow = 0;
+let gbfCol = '';
+let gbfSid = '';
+let gbfJustFocused = false;
+let gbfEnabled = true;
+
+function toggleGradebookFloatingMode() {
+  gbfEnabled = !gbfEnabled;
+  const btn = document.getElementById('gb-toggle-keypad-btn');
+  if (btn) {
+    btn.classList.toggle('active', gbfEnabled);
+    btn.innerHTML = gbfEnabled ? '📱 แป้นลอย (ON)' : '📱 แป้นลอย (OFF)';
+  }
+  if (!gbfEnabled) {
+    closeGradebookFloatingKeypad();
+    showToast('ปิดแป้นกดคะแนนลอยแล้ว', 'info');
+  } else {
+    showToast('เปิดแป้นกดคะแนนลอยแล้ว (แตะช่องใดๆ ในตารางเพื่อเริ่มกรอก)', 'success');
+  }
+}
+
+function openGradebookFloatingKeypad(input, rowIdx, colName, studentId) {
+  if (!gbfEnabled) return;
+  if (appState.currentTab !== 'gradebook') return;
+
+  const keypad = document.getElementById('gb-floating-keypad');
+  if (!keypad) return;
+
+  if (gbfActiveInput && gbfActiveInput !== input) {
+    gbfActiveInput.classList.remove('gbf-cell-active');
+  }
+
+  gbfActiveInput = input;
+  gbfRow = rowIdx;
+  gbfCol = colName;
+  gbfSid = studentId;
+  gbfJustFocused = true;
+
+  input.classList.add('gbf-cell-active');
+
+  const s = appState.students.find(st => String(st.studentId) === String(studentId)) || { no: rowIdx + 1, fullName: 'นักเรียน' };
+
+  const noElem = document.getElementById('gbf-no');
+  const nameElem = document.getElementById('gbf-name');
+  const colElem = document.getElementById('gbf-col');
+  const valElem = document.getElementById('gbf-val-display');
+
+  if (noElem) noElem.textContent = 'เลขที่ ' + (s.no || (rowIdx + 1));
+  if (nameElem) nameElem.textContent = s.fullName || '';
+  if (colElem) colElem.textContent = GBF_COL_NAMES[colName] || colName;
+  if (valElem) valElem.textContent = (input.value === '' ? '-' : input.value);
+
+  renderFloatingKeypadButtons(colName);
+  keypad.style.display = 'block';
+}
+
+function renderFloatingKeypadButtons(colName) {
+  const actionsContainer = document.getElementById('gbf-actions');
+  if (!actionsContainer) return;
+
+  if (colName === 'note') {
+    actionsContainer.innerHTML = `
+      <div class="gbf-row-note">
+        <button type="button" class="gbf-btn gbf-btn-r" onclick="gbfSetNote('ร')">ติด ร</button>
+        <button type="button" class="gbf-btn gbf-btn-ms" onclick="gbfSetNote('มส')">ติด มส</button>
+        <button type="button" class="gbf-btn gbf-btn-clear" onclick="gbfSetNote('')">ล้าง (ปกติ)</button>
+        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)" title="คนก่อนหน้า">⬆️ ก่อน</button>
+        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()" title="บันทึกและลงคนถัดไป">ตกลง ⬇️</button>
+      </div>
+    `;
+    return;
+  }
+
+  let presets = [0, 5, 10, 15, 20, 25, 30];
+  if (colName === 'attPre' || colName === 'attPost') {
+    presets = [0, 5, 8, 9, 10];
+  } else if (colName === 'midHelp' || colName === 'finalHelp') {
+    presets = [0, 1, 2, 3, 5, 10];
+  } else if (colName === 'midRaw' || colName === 'finalRaw') {
+    presets = [0, 10, 15, 20, 25, 30, 40, 50, 60];
+  }
+
+  actionsContainer.innerHTML = `
+    <div class="gbf-row-presets">
+      <span class="gbf-row-label">ด่วน:</span>
+      <div class="gbf-presets-list">
+        ${presets.map(p => `
+          <button type="button" class="gbf-btn gbf-preset-btn" onclick="gbfSetScore(${p})">${p}</button>
+        `).join('')}
+      </div>
+      <button type="button" class="gbf-btn gbf-btn-del" onclick="gbfBackspace()" title="ลบตัวเลขหลัง">⌫</button>
+      <button type="button" class="gbf-btn gbf-btn-clear" onclick="gbfClear()" title="ล้างค่า">ล้าง</button>
+    </div>
+    <div class="gbf-row-digits">
+      <div class="gbf-digits-strip">
+        ${['1','2','3','4','5','6','7','8','9','0','.'].map(d => `
+          <button type="button" class="gbf-btn gbf-digit-btn" onclick="gbfAppendDigit('${d}')">${d}</button>
+        `).join('')}
+      </div>
+      <div class="gbf-nav-strip">
+        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)" title="คนก่อนหน้า">⬆️ ก่อน</button>
+        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()" title="บันทึกและเลื่อนลงคนถัดไป">ตกลง ⬇️</button>
+      </div>
+    </div>
+  `;
+}
+
+function gbfAppendDigit(digit) {
+  if (!gbfActiveInput) return;
+  let cur = String(gbfActiveInput.value || '');
+  if (gbfJustFocused) {
+    cur = digit === '.' ? '0.' : digit;
+    gbfJustFocused = false;
+  } else {
+    if (digit === '.' && cur.includes('.')) return;
+    cur += digit;
+  }
+  gbfActiveInput.value = cur;
+  const valElem = document.getElementById('gbf-val-display');
+  if (valElem) valElem.textContent = cur;
+  updateGradebookCell(gbfSid, gbfCol, cur);
+}
+
+function gbfBackspace() {
+  if (!gbfActiveInput) return;
+  let cur = String(gbfActiveInput.value || '');
+  cur = cur.slice(0, -1);
+  gbfActiveInput.value = cur;
+  const valElem = document.getElementById('gbf-val-display');
+  if (valElem) valElem.textContent = cur === '' ? '-' : cur;
+  updateGradebookCell(gbfSid, gbfCol, cur);
+  gbfJustFocused = false;
+}
+
+function gbfClear() {
+  if (!gbfActiveInput) return;
+  gbfActiveInput.value = '';
+  const valElem = document.getElementById('gbf-val-display');
+  if (valElem) valElem.textContent = '-';
+  updateGradebookCell(gbfSid, gbfCol, '');
+  gbfJustFocused = false;
+}
+
+function gbfSetScore(score) {
+  if (!gbfActiveInput) return;
+  gbfActiveInput.value = score;
+  const valElem = document.getElementById('gbf-val-display');
+  if (valElem) valElem.textContent = score;
+  updateGradebookCell(gbfSid, gbfCol, score);
+  gbfJustFocused = false;
+}
+
+function gbfSetNote(val) {
+  if (!gbfActiveInput) return;
+  gbfActiveInput.value = val;
+  const valElem = document.getElementById('gbf-val-display');
+  if (valElem) valElem.textContent = val === '' ? '(ปกติ)' : val;
+  updateGradebookCell(gbfSid, 'note', val);
+  gbfJustFocused = false;
+}
+
+function gbfConfirmAndNext() {
+  if (!gbfActiveInput) return;
+  gbfActiveInput.dispatchEvent(new Event('change'));
+  const nextRow = gbfRow + 1;
+  const nextInput = document.querySelector(`.gb-score-input[data-row="${nextRow}"][data-col="${gbfCol}"]`);
+  if (nextInput) {
+    navigateToGradebookCell(nextRow, gbfCol);
+  } else {
+    showToast('กรอกครบนักเรียนคนสุดท้ายในคอลัมน์นี้แล้ว 🎉', 'success');
+  }
+}
+
+function gbfNavigate(dir) {
+  const targetRow = gbfRow + dir;
+  navigateToGradebookCell(targetRow, gbfCol);
+}
+
+function closeGradebookFloatingKeypad() {
+  const keypad = document.getElementById('gb-floating-keypad');
+  if (keypad) keypad.style.display = 'none';
+  if (gbfActiveInput) {
+    gbfActiveInput.classList.remove('gbf-cell-active');
+    gbfActiveInput = null;
+  }
+}
+
+// Global listener สำหรับตรวจจับการแตะช่องในตารางตัดเกรด เพื่อเปิด Floating Keypad Bar
+document.addEventListener('focusin', (e) => {
+  if (appState.currentTab !== 'gradebook') return;
+  const input = e.target;
+  if (input && input.classList && input.classList.contains('gb-score-input')) {
+    const row = parseInt(input.getAttribute('data-row'));
+    const col = input.getAttribute('data-col');
+    const sid = input.getAttribute('data-sid');
+    if (!isNaN(row) && col && sid) {
+      openGradebookFloatingKeypad(input, row, col, sid);
+    }
+  }
+});

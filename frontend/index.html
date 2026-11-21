@@ -38,7 +38,10 @@
           <h1 class="brand-title">Smart Grade</h1>
           <div class="brand-subtitle">
             <span class="desktop-subtitle">สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง</span>
-            <span class="mobile-subtitle">สมาร์ทเกรด</span>
+            <div class="mobile-subtitle-row">
+              <span class="mobile-subtitle">สมาร์ทเกรด</span>
+              <span class="header-rooms-badge" id="header-rooms-badge">13 ห้อง</span>
+            </div>
           </div>
         </div>
       </div>
@@ -72,11 +75,6 @@
       </nav>
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <!-- Quick Theme Switcher Button -->
-        <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="cycleTheme()" title="เปลี่ยนธีมสี (ฟ้า / เขียว / ม่วง / โหมดมืด)">
-          🎨
-        </button>
-
         <div class="sync-status-indicator" id="manual-sync-btn" style="cursor: pointer;" title="คลิกเพื่อซิงค์ข้อมูลกับ Google Sheets">
           <span class="status-dot" id="sync-indicator-dot"></span>
           <span id="sync-indicator-label">บันทึกในเครื่องแล้ว</span>

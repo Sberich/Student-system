@@ -297,27 +297,30 @@ function seedDefaultState() {
 // ----------------- Header & Context Control -----------------
 function renderHeaderControls() {
   const container = document.getElementById('context-selector-container');
+  const subjectObj = getActiveSubjectObj();
+
+  // อัปเดตป้ายบอกจำนวนห้องเรียนข้างโลโก้ Smart Grade (สมาร์ทเกรด)
+  const roomBadge = document.getElementById('header-rooms-badge');
+  if (roomBadge) {
+    const totalRooms = (appState.settings.classrooms && appState.settings.classrooms.length) || 13;
+    roomBadge.textContent = `${totalRooms} ห้อง`;
+  }
+
   if (!container) return;
-
-  const subjectOpts = appState.settings.subjects.map(s => 
-    `<option value="${esc(s.code)}" ${s.code === appState.activeSubject ? 'selected' : ''}>${esc(s.code)} ${esc(s.name)}</option>`
-  ).join('');
-
-  const classOpts = appState.settings.classrooms.map(c => 
-    `<option value="${esc(c)}" ${c === appState.activeClassroom ? 'selected' : ''}>${esc(c)}</option>`
-  ).join('');
 
   container.innerHTML = `
     <div class="context-unified-bar">
-      <span class="context-bar-icon">📖</span>
-      <select class="context-select context-select-sub" onchange="changeActiveSubject(this.value)" title="เลือกรายวิชา">
-        ${subjectOpts}
-      </select>
+      <button type="button" class="context-picker-btn context-picker-sub" onclick="openModernSubjectPicker()" title="แตะเพื่อเลือกรายวิชา">
+        <span class="context-bar-icon">📖</span>
+        <span class="context-picker-text">${esc(subjectObj.code)}</span>
+        <span class="context-picker-arrow">▾</span>
+      </button>
       <span class="context-sep">•</span>
-      <span class="context-bar-icon">🏫</span>
-      <select class="context-select context-select-room" onchange="changeActiveClassroom(this.value)" title="เลือกห้องเรียน">
-        ${classOpts}
-      </select>
+      <button type="button" class="context-picker-btn context-picker-room" onclick="openModernClassroomPicker()" title="แตะเพื่อเลือกห้องเรียน">
+        <span class="context-bar-icon">🏫</span>
+        <span class="context-picker-text">${esc(appState.activeClassroom)}</span>
+        <span class="context-picker-arrow">▾</span>
+      </button>
     </div>
   `;
 }
@@ -325,6 +328,7 @@ function renderHeaderControls() {
 function changeActiveSubject(subCode) {
   appState.activeSubject = subCode;
   saveLocalState();
+  renderHeaderControls();
   renderApp();
 }
 
@@ -344,6 +348,138 @@ function changeActiveClassroom(className) {
   saveLocalState();
   renderHeaderControls();
   renderApp();
+}
+
+// ----------------- Modern Bottom Sheet / Custom Picker Engine -----------------
+function showModernPickerModal({ title, subtitle, icon = '📋', items = [], selectedValue, onSelect }) {
+  const existing = document.getElementById('modern-picker-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'modern-picker-modal';
+  modal.className = 'modern-picker-backdrop';
+
+  const itemsHtml = items.map(item => {
+    const isSelected = String(item.value) === String(selectedValue);
+    return `
+      <div class="modern-picker-item ${isSelected ? 'active' : ''}" data-val="${esc(item.value)}">
+        <div class="picker-item-left">
+          ${item.badge ? `<span class="picker-item-badge">${esc(item.badge)}</span>` : ''}
+          <div class="picker-item-info">
+            <div class="picker-item-title">${esc(item.title)}</div>
+            ${item.sub ? `<div class="picker-item-sub">${esc(item.sub)}</div>` : ''}
+          </div>
+        </div>
+        <div class="picker-item-right">
+          ${item.tag ? `<span class="picker-item-tag">${esc(item.tag)}</span>` : ''}
+          ${isSelected ? `<span class="picker-item-check">✓</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modern-picker-sheet">
+      <div class="modern-picker-handle"></div>
+      <div class="modern-picker-header">
+        <div class="picker-header-title-box">
+          <span class="picker-header-icon">${icon}</span>
+          <div>
+            <div class="picker-header-title">${esc(title)}</div>
+            ${subtitle ? `<div class="picker-header-sub">${esc(subtitle)}</div>` : ''}
+          </div>
+        </div>
+        <button type="button" class="modern-picker-close" onclick="closeModernPickerModal()">✕</button>
+      </div>
+      <div class="modern-picker-list">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModernPickerModal();
+  });
+
+  modal.querySelectorAll('.modern-picker-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const val = el.getAttribute('data-val');
+      closeModernPickerModal();
+      if (typeof onSelect === 'function') onSelect(val);
+    });
+  });
+}
+
+function closeModernPickerModal() {
+  const modal = document.getElementById('modern-picker-modal');
+  if (!modal) return;
+  modal.classList.add('closing');
+  setTimeout(() => { if (modal && modal.parentNode) modal.remove(); }, 180);
+}
+
+function openModernSubjectPicker() {
+  showModernPickerModal({
+    title: 'เลือกรายวิชา',
+    subtitle: `ภาคเรียนที่ ${appState.settings.term}/${appState.settings.academicYear}`,
+    icon: '📖',
+    items: appState.settings.subjects.map(s => ({
+      value: s.code,
+      badge: s.code,
+      title: s.name,
+      sub: `วิชา ${s.code}`,
+      tag: ''
+    })),
+    selectedValue: appState.activeSubject,
+    onSelect: (val) => {
+      changeActiveSubject(val);
+    }
+  });
+}
+
+function openModernClassroomPicker() {
+  showModernPickerModal({
+    title: 'เลือกห้องเรียน',
+    subtitle: `วิชา ${getActiveSubjectObj().code} (${appState.settings.classrooms.length} ห้อง)`,
+    icon: '🏫',
+    items: appState.settings.classrooms.map(c => {
+      const count = appState.students.filter(s => s.classroom === c).length;
+      return {
+        value: c,
+        badge: c,
+        title: `ห้อง ${c}`,
+        sub: `ระดับชั้นมัธยมศึกษา`,
+        tag: `${count} คน`
+      };
+    }),
+    selectedValue: appState.activeClassroom,
+    onSelect: (val) => {
+      changeActiveClassroom(val);
+    }
+  });
+}
+
+function openModernAssignmentPicker() {
+  const currentAssignments = getFilteredAssignments();
+  if (currentAssignments.length === 0) return;
+
+  showModernPickerModal({
+    title: 'เลือกภาระงาน',
+    subtitle: `ห้อง ${appState.activeClassroom} (${currentAssignments.length} ชิ้นงาน)`,
+    icon: '📚',
+    items: currentAssignments.map((a, idx) => ({
+      value: a.id,
+      badge: `#${idx + 1}`,
+      title: a.title,
+      sub: a.dueDate ? `กำหนดส่ง: ${a.dueDate}` : 'ไม่มีกำหนดส่ง',
+      tag: `เต็ม ${a.fullScore} คะแนน`
+    })),
+    selectedValue: appState.selectedAssignmentId,
+    onSelect: (val) => {
+      changeAssignment(val);
+    }
+  });
 }
 
 function setupEventListeners() {
@@ -515,16 +651,16 @@ function renderOverview(container) {
   if (currentAssignments.length > 0 && studentPendingCounts.length > 0) {
     const itemsHtml = studentPendingCounts.map(st => `
       <div class="risk-student-item">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-weight: 700; color: var(--text-muted); width: 28px;">#${st.no}</span>
-          <div>
-            <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">${esc(st.fullName)}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">รหัส ${esc(st.studentId)} • ห้อง ${esc(st.classroom)}</div>
+        <div class="risk-student-main">
+          <span class="risk-student-no">#${st.no}</span>
+          <div class="risk-student-info">
+            <div class="risk-student-name">${esc(st.fullName)}</div>
+            <div class="risk-student-sub">รหัส ${esc(st.studentId)} • ห้อง ${esc(st.classroom)}</div>
           </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="risk-student-actions">
           <span class="risk-badge">⚠️ ค้าง ${st.pendingCount} งาน</span>
-          <button class="btn btn-secondary btn-sm" onclick="quickJumpToGrade('${esc(st.studentId)}')" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;">
+          <button class="btn btn-secondary btn-sm risk-action-btn" onclick="quickJumpToGrade('${esc(st.studentId)}')">
             ✏️ ตรวจงาน
           </button>
         </div>
@@ -567,20 +703,12 @@ function renderOverview(container) {
     <div class="overview-grid">
       <div>
         <div class="card" style="margin-bottom: 1.25rem;">
-          <div class="card-header">
+          <div class="card-header" style="margin-bottom: 0.85rem;">
             <div>
               <h2 class="card-title">${esc(subjectObj.code)} ${esc(subjectObj.name)} • ห้อง ${esc(appState.activeClassroom)}</h2>
               <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
                 ภาคเรียนที่ ${esc(appState.settings.term)} ปีการศึกษา ${esc(appState.settings.academicYear)} | ${esc(appState.settings.schoolName)}
               </p>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
-                📥 นำเข้ารายชื่อ ${esc(appState.activeClassroom)}
-              </button>
-              <button class="btn btn-primary" onclick="switchTab('grading')">
-                ✏️ เช็กส่งงานห้องนี้
-              </button>
             </div>
           </div>
 
@@ -605,15 +733,7 @@ function renderOverview(container) {
           </div>
 
           <h3 style="font-size: 0.82rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-secondary);">เมนูดำเนินการด่วน</h3>
-          <div class="quick-action-compact-grid">
-            <button class="action-compact-btn" onclick="switchTab('grading')">
-              <span class="tile-icon-sm">📝</span>
-              <span>ตรวจงาน ${esc(appState.activeClassroom)}</span>
-            </button>
-            <button class="action-compact-btn" onclick="openImportModal('${esc(appState.activeClassroom)}')">
-              <span class="tile-icon-sm">📋</span>
-              <span>นำเข้าจาก Excel</span>
-            </button>
+          <div class="quick-action-compact-grid" style="grid-template-columns: 1fr 1fr;">
             <button class="action-compact-btn" onclick="switchTab('report')">
               <span class="tile-icon-sm">📄</span>
               <span>พิมพ์รายงาน A4</span>
@@ -747,13 +867,10 @@ function renderGrading(container) {
   container.innerHTML = `
     <div class="assignment-bar">
       <div class="assign-bar-row-1">
-        <select class="select-control" id="assignment-select" onchange="changeAssignment(this.value)">
-          ${currentAssignments.map(a => `
-            <option value="${esc(a.id)}" ${a.id === currentAssignment.id ? 'selected' : ''}>
-              ${esc(a.title)} (เต็ม ${a.fullScore})
-            </option>
-          `).join('')}
-        </select>
+        <button type="button" class="modern-select-trigger" onclick="openModernAssignmentPicker()" id="assignment-picker-btn" title="แตะเพื่อเลือกภาระงาน (ดีไซน์ใหม่)">
+          <span class="modern-select-title">📚 ${esc(currentAssignment.title)} (เต็ม ${currentAssignment.fullScore})</span>
+          <span class="modern-select-arrow">▾</span>
+        </button>
         <div class="btn-group">
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" title="งานก่อนหน้า">◀</button>
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" title="งานถัดไป">▶</button>
@@ -3484,25 +3601,24 @@ function renderGradebook(container) {
 
   container.innerHTML = `
     <div class="gradebook-container">
-      <!-- แถบเลือกห้องเรียนดีไซน์ใหม่ มินิมอล สบายตา -->
+      <!-- แถบเลือกห้องเรียนดีไซน์ใหม่ มินิมอล สบายตา แถวเดียว -->
       <div class="gb-classroom-card">
-        <div class="gb-classroom-header">
-          <span class="gb-classroom-title">
-            <span>🏫</span> เลือกห้องเรียน
-          </span>
-          <span class="gb-classroom-count-badge">${classrooms.length} ห้องเรียน</span>
-        </div>
-        <div class="gb-classroom-slider">
-          ${classPillsHtml}
+        <div class="gb-classroom-single-row">
+          <div class="gb-classroom-label">
+            <span>🏫</span> <span>ห้อง:</span>
+          </div>
+          <div class="gb-classroom-slider">
+            ${classPillsHtml}
+          </div>
         </div>
       </div>
 
-      <!-- แถบแจ้งเตือนคีย์บอร์ดลัด (Auto-advance hint - มินิมอล & ปิดได้) -->
+      <!-- แถบแจ้งเตือนคีย์บอร์ดลัดแบบลอย (Auto-hide Floating Hint) -->
       <div class="gb-quick-nav-hint" id="gb-nav-hint">
-        <div style="flex: 1; text-align: center; font-size: 0.82rem; line-height: 1.4;">
+        <div style="flex: 1; text-align: center; font-size: 0.8rem; line-height: 1.4;">
           <span>⚡ <b>โหมดกรอกด่วน:</b> กด <b>Enter / ⬇️</b> เพื่อลงคนถัดไป • หากติด <b>ร</b> หรือ <b>มส</b> ให้พิมพ์ <b>ร</b> หรือ <b>มส</b> ลงไป</span>
         </div>
-        <button type="button" class="gb-quick-nav-hint-close" onclick="document.getElementById('gb-nav-hint').style.display='none'" title="ปิดคำแนะนำ">✕</button>
+        <button type="button" class="gb-quick-nav-hint-close" onclick="closeGradebookNavHint()" title="ปิดคำแนะนำ">✕</button>
       </div>
 
       <!-- Gradebook Toolbar -->
@@ -3612,6 +3728,23 @@ function renderGradebook(container) {
   `;
 
   updateGradebookStatsBarDOM();
+  autoDismissNavHint();
+}
+
+function autoDismissNavHint() {
+  if (window._navHintTimer) clearTimeout(window._navHintTimer);
+  window._navHintTimer = setTimeout(() => {
+    closeGradebookNavHint();
+  }, 7000);
+}
+
+function closeGradebookNavHint() {
+  const hint = document.getElementById('gb-nav-hint');
+  if (hint) {
+    hint.style.opacity = '0';
+    hint.style.transform = 'translate(-50%, -15px)';
+    setTimeout(() => { if (hint && hint.parentNode) hint.remove(); }, 350);
+  }
 }
 
 /**

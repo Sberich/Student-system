@@ -686,9 +686,9 @@ function renderOverview(container) {
       <div class="card" style="margin-top: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0; line-height: 1.35;">
-              <span>⚠️ นักเรียนที่ค้างส่งสะสมสูงสุด</span><br>
-              <span style="font-size: 0.88rem; font-weight: 600; color: var(--primary);">(ห้อง ${esc(appState.activeClassroom)})</span>
+            <h3 class="risk-heading-responsive">
+              <span class="risk-heading-main">⚠️ นักเรียนที่ค้างส่งสะสมสูงสุด</span>
+              <span class="risk-heading-room">(ห้อง ${esc(appState.activeClassroom)})</span>
             </h3>
           </div>
           <span style="font-size: 0.78rem; color: var(--text-muted); align-self: flex-end;">ลำดับความสำคัญในการติดตามงานก่อนตัดเกรด</span>
@@ -2663,8 +2663,8 @@ function renderAssignments(container) {
       <!-- กล่องสร้างภาระงานใหม่ Responsive (จัดเป็นระเบียบทั้งมือถือและคอม) -->
       <div class="new-assign-card">
         <h4 class="new-assign-card-title">
-          <span>+ สร้างภาระงานใหม่สำหรับ</span><br>
-          <span style="color: var(--primary); font-weight: 700;">ห้อง ${esc(appState.activeClassroom)}</span>
+          <span class="new-assign-title-main">+ สร้างภาระงานใหม่สำหรับ</span>
+          <span class="new-assign-title-room">ห้อง ${esc(appState.activeClassroom)}</span>
         </h4>
         <div class="new-assign-form-grid">
           <div class="form-group-title">

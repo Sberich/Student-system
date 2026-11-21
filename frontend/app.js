@@ -617,29 +617,37 @@ function renderOverview(container) {
 
       <div>
         <div class="card donut-container">
-          <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem;">สัดส่วนส่งงานห้อง ${appState.activeClassroom}</h3>
-          <div style="position: relative; width: 160px; height: 160px;">
-            <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
-              <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
-                stroke-dasharray="283" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" />
-            </svg>
-            <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-              <span style="font-size: 1.85rem; font-weight: 700; color: var(--text-main);">${percentage}%</span>
-              <span style="font-size: 0.75rem; color: var(--text-secondary);">ส่งครบ</span>
+          <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem;">สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)}</h3>
+          <div class="donut-body-horizontal">
+            <div class="donut-chart-wrapper">
+              <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
+                  stroke-dasharray="283" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" />
+              </svg>
+              <div class="donut-center-text">
+                <span class="donut-pct">${percentage}%</span>
+                <span class="donut-sub">ส่งครบ</span>
+              </div>
+            </div>
+            <div class="donut-legend-side">
+              <div class="donut-stat-card stat-card-submitted">
+                <span class="donut-stat-dot" style="background: #10B981;"></span>
+                <div class="donut-stat-info">
+                  <span class="donut-stat-label">ส่งแล้ว</span>
+                  <span class="donut-stat-val">${totalSubmitted} <small>ครั้ง</small></span>
+                </div>
+              </div>
+              <div class="donut-stat-card stat-card-pending">
+                <span class="donut-stat-dot" style="background: #EF4444;"></span>
+                <div class="donut-stat-info">
+                  <span class="donut-stat-label">ค้างส่ง</span>
+                  <span class="donut-stat-val">${totalPending} <small>ครั้ง</small></span>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="chart-legend">
-            <div class="legend-item">
-              <span class="legend-dot" style="background: #10B981;"></span>
-              <span>ส่งแล้ว (${totalSubmitted})</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-dot" style="background: #EF4444;"></span>
-              <span>ค้างส่ง (${totalPending})</span>
-            </div>
-          </div>
-          <div style="margin-top: 1.25rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 1rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="margin-top: 1rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 0.75rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
               ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets
             </button>
@@ -801,7 +809,6 @@ function renderGrading(container) {
                   <div class="score-display ${sub.score !== null && sub.score !== '' ? '' : 'empty'}">
                     ${sub.score !== null && sub.score !== '' ? sub.score : '-'}
                   </div>
-                  <button type="button" class="btn-score-inc" onclick="adjustStudentScore(event, '${esc(st.studentId)}', 1)" title="เพิ่มคะแนน">+</button>
                 </div>
               </div>
             `;
@@ -1502,15 +1509,18 @@ function renderStudents(container) {
     </div>
 
     <div class="card">
-      <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1rem;">
-        <div>
-          <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; margin-bottom: 0.25rem;">
-            <span>👥 รายชื่อนักเรียน ห้อง <strong>${esc(appState.activeClassroom)}</strong></span>
-            <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-weight: 600;">
+      <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+        <div style="width: 100%;">
+          <div class="roster-title-bar">
+            <h2 class="roster-main-title">
+              <span>👥</span>
+              <span class="roster-title-text">รายชื่อ ห้อง ${esc(appState.activeClassroom)}</span>
+            </h2>
+            <span class="roster-count-badge">
               ${currentStudents.length} คน
             </span>
-          </h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem;">
             นักเรียนทั้งหมดในระบบ: <strong>${totalAllClasses} คน</strong> ใน ${appState.settings.classrooms.length} ห้องเรียน
           </p>
         </div>
@@ -3022,19 +3032,25 @@ function setGradebookRatio(ratio) {
  * กด ลูกศรขึ้น ⬆️: ย้อนกลับไปคนก่อนหน้า
  */
 function handleGradebookKeyDown(e, currentRowIdx, colName) {
-  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+  const isDown = e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'Tab' || e.keyCode === 13 || e.keyCode === 40 || e.keyCode === 9;
+  const isUp = e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey) || e.keyCode === 38;
+
+  if (isUp) {
+    e.preventDefault();
+    if (e.target) {
+      e.target.dispatchEvent(new Event('change'));
+    }
+    navigateToGradebookCell(currentRowIdx - 1, colName);
+    return;
+  }
+
+  if (isDown) {
     e.preventDefault();
     // สั่งบันทึกค่าในช่องปัจจุบันทันที
     if (e.target) {
       e.target.dispatchEvent(new Event('change'));
     }
     navigateToGradebookCell(currentRowIdx + 1, colName);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (e.target) {
-      e.target.dispatchEvent(new Event('change'));
-    }
-    navigateToGradebookCell(currentRowIdx - 1, colName);
   }
 }
 
@@ -3228,6 +3244,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
               data-row="${idx}" data-col="attPre" data-sid="${esc(s.studentId)}"
+              tabindex="${1000 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.attPre}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPre')"
@@ -3237,6 +3254,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
               data-row="${idx}" data-col="workPre" data-sid="${esc(s.studentId)}"
+              tabindex="${1100 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.workPre}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPre')"
@@ -3249,6 +3267,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
               data-row="${idx}" data-col="midRaw" data-sid="${esc(s.studentId)}"
+              tabindex="${1200 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.midRaw}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midRaw')"
@@ -3258,6 +3277,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
               data-row="${idx}" data-col="midHelp" data-sid="${esc(s.studentId)}"
+              tabindex="${1300 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.midHelp || 0}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midHelp')"
@@ -3270,6 +3290,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
               data-row="${idx}" data-col="attPost" data-sid="${esc(s.studentId)}"
+              tabindex="${1400 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.attPost}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPost')"
@@ -3279,6 +3300,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
               data-row="${idx}" data-col="workPost" data-sid="${esc(s.studentId)}"
+              tabindex="${1500 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.workPost}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPost')"
@@ -3294,6 +3316,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
               data-row="${idx}" data-col="finalRaw" data-sid="${esc(s.studentId)}"
+              tabindex="${1600 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.finalRaw}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalRaw')"
@@ -3303,6 +3326,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
               data-row="${idx}" data-col="finalDiv" data-sid="${esc(s.studentId)}"
+              tabindex="${1700 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.finalDiv || 2}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalDiv')"
@@ -3312,6 +3336,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
               data-row="${idx}" data-col="finalHelp" data-sid="${esc(s.studentId)}"
+              tabindex="${1800 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.finalHelp || 0}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
@@ -3330,6 +3355,7 @@ function renderGradebook(container) {
           <td>
             <input type="text" class="gb-score-input gb-note-input" 
               data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
+              tabindex="${1900 + idx}" enterkeyhint="next"
               value="${esc(rec.note || '')}" 
               placeholder="ปกติ / ร / มส..." 
               onfocus="this.select()"

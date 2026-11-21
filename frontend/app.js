@@ -765,62 +765,93 @@ function renderOverview(container) {
         <div class="card donut-container">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.4rem;">
             <h3 style="font-size: 0.95rem; font-weight: 600; margin: 0;">
-              ${isAllRooms ? 'สัดส่วนส่งงานรวมทุกห้อง' : `สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)}`}
+              ${isAllRooms ? `สัดส่วนส่งงานรวม (${allClassrooms.length} ห้องเรียน)` : `สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)}`}
             </h3>
             <div class="scope-toggle-pills">
               <button type="button" class="scope-pill-btn ${!isAllRooms ? 'active' : ''}" onclick="setOverviewScope('room')">เฉพาะห้องนี้</button>
-              <button type="button" class="scope-pill-btn ${isAllRooms ? 'active' : ''}" onclick="setOverviewScope('all')">รวมทุกห้อง (${allClassrooms.length})</button>
-            </div>
-          </div>
-
-          <div class="donut-body-horizontal">
-            <div class="donut-chart-wrapper">
-              <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
-                <circle class="donut-track" cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
-                  stroke-dasharray="283" stroke-dashoffset="${donutDashoffset}" stroke-linecap="round" />
-              </svg>
-              <div class="donut-center-text">
-                <span class="donut-pct">${donutPct}%</span>
-                <span class="donut-sub">ส่งครบ</span>
-              </div>
-            </div>
-            <div class="donut-legend-side">
-              <div class="donut-stat-card stat-card-submitted">
-                <span class="donut-stat-dot" style="background: #10B981;"></span>
-                <div class="donut-stat-info">
-                  <span class="donut-stat-label">ส่งแล้ว</span>
-                  <span class="donut-stat-val">${donutSubmitted} <small>ครั้ง</small></span>
-                </div>
-              </div>
-              <div class="donut-stat-card stat-card-pending">
-                <span class="donut-stat-dot" style="background: #EF4444;"></span>
-                <div class="donut-stat-info">
-                  <span class="donut-stat-label">ค้างส่ง</span>
-                  <span class="donut-stat-val">${donutPending} <small>ครั้ง</small></span>
-                </div>
-              </div>
+              <button type="button" class="scope-pill-btn ${isAllRooms ? 'active' : ''}" onclick="setOverviewScope('all')">โดนัททุกห้อง (${allClassrooms.length})</button>
             </div>
           </div>
 
           ${isAllRooms ? `
-            <div class="room-compare-container">
-              <div class="room-compare-title">
-                <span>📊 สรุปสัดส่วนการส่งงานแยกรายห้อง (แตะเพื่อสลับห้อง):</span>
-              </div>
-              <div class="room-compare-grid">
-                ${classroomComparison.map(r => `
-                  <div class="room-compare-item" onclick="selectClassroomAndFocus('${esc(r.classroom)}')" title="แตะเพื่อเลือกห้อง ${esc(r.classroom)}">
-                    <span class="room-compare-name">${esc(r.classroom)}</span>
-                    <div class="room-compare-bar-bg">
-                      <div class="room-compare-bar-fill" style="width: ${r.pct}%; background: ${r.pct >= 80 ? '#10B981' : (r.pct >= 50 ? '#F59E0B' : '#EF4444')};"></div>
+            <!-- สรุปตัวเลขภาพรวม 15 ห้อง -->
+            <div class="all-rooms-summary-bar">
+              <span class="all-rooms-sum-chip">📊 ส่งครบเฉลี่ย: <strong>${donutPct}%</strong></span>
+              <span class="all-rooms-sum-chip text-green">✓ ส่งแล้ว: <strong>${donutSubmitted}</strong> ครั้ง</span>
+              <span class="all-rooms-sum-chip text-red">⏳ ค้างส่ง: <strong>${donutPending}</strong> ครั้ง</span>
+            </div>
+
+            <!-- แกลเลอรีโดนัทรายห้องเรียงครบทุกห้อง -->
+            <div class="all-rooms-donut-gallery">
+              ${classroomComparison.map(r => {
+                const cDashoffset = 226.2 - (226.2 * r.pct) / 100;
+                const isGood = r.pct >= 80;
+                const isWarn = r.pct >= 50 && r.pct < 80;
+                const color = isGood ? '#10B981' : (isWarn ? '#F59E0B' : '#EF4444');
+                const isCurrent = r.classroom === appState.activeClassroom;
+                return `
+                  <div class="mini-donut-card ${isCurrent ? 'is-active-room' : ''}" onclick="selectClassroomAndFocus('${esc(r.classroom)}')" title="แตะเพื่อเลือกห้อง ${esc(r.classroom)}">
+                    <div class="mini-donut-header">
+                      <span class="mini-donut-room">🏫 ${esc(r.classroom)}</span>
+                      <span class="mini-donut-count">${r.studentsCount} คน</span>
                     </div>
-                    <span class="room-compare-pct ${r.pct >= 80 ? 'good' : (r.pct >= 50 ? 'warn' : 'danger')}">${r.pct}%</span>
+                    <div class="mini-donut-content">
+                      <div class="mini-donut-chart">
+                        <svg viewBox="0 0 90 90" style="width: 64px; height: 64px; transform: rotate(-90deg);">
+                          <circle class="donut-track" cx="45" cy="45" r="36" fill="none" stroke="#FEE2E2" stroke-width="8" />
+                          <circle cx="45" cy="45" r="36" fill="none" stroke="${color}" stroke-width="8"
+                            stroke-dasharray="226.2" stroke-dashoffset="${cDashoffset}" stroke-linecap="round" />
+                        </svg>
+                        <div class="mini-donut-center">
+                          <span class="mini-donut-pct" style="color: ${color};">${r.pct}%</span>
+                        </div>
+                      </div>
+                      <div class="mini-donut-stats">
+                        <div class="mini-stat-item">
+                          <span class="mini-stat-dot" style="background: #10B981;"></span>
+                          <span class="mini-stat-text">ส่ง ${r.submitted}</span>
+                        </div>
+                        <div class="mini-stat-item">
+                          <span class="mini-stat-dot" style="background: #EF4444;"></span>
+                          <span class="mini-stat-text">ค้าง ${r.pending}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                `).join('')}
+                `;
+              }).join('')}
+            </div>
+          ` : `
+            <div class="donut-body-horizontal">
+              <div class="donut-chart-wrapper">
+                <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                  <circle class="donut-track" cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
+                    stroke-dasharray="283" stroke-dashoffset="${donutDashoffset}" stroke-linecap="round" />
+                </svg>
+                <div class="donut-center-text">
+                  <span class="donut-pct">${donutPct}%</span>
+                  <span class="donut-sub">ส่งครบ</span>
+                </div>
+              </div>
+              <div class="donut-legend-side">
+                <div class="donut-stat-card stat-card-submitted">
+                  <span class="donut-stat-dot" style="background: #10B981;"></span>
+                  <div class="donut-stat-info">
+                    <span class="donut-stat-label">ส่งแล้ว</span>
+                    <span class="donut-stat-val">${donutSubmitted} <small>ครั้ง</small></span>
+                  </div>
+                </div>
+                <div class="donut-stat-card stat-card-pending">
+                  <span class="donut-stat-dot" style="background: #EF4444;"></span>
+                  <div class="donut-stat-info">
+                    <span class="donut-stat-label">ค้างส่ง</span>
+                    <span class="donut-stat-val">${donutPending} <small>ครั้ง</small></span>
+                  </div>
+                </div>
               </div>
             </div>
-          ` : ''}
+          `}
           <div style="margin-top: 1rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 0.75rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
               ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets

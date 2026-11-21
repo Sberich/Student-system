@@ -1887,15 +1887,39 @@ body {
   flex-wrap: wrap;
 }
 
+/* คอลัมน์และช่องกรอก ร / มส (กะทัดรัด พอดีตัวอักษร ร/มส กึ่งกลาง) */
+.gb-th-note {
+  width: 44px !important;
+  min-width: 40px !important;
+  max-width: 48px !important;
+  padding: 4px 2px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+.td-note-cell {
+  width: 44px !important;
+  min-width: 40px !important;
+  max-width: 48px !important;
+  padding: 2px 2px !important;
+  text-align: center !important;
+}
+
 .gb-note-input {
-  width: 110px !important;
-  text-align: left !important;
-  font-size: 13px !important;
-  padding: 4px 6px !important;
+  width: 38px !important;
+  min-width: 36px !important;
+  max-width: 42px !important;
+  text-align: center !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  padding: 3px 1px !important;
+  border-radius: var(--radius-sm);
 }
 
 .gb-note-input:focus {
-  width: 140px !important;
+  width: 38px !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
 }
 
 
@@ -2858,4 +2882,113 @@ body {
   background: #1E1B4B;
   border-color: #A855F7;
   color: #F3E8FF;
+}
+
+
+/* ==========================================================================
+   iPad / Tablet Floating Dock Navigation Bar (769px - 1180px)
+   สไตล์แคปซูลลอย (Floating Pill Dock) เหมือน iPadOS 18 / Apple HIG
+   ========================================================================== */
+@media (max-width: 768px) {
+  .bottom-nav-tablet-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
+  /* ซ่อนแท็บด้านบนของ App Header เพื่อไม่ให้แออัดกับตัวเลือกวิชา/ห้อง */
+  .app-header .nav-tabs {
+    display: none !important;
+  }
+
+  /* แสดงปุ่มแท็บรายงานบนแท็บเล็ต */
+  .bottom-nav-tablet-only {
+    display: flex !important;
+  }
+
+  /* แถบเมนูลอยแบบ Floating Capsule Dock */
+  .bottom-nav-bar {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 22px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    max-width: calc(100vw - 32px) !important;
+    height: 54px !important;
+    padding: 5px 8px !important;
+    background: rgba(255, 255, 255, 0.86) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(226, 232, 240, 0.85) !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    z-index: 1000 !important;
+    gap: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  [data-theme="dark"] .bottom-nav-bar {
+    background: rgba(15, 23, 42, 0.88) !important;
+    border-color: rgba(51, 65, 85, 0.85) !important;
+    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .bottom-nav-btn {
+    flex: 0 0 auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 7px 13px !important;
+    border-radius: 9999px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.84rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .bottom-nav-icon {
+    font-size: 1.12rem !important;
+    line-height: 1 !important;
+  }
+
+  .bottom-nav-label {
+    font-size: 0.84rem !important;
+    line-height: 1 !important;
+  }
+
+  .bottom-nav-btn:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: var(--text-main) !important;
+    transform: translateY(-1px);
+  }
+
+  [data-theme="dark"] .bottom-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .bottom-nav-btn.active {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+    transform: translateY(-1px);
+  }
+
+  .bottom-nav-btn.active .bottom-nav-icon {
+    transform: none !important;
+  }
+
+  /* เพิ่มระยะห่างด้านล่างไม่ให้ Floating Bar บังเนื้อหา */
+  .main-content {
+    padding-bottom: 96px !important;
+  }
 }

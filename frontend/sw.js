@@ -3,7 +3,7 @@
  * ให้บริการ Cache-First สำหรับ App Shell เพื่อการทำงานแบบ Offline
  */
 
-const CACHE_NAME = 'smart-grade-v9';
+const CACHE_NAME = 'smart-grade-v10';
 const APP_SHELL = [
   './',
   './index.html',

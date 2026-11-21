@@ -582,7 +582,7 @@ function renderOverview(container) {
               <span class="stat-pill-label">👥 นักเรียน</span>
               <span class="stat-pill-val">${totalStudents} <small>คน</small></span>
             </div>
-            <div class="stat-pill-item" onclick="switchTab('assignments')" style="cursor: pointer;" title="แตะเพื่อดู/จัดการงานที่สั่ง">
+            <div class="stat-pill-item" onclick="switchTab('assignments')" style="cursor: pointer;" title="แตะเพื่อดู/จัดการภาระงาน">
               <span class="stat-pill-label">📚 ชิ้นงาน</span>
               <span class="stat-pill-val">${totalAssignments} <small>ชิ้น</small></span>
             </div>
@@ -749,7 +749,7 @@ function renderGrading(container) {
         <div class="btn-group">
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" title="งานก่อนหน้า">◀</button>
           <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" title="งานถัดไป">▶</button>
-          <button class="btn btn-secondary btn-sm" onclick="switchTab('assignments')" title="จัดการงานที่สั่ง / เพิ่มงานใหม่">📚</button>
+          <button class="btn btn-secondary btn-sm" onclick="switchTab('assignments')" title="จัดการภาระงาน / เพิ่มงานใหม่">📚</button>
         </div>
       </div>
 
@@ -1245,7 +1245,7 @@ function renderReport(container) {
     container.innerHTML = `
       <div class="card" style="text-align: center; padding: 2.5rem;">
         <h3>ยังไม่มีรายการงานสำหรับห้อง ${esc(appState.activeClassroom)}</h3>
-        <p style="color: var(--text-secondary); margin: 0.75rem 0;">กรุณาเพิ่มงานในเมนู "งานที่สั่ง" ก่อนพิมพ์รายงาน</p>
+        <p style="color: var(--text-secondary); margin: 0.75rem 0;">กรุณาเพิ่มงานในเมนู "ภาระงาน" ก่อนพิมพ์รายงาน</p>
         <button class="btn btn-primary" onclick="switchTab('assignments')">+ เพิ่มงานใหม่</button>
       </div>
     `;
@@ -2285,7 +2285,7 @@ function renderAssignments(container) {
     <div class="card">
       <div class="card-header">
         <div>
-          <h2 class="card-title">รายการงานที่มอบหมาย: วิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)})</h2>
+          <h2 class="card-title">รายการภาระงาน: วิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)})</h2>
           <p style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง ${esc(appState.activeClassroom)} (มี ${currentAssignments.length} งาน)</p>
         </div>
       </div>
@@ -3373,7 +3373,7 @@ function renderGradebook(container) {
           <td class="td-grade-val">
             <span class="gb-grade-val ${getGradeBadgeClass(rec.grade)}">${rec.grade}</span>
           </td>
-          <td>
+          <td class="td-note-cell">
             <input type="text" class="gb-score-input gb-note-input" 
               data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
               tabindex="${1800 + idx}" enterkeyhint="next"
@@ -3507,7 +3507,7 @@ function renderGradebook(container) {
 
               <!-- เกรด & ร/มส -->
               <th>เกรด</th>
-              <th title="หากติด ร หรือ มส ให้พิมพ์ในช่องนี้">ร / มส</th>
+              <th class="gb-th-note" title="หากติด ร หรือ มส ให้พิมพ์ในช่องนี้">ร / มส</th>
             </tr>
           </thead>
           <tbody>

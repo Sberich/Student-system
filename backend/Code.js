@@ -53,7 +53,10 @@ function initSheets() {
 function verifyToken_(token) {
   const scriptProp = PropertiesService.getScriptProperties();
   const expectedToken = scriptProp.getProperty('API_TOKEN');
-  if (!expectedToken || expectedToken.trim() === '') return true; // ยังไม่ได้ตั้ง Token ถือว่าเปิดให้ใช้งานได้
+  if (!expectedToken || expectedToken.trim() === '') {
+    // ป้องกันความปลอดภัย: หากยังไม่ได้ตั้ง API_TOKEN ใน Script Properties จะไม่อนุญาตให้เข้าถึง
+    return false;
+  }
   return token && String(token).trim() === expectedToken.trim();
 }
 
@@ -124,22 +127,8 @@ function doPost(e) {
     const action = payload.action;
     const token = payload.token || (e && e.parameter && e.parameter.token);
 
-    if (action !== 'setApiToken' && !verifyToken_(token)) {
+    if (!verifyToken_(token)) {
       return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });
-    }
-
-    if (action === 'setApiToken') {
-      const scriptProp = PropertiesService.getScriptProperties();
-      const currentToken = scriptProp.getProperty('API_TOKEN') || '';
-      const oldToken = payload.oldToken || '';
-      const newToken = payload.newToken || '';
-
-      if (currentToken && currentToken !== oldToken) {
-        return createJsonResponse({ success: false, error: 'รหัสผ่าน Token เดิมไม่ถูกต้อง' });
-      }
-
-      scriptProp.setProperty('API_TOKEN', newToken.trim());
-      return createJsonResponse({ success: true, message: 'ตั้งค่า Token ความปลอดภัยเรียบร้อยแล้ว' });
     }
 
     if (action === 'batchSaveSubmissions') {
@@ -697,6 +686,17 @@ function formatHeaderRow(sheet) {
 function seedSampleData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureSheetsExist(ss);
+
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '⚠️ ยืนยันการใส่ข้อมูลตัวอย่าง',
+    'การดำเนินการนี้จะล้างข้อมูลวิชา นักเรียน และภาระงานทั้งหมดในชีทเพื่อแทนที่ด้วยข้อมูลตัวอย่าง คุณแน่ใจหรือไม่?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) {
+    ui.alert('ยกเลิกการใส่ข้อมูลตัวอย่างแล้ว');
+    return;
+  }
 
   // 1. Settings
   const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);

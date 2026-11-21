@@ -74,6 +74,7 @@ let lastGradingAction = null;
 let importPreviewData = [];
 
 let hasSavedLocalState = false;
+let hasEverPulledFromBackend = false;
 
 // ----------------- Theme Switcher System -----------------
 function initTheme() {
@@ -145,8 +146,15 @@ function updateLogoGradient(theme) {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadLocalState();
-  if (!hasSavedLocalState && (appState.students.length === 0 || appState.assignments.length === 0)) {
-    seedDefaultState();
+  if (!hasSavedLocalState) {
+    appState.settings.subjects = DEFAULT_SUBJECTS;
+    appState.settings.classrooms = DEFAULT_CLASSROOMS;
+    appState.activeClassroom = 'ม.4/1';
+    appState.activeSubject = 'ส31101';
+    appState.students = [];
+    appState.assignments = [];
+    appState.submissions = {};
+    appState.gradebook = {};
   }
   setupEventListeners();
   renderHeaderControls();
@@ -179,10 +187,7 @@ function loadLocalState() {
       if (appState.gradebook && Object.keys(appState.gradebook).length > 0) {
         Object.keys(appState.gradebook).forEach(k => {
           let rec = appState.gradebook[k];
-          // หากคะแนนข้อเขียนกลางภาคยังเป็นคะแนนดิบเต็ม 40 ให้หาร 2 เป็นคะแนนสุทธิ (เต็ม 20)
-          if (rec.midRaw > 20) {
-            rec.midRaw = Math.round((rec.midRaw / 2) * 10) / 10;
-          }
+
           if (!rec.finalDiv) rec.finalDiv = appState.finalDivisor || 2;
           if (rec.midDiv !== 1) rec.midDiv = 1;
           appState.gradebook[k] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
@@ -1162,6 +1167,22 @@ function applyScore(score) {
   const student = currentStudents.find(s => s.studentId === appState.selectedStudentId);
   const studentName = student ? student.fullName : `รหัส ${appState.selectedStudentId}`;
 
+  // หาตัวนักเรียนคนถัดไปตาม Filter ปัจจุบันล่วงหน้า ก่อนที่สถานะจะเปลี่ยนจาก 'ค้างส่ง' เป็น 'ส่งแล้ว'
+  let nextStudentIdToSelect = null;
+  if (appState.autoAdvance) {
+    const visibleStudents = currentStudents.filter(st => {
+      const k = `${currentAssignment.id}_${st.studentId}`;
+      const s = appState.submissions[k] || { status: 'ค้างส่ง' };
+      if (appState.filterStatus === 'submitted') return s.status === 'ส่งแล้ว';
+      if (appState.filterStatus === 'pending') return s.status === 'ค้างส่ง';
+      return true;
+    });
+    const curIdx = visibleStudents.findIndex(s => s.studentId === appState.selectedStudentId);
+    if (curIdx !== -1 && curIdx + 1 < visibleStudents.length) {
+      nextStudentIdToSelect = visibleStudents[curIdx + 1].studentId;
+    }
+  }
+
   const key = `${currentAssignment.id}_${appState.selectedStudentId}`;
   const prevSub = appState.submissions[key] ? { ...appState.submissions[key] } : { status: 'ค้างส่ง', score: null };
 
@@ -1186,7 +1207,11 @@ function applyScore(score) {
   showToastWithAction(`✓ ${studentName} ได้ ${score} คะแนน`, '↩️ เลิกทำ', undoLastGrading);
 
   if (appState.autoAdvance) {
-    navigateStudent(1);
+    if (nextStudentIdToSelect) {
+      selectStudent(nextStudentIdToSelect);
+    } else {
+      renderGrading(document.getElementById('app-view-container'));
+    }
   } else {
     renderGrading(document.getElementById('app-view-container'));
   }
@@ -2246,7 +2271,7 @@ async function pushImportToBackend(mode, targetClass, studentsList) {
   if (!appState.settings.gasUrl) return;
   updateSyncIndicator('syncing');
   try {
-    await fetch(appState.settings.gasUrl, {
+    const res = await fetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -2255,12 +2280,17 @@ async function pushImportToBackend(mode, targetClass, studentsList) {
         mode: mode,
         classroom: targetClass,
         students: studentsList
-      }),
-      mode: 'no-cors'
+      })
     });
-    appState.isDirty = false;
-    saveLocalState();
-    updateSyncIndicator('online');
+    const resData = await res.json();
+    if (resData.success) {
+      appState.isDirty = false;
+      saveLocalState();
+      updateSyncIndicator('online');
+    } else {
+      updateSyncIndicator('offline');
+      console.error('Import students error:', resData.error);
+    }
   } catch (e) {
     updateSyncIndicator('offline');
   }
@@ -2381,7 +2411,15 @@ function handleAddAssignment() {
     return;
   }
 
-  const nextNum = appState.assignments.length + 1;
+  let maxNum = 0;
+  (appState.assignments || []).forEach(a => {
+    const match = String(a.id || '').match(/^A(\d+)$/i);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  });
+  const nextNum = maxNum + 1;
   const id = 'A' + (nextNum < 10 ? '0' + nextNum : nextNum);
 
   appState.assignments.push({
@@ -2685,11 +2723,16 @@ async function pushSettingsToBackend() {
           classrooms: appState.settings.classrooms
         }
       }),
-      mode: 'no-cors'
     });
 
-    updateSyncIndicator('online');
-    showToast('✓ บันทึกการตั้งค่าลง Google Sheets สำเร็จแล้ว');
+    const resData = await res.json();
+    if (resData.success) {
+      updateSyncIndicator('online');
+      showToast('✓ บันทึกการตั้งค่าลง Google Sheets สำเร็จแล้ว');
+    } else {
+      updateSyncIndicator('offline');
+      showToast('⚠️ ไม่สามารถบันทึกการตั้งค่าได้: ' + (resData.error || ''));
+    }
   } catch (err) {
     console.error('Error saving settings to GAS:', err);
     updateSyncIndicator('offline');
@@ -2716,7 +2759,13 @@ async function pushFullStateToBackend() {
       }
     });
 
-    await fetch(appState.settings.gasUrl, {
+    // Sync guard: ไม่ส่งคำสั่ง replace_all ไปทับชีท ถ้ายังไม่เคยดึงข้อมูลสำเร็จและในเครื่องยังไม่มีนักเรียน
+    if (!hasEverPulledFromBackend && appState.students.length === 0) {
+      console.warn('Sync guard: ยังไม่เคยดึงข้อมูลจริงจาก Google Sheets จะไม่ส่งคำสั่ง syncFullState ไปทับ');
+      return;
+    }
+
+    const res = await fetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -2736,13 +2785,18 @@ async function pushFullStateToBackend() {
         assignments: appState.assignments,
         submissions: list,
         gradebook: Object.values(appState.gradebook || {})
-      }),
-      mode: 'no-cors'
+      })
     });
 
-    appState.isDirty = false;
-    saveLocalState();
-    updateSyncIndicator('online');
+    const resData = await res.json();
+    if (resData.success) {
+      appState.isDirty = false;
+      saveLocalState();
+      updateSyncIndicator('online');
+    } else {
+      updateSyncIndicator('offline');
+      throw new Error(resData.error || 'ซิงค์ข้อมูลไม่สำเร็จ');
+    }
   } catch (err) {
     console.error('Error in pushFullStateToBackend:', err);
     updateSyncIndicator('offline');
@@ -2768,22 +2822,26 @@ async function pushSubmissionsToBackend() {
       }
     });
 
-    await fetch(appState.settings.gasUrl, {
+    const res = await fetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'batchSaveSubmissions',
         token: appState.settings.apiToken || '',
         submissions: list
-      }),
-      mode: 'no-cors'
+      })
     });
 
-    appState.isDirty = false;
-    saveLocalState();
-    updateSyncIndicator('online');
+    const resData = await res.json();
+    if (resData.success) {
+      appState.isDirty = false;
+      saveLocalState();
+      updateSyncIndicator('online');
+    } else {
+      updateSyncIndicator('offline');
+    }
   } catch (err) {
-    updateSyncIndicator('online');
+    updateSyncIndicator('offline');
   }
 }
 
@@ -2898,11 +2956,7 @@ function calculateGradeRecord(rec, ratio) {
   const maxPre = 30;
   const attPre = Math.max(0, Number(rec.attPre) || 0);
   const workPre = Math.max(0, Number(rec.workPre) || 0);
-  let sumPre = Math.round((attPre + workPre) * 10) / 10;
-  if (rec.sumPre !== undefined && rec.sumPre !== null && rec.sumPre !== '' && (attPre === 0 && workPre === 0)) {
-    sumPre = Number(rec.sumPre);
-  }
-  sumPre = Math.min(maxPre, sumPre);
+  const sumPre = Math.min(maxPre, Math.round((attPre + workPre) * 10) / 10);
 
   // 2. สอบกลางภาค (ครูหารมือมาแล้ว: ข้อเขียน + คะแนนช่วย)
   // สัดส่วน 70/30: เต็ม 20 | สัดส่วน 80/20: เต็ม 20
@@ -2917,11 +2971,7 @@ function calculateGradeRecord(rec, ratio) {
   const maxPost = is8020 ? 30 : 20;
   const attPost = Math.max(0, Number(rec.attPost) || 0);
   const workPost = Math.max(0, Number(rec.workPost) || 0);
-  let sumPost = Math.round((attPost + workPost) * 10) / 10;
-  if (rec.sumPost !== undefined && rec.sumPost !== null && rec.sumPost !== '' && (attPost === 0 && workPost === 0)) {
-    sumPost = Number(rec.sumPost);
-  }
-  sumPost = Math.min(maxPost, sumPost);
+  const sumPost = Math.min(maxPost, Math.round((attPost + workPost) * 10) / 10);
 
   // 4. รวมระหว่างภาค
   // สัดส่วน 70/30: เต็ม 70 = ก่อนกลาง (30) + กลางภาค (20) + หลังกลาง (20)
@@ -3020,22 +3070,22 @@ function getOrCreateGradeRecord(student) {
       studentId: sid,
       no: student.no || 1,
       fullName: student.fullName || '',
-      attPre: 7,
-      workPre: computedWork > 0 ? computedWork : 8,
-      sumPre: 15,
-      midRaw: 12,
+      attPre: 0,
+      workPre: computedWork,
+      sumPre: computedWork,
+      midRaw: 0,
       midHelp: 0,
-      midScore: 12,
-      attPost: 8,
-      workPost: 10,
-      sumPost: 18,
-      termScore: 45,
-      finalRaw: 16,
+      midScore: 0,
+      attPost: 0,
+      workPost: 0,
+      sumPost: 0,
+      termScore: computedWork,
+      finalRaw: 0,
       finalDiv: appState.finalDivisor || 2,
-      finalHelp: 5,
-      finalScore: 13,
-      totalScore: 58,
-      grade: '1.5',
+      finalHelp: 0,
+      finalScore: 0,
+      totalScore: computedWork,
+      grade: '0',
       sgsStatus: 'ปกติ',
       note: ''
     };
@@ -3461,9 +3511,7 @@ function renderGradebook(container) {
           <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
             <span>💾</span> บันทึก Sheets
           </button>
-          <button class="btn btn-secondary btn-sm" style="color: #2563EB;" onclick="loadOriginalSchoolGrades()" title="โหลดข้อมูล 434 คนจากไฟล์โรงเรียน">
-            <span>📥</span> โหลดต้นฉบับ
-          </button>
+
           <button class="btn btn-secondary btn-sm" onclick="exportGradebookSGS()">
             <span>📤</span> ส่งออก SGS (CSV)
           </button>

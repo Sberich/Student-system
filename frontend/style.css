@@ -21,6 +21,13 @@
 
   --border-light: #E2E8F0;
   --border-focus: #2563EB;
+  --border-color: var(--border-light);
+  --text-primary: var(--text-main);
+  --primary-main: var(--primary);
+  --primary-light: var(--primary-subtle);
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.04);
+  --transition-fast: 0.15s ease;
+  --radius-pill: 9999px;
 
   --primary: #2563EB;
   --primary-hover: #1D4ED8;

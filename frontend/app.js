@@ -63,6 +63,7 @@ let appState = {
   assignments: [],
   submissions: {}, // key: `${assignmentId}_${studentId}`
   gradebookRatio: '70/30', // '70/30' or '80/20'
+  finalDivisor: 2, // ตัวหารข้อเขียนปลายภาค (ค่าเริ่มต้นคือ 2)
   gradebook: {} // key: `${subject}_${classroom}_${studentId}`
 };
 
@@ -173,6 +174,7 @@ function loadLocalState() {
       appState = { ...appState, ...parsed };
       if (!appState.gradebook) appState.gradebook = {};
       if (!appState.gradebookRatio) appState.gradebookRatio = '70/30';
+      if (!appState.finalDivisor) appState.finalDivisor = 2;
       // ซ่อมแซมและปรับสมการความถูกต้องของ Gradebook 100%
       if (appState.gradebook && Object.keys(appState.gradebook).length > 0) {
         Object.keys(appState.gradebook).forEach(k => {
@@ -181,7 +183,7 @@ function loadLocalState() {
           if (rec.midRaw > 20) {
             rec.midRaw = Math.round((rec.midRaw / 2) * 10) / 10;
           }
-          if (rec.finalDiv > 2) rec.finalDiv = 2;
+          if (!rec.finalDiv) rec.finalDiv = appState.finalDivisor || 2;
           if (rec.midDiv !== 1) rec.midDiv = 1;
           appState.gradebook[k] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
         });
@@ -216,6 +218,7 @@ function saveLocalState() {
       assignments: appState.assignments,
       submissions: appState.submissions,
       gradebookRatio: appState.gradebookRatio,
+      finalDivisor: appState.finalDivisor || 2,
       gradebook: appState.gradebook
     }));
   } catch (e) {
@@ -2896,11 +2899,12 @@ function calculateGradeRecord(rec, ratio) {
   const rawTerm = sumPre + midScore + sumPost;
   const termScore = Math.min(maxTerm, Math.round(rawTerm * 10) / 10);
 
-  // 5. สอบปลายภาค: (ข้อเขียน / ตัวหาร [ปกติหาร 2]) + คะแนนช่วย
+  // 5. สอบปลายภาค: (ข้อเขียน / ตัวหาร [ค่าจากหัวตาราง เช่น 2 หรือ 3]) + คะแนนช่วย
   // สัดส่วน 70/30: เต็ม 30 | สัดส่วน 80/20: เต็ม 20
   const maxFinal = is8020 ? 20 : 30;
   const finalRaw = Math.max(0, Number(rec.finalRaw) || 0);
-  const finalDiv = (Number(rec.finalDiv) > 0 && Number(rec.finalDiv) <= 10) ? Number(rec.finalDiv) : 2;
+  const globalDiv = (Number(appState.finalDivisor) > 0) ? Number(appState.finalDivisor) : 2;
+  const finalDiv = (Number(rec.finalDiv) > 0) ? Number(rec.finalDiv) : globalDiv;
   const finalHelp = Number(rec.finalHelp) || 0;
   const rawFinalScore = (finalRaw / finalDiv) + finalHelp;
   const finalScore = Math.min(maxFinal, Math.max(0, Math.round(rawFinalScore * 10) / 10));
@@ -2996,7 +3000,7 @@ function getOrCreateGradeRecord(student) {
       sumPost: 18,
       termScore: 45,
       finalRaw: 16,
-      finalDiv: 2,
+      finalDiv: appState.finalDivisor || 2,
       finalHelp: 5,
       finalScore: 13,
       totalScore: 58,
@@ -3024,6 +3028,32 @@ function setGradebookRatio(ratio) {
   saveLocalState();
   renderApp();
   showToast('สลับสัดส่วนคะแนนเป็น ' + ratio + ' และคำนวณใหม่เรียบร้อยแล้ว');
+}
+
+/**
+ * กำหนดตัวหารคะแนนข้อเขียนปลายภาคจาก Header ของตาราง (เช่น หาร 2 หรือ หาร 3)
+ */
+function updateGlobalFinalDivisor(newVal) {
+  let div = parseFloat(newVal);
+  if (isNaN(div) || div <= 0) div = 2;
+  if (div > 20) div = 20;
+
+  appState.finalDivisor = div;
+
+  if (appState.gradebook) {
+    Object.keys(appState.gradebook).forEach(key => {
+      const rec = appState.gradebook[key];
+      if (rec) {
+        rec.finalDiv = div;
+        appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+      }
+    });
+  }
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderApp();
+  showToast(`✅ ปรับตัวหารปลายภาคเป็น ÷ ${div} และคำนวณคะแนนใหม่เรียบร้อย`);
 }
 
 /**
@@ -3220,7 +3250,7 @@ function renderGradebook(container) {
   if (students.length === 0) {
     tableRowsHtml = `
       <tr>
-        <td colspan="20" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <td colspan="19" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
           <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📂</div>
           <p>ยังไม่มีรายชื่อนักเรียนในห้อง ${esc(appState.activeClassroom)}</p>
           <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
@@ -3312,7 +3342,7 @@ function renderGradebook(container) {
           <!-- รวมระหว่างภาค -->
           <td class="td-term-total gb-term-score">${rec.termScore}</td>
 
-          <!-- ปลายภาค -->
+          <!-- ปลายภาค (ตัดช่องตัวหารออก โดยใช้ตัวหารจากหัวข้อตาราง) -->
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
               data-row="${idx}" data-col="finalRaw" data-sid="${esc(s.studentId)}"
@@ -3324,19 +3354,9 @@ function renderGradebook(container) {
               title="สอบปลายภาค (ข้อเขียนดิบ)">
           </td>
           <td>
-            <input type="number" step="0.5" min="1" max="10" class="gb-score-input mini" 
-              data-row="${idx}" data-col="finalDiv" data-sid="${esc(s.studentId)}"
-              tabindex="${1700 + idx}" inputmode="decimal" enterkeyhint="next"
-              value="${rec.finalDiv || 2}" 
-              onfocus="this.select()"
-              onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalDiv')"
-              onchange="updateGradebookCell('${esc(s.studentId)}', 'finalDiv', this.value)" 
-              title="ตัวหาร (ปกติหาร 2)">
-          </td>
-          <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
               data-row="${idx}" data-col="finalHelp" data-sid="${esc(s.studentId)}"
-              tabindex="${1800 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1700 + idx}" inputmode="decimal" enterkeyhint="next"
               value="${rec.finalHelp || 0}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
@@ -3355,7 +3375,7 @@ function renderGradebook(container) {
           <td>
             <input type="text" class="gb-score-input gb-note-input" 
               data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
-              tabindex="${1900 + idx}" enterkeyhint="next"
+              tabindex="${1800 + idx}" enterkeyhint="next"
               value="${esc(rec.note || '')}" 
               placeholder="ปกติ / ร / มส..." 
               onfocus="this.select()"
@@ -3435,7 +3455,20 @@ function renderGradebook(container) {
               <th colspan="3" class="th-sec-mid">สอบกลางภาค</th>
               <th colspan="3" class="th-sec-post">คะแนนเก็บหลังกลางภาค</th>
               <th colspan="1" class="th-sec-term">ระหว่างภาค</th>
-              <th colspan="4" class="th-sec-final">สอบปลายภาค</th>
+              <th colspan="3" class="th-sec-final">
+                <div class="final-header-with-div">
+                  <span>สอบปลายภาค</span>
+                  <span class="final-div-badge" title="กำหนดตัวหารคะแนนข้อเขียนปลายภาค เช่น หาร 2 หรือ หาร 3">
+                    <span>(÷</span>
+                    <input type="number" step="0.5" min="1" max="20" class="gb-div-header-input"
+                      value="${appState.finalDivisor || 2}"
+                      onchange="updateGlobalFinalDivisor(this.value)"
+                      onfocus="this.select()"
+                      title="กรอกตัวหาร เช่น 2 หรือ 3 ระบบจะนำไปหารคะแนนข้อเขียนให้อัตโนมัติ">
+                    <span>)</span>
+                  </span>
+                </div>
+              </th>
               <th colspan="1" class="th-sec-total">รวม 100</th>
               <th colspan="2" class="th-sec-grade">ผลการเรียน</th>
             </tr>
@@ -3463,9 +3496,8 @@ function renderGradebook(container) {
               <!-- รวมระหว่างภาค -->
               <th style="font-weight: 800; color: #1E3A8A;">รวม (${is8020 ? 80 : 70})</th>
 
-              <!-- สอบปลายภาค -->
+              <!-- สอบปลายภาค (ตัดช่องตัวหารออก โดยนำตัวหารไปไว้ที่หัวข้อตาราง) -->
               <th>ข้อเขียน</th>
-              <th>ตัวหาร</th>
               <th>คะแนนช่วย</th>
               <th style="font-weight: 700;">สรุปปลาย (${is8020 ? 20 : 30})</th>
 
@@ -3679,7 +3711,7 @@ async function loadOriginalSchoolGrades() {
         workPost: Number(r.workPost) || 0,
         sumPost: Number(r.sumPost) || 0,
         finalRaw: Number(r.finalRaw || 0),
-        finalDiv: 2,
+        finalDiv: appState.finalDivisor || 2,
         finalHelp: Number(r.finalHelp || 0),
         note: r.note || (r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : ''))
       };

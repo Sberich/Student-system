@@ -1576,9 +1576,8 @@ function renderReport(container) {
               <th rowspan="2" style="width: 150px; text-align: left; padding-left: 10px;">ชื่อ-นามสกุล</th>
               ${pageAssignments.map(a => `
                 <th rowspan="2" class="task-header" title="${esc(a.title)}">
-                  <div style="font-weight: 700; font-size: 0.82rem; color: var(--primary);">${esc(a.id)}</div>
-                  <div style="font-size: 0.68rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px; margin: 1px auto;">${esc(a.title)}</div>
-                  <div style="font-size: 0.65rem; color: #64748B; font-weight: normal;">(เต็ม ${a.fullScore})</div>
+                  <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-main, #1E293B); line-height: 1.3; margin-bottom: 2px; max-width: 82px; margin-inline: auto; word-break: break-word;">${esc(a.title)}</div>
+                  <div style="font-size: 0.66rem; color: #64748B; font-weight: normal;">(เต็ม ${a.fullScore})</div>
                 </th>
               `).join('')}
               <th colspan="3" style="text-align: center; background: #F1F5F9;">สรุป</th>
@@ -1625,11 +1624,11 @@ function renderReport(container) {
         </table>
 
         <!-- คำอธิบายชื่องานใต้ตาราง (Assignment Legend) -->
-        <div class="report-legend" style="margin-top: 12px; font-size: 0.74rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">
-          ${pageAssignments.map(a => `
-            <div style="display: flex; gap: 4px; align-items: baseline;">
-              <span style="font-weight: 700; color: var(--primary); min-width: 28px;">${esc(a.id)}:</span>
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(a.title)} <span style="color: #64748B;">(เต็ม ${a.fullScore})</span></span>
+        <div class="report-legend" style="margin-top: 12px; font-size: 0.76rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">
+          ${pageAssignments.map((a, aIdx) => `
+            <div style="display: flex; gap: 6px; align-items: baseline;">
+              <span style="font-weight: 700; color: var(--primary); min-width: 22px;">งานที่ ${startIdx + aIdx + 1}:</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(a.title)} <span style="color: #64748B;">(เต็ม ${a.fullScore} คะแนน)</span></span>
             </div>
           `).join('')}
         </div>
@@ -1647,36 +1646,32 @@ function renderReport(container) {
 
   container.innerHTML = `
     <div class="report-view-container">
-      <div class="report-controls" style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="report-controls">
         <div class="report-header-info">
-          <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0 0 0.35rem 0; line-height: 1.35; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.5rem;">
+          <h2 class="report-header-title">
             <span>รายงานสรุปการส่งงาน</span>
             <span style="color: var(--primary); white-space: nowrap;">ห้อง ${esc(appState.activeClassroom)}</span>
           </h2>
-          <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; display: flex; flex-direction: column; gap: 0.15rem;">
+          <div class="report-header-sub">
             <div>📚 วิชา ${esc(subjectObj.name)} <span style="color: var(--text-muted);">(${esc(subjectObj.code)})</span></div>
             <div style="color: var(--text-muted); font-size: 0.78rem;">📄 จัดรูปแบบ A4 แนวนอน • พร้อมพิมพ์ส่งฝ่ายวิชาการ (${currentAssignments.length} งาน)</div>
           </div>
         </div>
 
-        <!-- เมนู Export & Print จัดเรียงสวยงามเป็นระเบียบ 2 บรรทัดคู่ -->
-        <div class="report-actions-grid" style="display: flex; flex-direction: column; gap: 0.45rem; width: 100%;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <button class="btn btn-secondary" onclick="exportToCSV()" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="ดาวน์โหลดเป็นไฟล์ CSV สำหรับ Excel">
-              📥 ส่งออก Excel (CSV)
-            </button>
-            <button class="btn btn-secondary" onclick="exportReportToImage()" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="บันทึกตารางรายงานเป็นรูปภาพ PNG">
-              🖼️ ส่งออกเป็นรูปภาพ
-            </button>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <button class="btn btn-secondary" onclick="handlePrintReport(false)" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
-              🖨️ พิมพ์หน้านี้
-            </button>
-            <button class="btn btn-primary" onclick="handlePrintReport(true)" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
-              🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
-            </button>
-          </div>
+        <!-- เมนู Export & Print: แถวเดียว 4 ปุ่มบน Laptop / iPad / Tablet และ 2 แถวบนมือถือ -->
+        <div class="report-actions-bar">
+          <button class="btn btn-secondary report-btn" onclick="exportToCSV()" title="ดาวน์โหลดเป็นไฟล์ CSV สำหรับ Excel">
+            📥 ส่งออก Excel (CSV)
+          </button>
+          <button class="btn btn-secondary report-btn" onclick="exportReportToImage()" title="บันทึกตารางรายงานเป็นรูปภาพ PNG">
+            🖼️ ส่งออกเป็นรูปภาพ
+          </button>
+          <button class="btn btn-secondary report-btn" onclick="handlePrintReport(false)" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
+            🖨️ พิมพ์หน้านี้
+          </button>
+          <button class="btn btn-primary report-btn" onclick="handlePrintReport(true)" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
+            🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
+          </button>
         </div>
       </div>
 
@@ -1733,7 +1728,7 @@ function exportToCSV() {
 
   let headerRow = ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน'];
   currentAssignments.forEach(a => {
-    headerRow.push(`${a.id} ${a.title} (เต็ม ${a.fullScore})`);
+    headerRow.push(`${a.title} (เต็ม ${a.fullScore})`);
   });
   headerRow.push('ส่งแล้วรวม', 'ค้างส่งรวม', 'คะแนนรวม');
   csvContent += headerRow.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\r\n';

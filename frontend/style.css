@@ -4798,3 +4798,28 @@ body {
     color: #000000 !important;
   }
 }
+
+/* Modern Prompt & Dialog Modal */
+.prompt-modal-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+  animation: promptFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes promptFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+[data-theme="dark"] .prompt-modal-card {
+  background: #1E293B;
+  border-color: #2E3C52;
+}

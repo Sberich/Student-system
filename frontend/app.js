@@ -676,7 +676,7 @@ function renderOverview(container) {
           </button>
         </div>
         <div class="risk-row-bottom">
-          <span class="risk-student-meta">รหัส ${esc(st.studentId)} • ห้อง ${esc(st.classroom)}</span>
+          <span class="risk-student-meta">รหัส ${esc(st.studentId)} • ${esc(st.classroom)}</span>
           <span class="risk-badge">⚠️ ค้าง ${st.pendingCount} งาน</span>
         </div>
       </div>
@@ -684,11 +684,14 @@ function renderOverview(container) {
 
     riskCardHtml = `
       <div class="card" style="margin-top: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
-          <h3 style="font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main); margin: 0;">
-            <span>⚠️</span> นักเรียนที่ค้างส่งสะสมสูงสุด (ห้อง ${esc(appState.activeClassroom)})
-          </h3>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">ลำดับความสำคัญในการติดตามงานก่อนตัดเกรด</span>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0; line-height: 1.35;">
+              <span>⚠️ นักเรียนที่ค้างส่งสะสมสูงสุด</span><br>
+              <span style="font-size: 0.88rem; font-weight: 600; color: var(--primary);">(ห้อง ${esc(appState.activeClassroom)})</span>
+            </h3>
+          </div>
+          <span style="font-size: 0.78rem; color: var(--text-muted); align-self: flex-end;">ลำดับความสำคัญในการติดตามงานก่อนตัดเกรด</span>
         </div>
         <div>
           ${itemsHtml}
@@ -1644,23 +1647,36 @@ function renderReport(container) {
 
   container.innerHTML = `
     <div class="report-view-container">
-      <div class="report-controls">
-        <div>
-          <h2 style="font-size: 1.15rem; font-weight: 600;">รายงานสรุปการส่งงาน ห้อง ${esc(appState.activeClassroom)}</h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">
-            วิชา ${esc(subjectObj.code)} ${esc(subjectObj.name)} • จัดรูปแบบ A4 แนวนอน พร้อมพิมพ์ส่งฝ่ายวิชาการ (${currentAssignments.length} งาน)
-          </p>
+      <div class="report-controls" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="report-header-info">
+          <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0 0 0.35rem 0; line-height: 1.35; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.5rem;">
+            <span>รายงานสรุปการส่งงาน</span>
+            <span style="color: var(--primary); white-space: nowrap;">ห้อง ${esc(appState.activeClassroom)}</span>
+          </h2>
+          <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; display: flex; flex-direction: column; gap: 0.15rem;">
+            <div>📚 วิชา ${esc(subjectObj.name)} <span style="color: var(--text-muted);">(${esc(subjectObj.code)})</span></div>
+            <div style="color: var(--text-muted); font-size: 0.78rem;">📄 จัดรูปแบบ A4 แนวนอน • พร้อมพิมพ์ส่งฝ่ายวิชาการ (${currentAssignments.length} งาน)</div>
+          </div>
         </div>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-secondary" onclick="exportToCSV()">
-            📥 ส่งออก Excel (CSV)
-          </button>
-          <button class="btn btn-secondary" onclick="handlePrintReport(false)" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
-            🖨️ พิมพ์หน้านี้
-          </button>
-          <button class="btn btn-primary" onclick="handlePrintReport(true)" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
-            🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
-          </button>
+
+        <!-- เมนู Export & Print จัดเรียงสวยงามเป็นระเบียบ 2 บรรทัดคู่ -->
+        <div class="report-actions-grid" style="display: flex; flex-direction: column; gap: 0.45rem; width: 100%;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="exportToCSV()" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="ดาวน์โหลดเป็นไฟล์ CSV สำหรับ Excel">
+              📥 ส่งออก Excel (CSV)
+            </button>
+            <button class="btn btn-secondary" onclick="exportReportToImage()" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="บันทึกตารางรายงานเป็นรูปภาพ PNG">
+              🖼️ ส่งออกเป็นรูปภาพ
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="handlePrintReport(false)" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
+              🖨️ พิมพ์หน้านี้
+            </button>
+            <button class="btn btn-primary" onclick="handlePrintReport(true)" style="justify-content: center; font-size: 0.83rem; padding: 0.5rem 0.5rem; white-space: nowrap;" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
+              🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1668,6 +1684,46 @@ function renderReport(container) {
       ${sheetsHtml}
     </div>
   `;
+}
+
+async function exportReportToImage() {
+  const activeSheet = document.querySelector('.printable-sheet:not([style*="display: none"])') || document.querySelector('.printable-sheet');
+  if (!activeSheet) {
+    showToast('⚠️ ไม่พบตารางรายงานสำหรับบันทึกภาพ');
+    return;
+  }
+
+  showToast('⏳ กำลังแปลงรายงานเป็นรูปภาพ...');
+
+  try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('ไม่พบไลบรารี html2canvas');
+    }
+
+    // เรนเดอร์เป็นภาพ Canvas ความละเอียดสูง 2x พื้นหลังขาวเสมอ
+    const canvas = await html2canvas(activeSheet, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+      windowWidth: 1200
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    const cleanRoom = (appState.activeClassroom || 'room').replace(/\s+/g, '_');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `รายงานการส่งงาน_${cleanRoom}_${dateStr}.png`;
+    link.href = imgData;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('✓ ส่งออกรายงานเป็นรูปภาพสำเร็จ');
+  } catch (err) {
+    console.error('Export image error:', err);
+    showToast('⚠️ ส่งออกรูปภาพไม่สำเร็จ: ' + err.message);
+  }
 }
 
 function exportToCSV() {
@@ -2074,24 +2130,85 @@ function reindexClassroomStudents(className) {
   }
 }
 
+// ----------------- Modern Modal Dialog System (ทดแทน prompt() และ alert() พื้นฐาน) -----------------
+function showModernPrompt({ title, subtitle = '', defaultValue = '', placeholder = '', confirmText = 'ตกลง', cancelText = 'ยกเลิก', onConfirm }) {
+  const modalId = 'modern-prompt-modal';
+  closeModal(modalId);
+  const html = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content prompt-modal-card" style="max-width: 420px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary-subtle); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; border: 1px solid var(--primary-border);">
+              ✏️
+            </div>
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main); line-height: 1.3;">${esc(title)}</h3>
+              ${subtitle ? `<p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0.15rem 0 0 0;">${esc(subtitle)}</p>` : ''}
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); padding: 0.2rem;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        <div style="margin: 1.1rem 0 1.25rem 0;">
+          <input type="text" id="modern-prompt-input" class="form-input" value="${esc(defaultValue)}" placeholder="${esc(placeholder)}" style="font-size: 0.95rem; padding: 0.65rem 0.85rem; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('${modalId}')" style="min-width: 80px;">${esc(cancelText)}</button>
+          <button type="button" class="btn btn-primary" id="modern-prompt-confirm-btn" style="min-width: 90px;">${esc(confirmText)}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const input = document.getElementById('modern-prompt-input');
+  if (input) {
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 50);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('modern-prompt-confirm-btn')?.click();
+      } else if (e.key === 'Escape') {
+        closeModal(modalId);
+      }
+    });
+  }
+  document.getElementById('modern-prompt-confirm-btn')?.addEventListener('click', () => {
+    const val = input ? input.value : '';
+    closeModal(modalId);
+    if (typeof onConfirm === 'function') onConfirm(val);
+  });
+}
+
 // ----------------- Modal: จัดการห้องเรียน (เพิ่ม / ลบ / เปลี่ยนชื่อ) -----------------
 function openAddClassroomModal() {
-  const name = prompt('กรุณาระบุชื่อห้องเรียนใหม่ที่ต้องการเพิ่ม (เช่น ม.4/12 หรือ ม.6/1):');
-  if (name && name.trim()) {
-    const trimmed = name.trim();
-    if (appState.settings.classrooms.includes(trimmed)) {
-      alert('มีห้องเรียนนี้อยู่ในระบบแล้ว');
-      return;
+  showModernPrompt({
+    title: 'เพิ่มห้องเรียนใหม่',
+    subtitle: 'ระบุชื่อห้องเรียน เช่น ม.4/12 หรือ ม.6/1',
+    defaultValue: '',
+    placeholder: 'เช่น ม.4/12',
+    confirmText: '+ เพิ่มห้องเรียน',
+    onConfirm: (name) => {
+      if (!name || !name.trim()) return;
+      const trimmed = name.trim();
+      if (appState.settings.classrooms.includes(trimmed)) {
+        showToast('⚠️ มีห้องเรียนนี้อยู่ในระบบแล้ว');
+        return;
+      }
+      appState.settings.classrooms.push(trimmed);
+      appState.activeClassroom = trimmed;
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync('full');
+      renderHeaderControls();
+      showToast(`เพิ่มห้อง ${trimmed} เรียบร้อยแล้ว`);
+      renderApp();
     }
-    appState.settings.classrooms.push(trimmed);
-    appState.activeClassroom = trimmed;
-    appState.isDirty = true;
-    saveLocalState();
-    scheduleAutoSync('full');
-    renderHeaderControls();
-    showToast(`เพิ่มห้อง ${trimmed} เรียบร้อยแล้ว`);
-    renderApp();
-  }
+  });
 }
 
 function openClassroomManagerModal() {
@@ -2113,9 +2230,9 @@ function openClassroomManagerModal() {
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
               <thead>
                 <tr style="background: var(--bg-subtle); border-bottom: 2px solid var(--border-light); text-align: left;">
-                  <th style="padding: 0.5rem;">ชื่อห้องเรียน</th>
-                  <th style="padding: 0.5rem;">จำนวนนักเรียน</th>
-                  <th style="padding: 0.5rem; text-align: right;">การกระทำ</th>
+                  <th style="padding: 0.5rem 0.35rem; font-size: 0.85rem;">ห้องเรียน</th>
+                  <th style="padding: 0.5rem 0.35rem; text-align: center; width: 65px; white-space: nowrap; font-size: 0.85rem;">นักเรียน</th>
+                  <th style="padding: 0.5rem 0.35rem; text-align: right; width: 145px; white-space: nowrap; font-size: 0.85rem;">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
@@ -2123,11 +2240,13 @@ function openClassroomManagerModal() {
                   const count = appState.students.filter(s => s.classroom === c).length;
                   return `
                     <tr style="border-bottom: 1px solid var(--border-light);">
-                      <td style="padding: 0.5rem; font-weight: 600;">${esc(c)}</td>
-                      <td style="padding: 0.5rem; color: var(--text-secondary);">${count} คน</td>
-                      <td style="padding: 0.5rem; text-align: right;">
-                        <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${esc(c)}')">เปลี่ยนชื่อ</button>
-                        <button class="btn btn-sm btn-secondary" style="color: #DC2626;" onclick="deleteClassroom('${esc(c)}')">ลบห้อง</button>
+                      <td style="padding: 0.6rem 0.35rem; font-weight: 600; line-height: 1.35; word-break: break-word;">${esc(c)}</td>
+                      <td style="padding: 0.6rem 0.35rem; text-align: center; color: var(--text-secondary); white-space: nowrap; font-size: 0.82rem;">${count} คน</td>
+                      <td style="padding: 0.6rem 0.35rem; text-align: right; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
+                          <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${esc(c)}')" style="padding: 0.32rem 0.55rem; font-size: 0.78rem; white-space: nowrap;">✏️ เปลี่ยนชื่อ</button>
+                          <button class="btn btn-sm btn-secondary" style="color: #DC2626; padding: 0.32rem 0.55rem; font-size: 0.78rem; white-space: nowrap;" onclick="deleteClassroom('${esc(c)}')">🗑️ ลบห้อง</button>
+                        </div>
                       </td>
                     </tr>
                   `;
@@ -2154,7 +2273,7 @@ function handleAddRoomFromManager() {
 
   const name = input.value.trim();
   if (appState.settings.classrooms.includes(name)) {
-    alert('มีห้องนี้อยู่แล้ว');
+    showToast('⚠️ มีห้องนี้อยู่ในระบบแล้ว');
     return;
   }
 
@@ -2171,33 +2290,40 @@ function handleAddRoomFromManager() {
 }
 
 function renameClassroom(oldName) {
-  const newName = prompt(`เปลี่ยนชื่อห้อง "${oldName}" เป็น:`, oldName);
-  if (newName && newName.trim() && newName.trim() !== oldName) {
-    const trimmed = newName.trim();
-    const idx = appState.settings.classrooms.indexOf(oldName);
-    if (idx !== -1) {
-      appState.settings.classrooms[idx] = trimmed;
-    }
-    // อัปเดตห้องของนักเรียนในห้องนี้ด้วย
-    appState.students.forEach(s => {
-      if (s.classroom === oldName) s.classroom = trimmed;
-    });
-    // อัปเดตห้องของงาน
-    appState.assignments.forEach(a => {
-      if (a.classroom === oldName) a.classroom = trimmed;
-    });
-    if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
+  showModernPrompt({
+    title: 'เปลี่ยนชื่อห้องเรียน',
+    subtitle: `เดิมคือห้อง "${oldName}"`,
+    defaultValue: oldName,
+    placeholder: 'ระบุชื่อห้องใหม่',
+    confirmText: 'บันทึกการเปลี่ยนชื่อ',
+    onConfirm: (newName) => {
+      if (!newName || !newName.trim() || newName.trim() === oldName) return;
+      const trimmed = newName.trim();
+      const idx = appState.settings.classrooms.indexOf(oldName);
+      if (idx !== -1) {
+        appState.settings.classrooms[idx] = trimmed;
+      }
+      // อัปเดตห้องของนักเรียนในห้องนี้ด้วย
+      appState.students.forEach(s => {
+        if (s.classroom === oldName) s.classroom = trimmed;
+      });
+      // อัปเดตห้องของงาน
+      appState.assignments.forEach(a => {
+        if (a.classroom === oldName) a.classroom = trimmed;
+      });
+      if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
 
-    appState.isDirty = true;
-    saveLocalState();
-    renderHeaderControls();
-    openClassroomManagerModal();
-    showToast(`เปลี่ยนชื่อห้องเป็น ${trimmed} เรียบร้อย`);
-    renderApp();
-    pushFullStateToBackend().catch(err => {
-      console.error('Error syncing after classroom rename:', err);
-    });
-  }
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      openClassroomManagerModal();
+      showToast(`เปลี่ยนชื่อห้องเป็น ${trimmed} เรียบร้อย`);
+      renderApp();
+      pushFullStateToBackend().catch(err => {
+        console.error('Error syncing after classroom rename:', err);
+      });
+    }
+  });
 }
 
 function deleteClassroom(className) {
@@ -2246,16 +2372,20 @@ function openImportModal(defaultClass) {
 
   const modalHtml = `
     <div class="modal-overlay" id="import-modal-overlay">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width: 560px;">
         <div class="modal-header">
-          <h3 style="font-size: 1.1rem; font-weight: 600;">📥 นำเข้ารายชื่อนักเรียนจาก Excel / SGS</h3>
-          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer;" onclick="closeImportModal()">✕</button>
+          <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+            <span>📥</span> นำเข้ารายชื่อนักเรียน (Excel / SGS)
+          </h3>
+          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);" onclick="closeImportModal()">✕</button>
         </div>
 
         <div class="modal-body">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.875rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-bottom: 0.875rem;">
             <div>
-              <label class="form-label">เลือกห้องเรียนปลายทาง:</label>
+              <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">
+                🏫 ห้องเรียนปลายทาง:
+              </label>
               <select id="import-target-class" class="form-input" onchange="updateImportPreview()">
                 ${appState.settings.classrooms.map(c => `
                   <option value="${esc(c)}" ${c === targetClass ? 'selected' : ''}>${esc(c)}</option>
@@ -2263,17 +2393,19 @@ function openImportModal(defaultClass) {
               </select>
             </div>
             <div>
-              <label class="form-label">รูปแบบการบันทึก:</label>
+              <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">
+                ⚙️ รูปแบบการบันทึก:
+              </label>
               <select id="import-mode" class="form-input">
                 <option value="replace_classroom">เขียนทับเฉพาะห้องนี้ (แนะนำ)</option>
-                <option value="append">เพิ่มต่อท้ายจากเดิม</option>
+                <option value="append">เพิ่มต่อท้ายรายชื่อเดิม</option>
                 <option value="replace_all">เขียนทับนักเรียนทุกห้อง</option>
               </select>
             </div>
           </div>
 
-          <label class="form-label">
-            คัดลอก (Copy) ข้อมูลจาก Excel โรงเรียนแล้วกดวาง (Ctrl+V) ที่นี่:
+          <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem; line-height: 1.35;">
+            📋 คัดลอก (Copy) ข้อมูลจาก Excel โรงเรียนแล้วกดวาง (Ctrl+V) ที่นี่:
           </label>
           <textarea id="import-raw-text" class="import-textarea" 
             placeholder="ตัวอย่างการวาง (คัดลอกจาก Excel ได้โดยตรง):
@@ -2535,7 +2667,10 @@ function renderAssignments(container) {
 
       <!-- กล่องสร้างภาระงานใหม่ Responsive (จัดเป็นระเบียบทั้งมือถือและคอม) -->
       <div class="new-assign-card">
-        <h4 class="new-assign-card-title">+ สร้างภาระงานใหม่สำหรับห้อง ${esc(appState.activeClassroom)}</h4>
+        <h4 class="new-assign-card-title">
+          <span>+ สร้างภาระงานใหม่สำหรับ</span><br>
+          <span style="color: var(--primary); font-weight: 700;">ห้อง ${esc(appState.activeClassroom)}</span>
+        </h4>
         <div class="new-assign-form-grid">
           <div class="form-group-title">
             <label class="form-label">ชื่องาน / รายละเอียด</label>

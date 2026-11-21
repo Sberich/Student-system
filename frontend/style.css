@@ -2024,7 +2024,7 @@ body {
     gap: 0.25rem;
     align-items: center;
     flex-shrink: 1;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .context-selector-bar {

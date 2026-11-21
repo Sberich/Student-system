@@ -334,7 +334,7 @@ function renderHeaderControls() {
   container.innerHTML = `
     <div class="context-unified-bar">
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="togglePopover('header-subject-popover', this)" title="เลือกรายวิชา">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-subject-popover', this, event)" title="เลือกรายวิชา">
           <span class="context-bar-icon">📖</span>
           <span class="context-picker-text">${esc(subjectObj.code)}</span>
           <span class="popover-arrow">▾</span>
@@ -345,7 +345,7 @@ function renderHeaderControls() {
       </div>
       <span class="context-sep">•</span>
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="togglePopover('header-classroom-popover', this)" title="เลือกห้องเรียน">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-classroom-popover', this, event)" title="เลือกห้องเรียน">
           <span class="context-bar-icon">🏫</span>
           <span class="context-picker-text">${esc(appState.activeClassroom)}</span>
           <span class="popover-arrow">▾</span>
@@ -359,17 +359,17 @@ function renderHeaderControls() {
 }
 
 function selectSubjectFromPopover(subCode) {
-  closeAllPopovers();
+  closeAllCustomDropdowns();
   changeActiveSubject(subCode);
 }
 
 function selectClassroomFromPopover(classroom) {
-  closeAllPopovers();
+  closeAllCustomDropdowns();
   changeActiveClassroom(classroom);
 }
 
 function selectAssignmentFromPopover(assignId) {
-  closeAllPopovers();
+  closeAllCustomDropdowns();
   changeAssignment(assignId);
 }
 
@@ -399,12 +399,15 @@ function changeActiveClassroom(className) {
 }
 
 // ----------------- Anchored Popover Dropdown Engine (Image 1 Style) -----------------
-function togglePopover(popoverId, triggerBtn) {
+function toggleCustomDropdown(popoverId, triggerBtn, event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
   const popover = document.getElementById(popoverId);
   if (!popover) return;
   const isCurrentlyOpen = popover.style.display === 'block';
 
-  closeAllPopovers();
+  closeAllCustomDropdowns();
 
   if (!isCurrentlyOpen) {
     popover.style.display = 'block';
@@ -412,7 +415,7 @@ function togglePopover(popoverId, triggerBtn) {
   }
 }
 
-function closeAllPopovers() {
+function closeAllCustomDropdowns() {
   document.querySelectorAll('.popover-dropdown-menu').forEach(el => {
     el.style.display = 'none';
   });
@@ -421,10 +424,15 @@ function closeAllPopovers() {
   });
 }
 
+// Expose to window to guarantee zero shadowing from element prototypes
+window.toggleCustomDropdown = toggleCustomDropdown;
+window.closeAllCustomDropdowns = closeAllCustomDropdowns;
+window.closeAllPopovers = closeAllCustomDropdowns;
+
 // Global click outside listener for popover dropdowns
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.popover-dropdown-wrapper')) {
-    closeAllPopovers();
+    closeAllCustomDropdowns();
   }
 });
 
@@ -814,7 +822,7 @@ function renderGrading(container) {
     <div class="assignment-bar">
       <div class="assign-bar-row-1">
         <div class="popover-dropdown-wrapper assign-popover-wrapper">
-          <button type="button" class="popover-trigger-btn" onclick="togglePopover('assign-popover-menu', this)" id="assignment-picker-btn" title="แตะเพื่อเลือกภาระงาน">
+          <button type="button" class="popover-trigger-btn" onclick="toggleCustomDropdown('assign-popover-menu', this, event)" id="assignment-picker-btn" title="แตะเพื่อเลือกภาระงาน">
             <span class="popover-trigger-text">📚 ${esc(currentAssignment.title)} (เต็ม ${currentAssignment.fullScore})</span>
             <span class="popover-trigger-arrow">▾</span>
           </button>

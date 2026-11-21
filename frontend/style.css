@@ -3583,3 +3583,10 @@ body {
   outline: 3px solid #10B981 !important;
   background: rgba(16, 185, 129, 0.25) !important;
 }
+
+#gb-toggle-keypad-btn.active {
+  background: var(--primary, #10B981) !important;
+  color: #FFFFFF !important;
+  border-color: var(--primary, #10B981) !important;
+  font-weight: 600;
+}

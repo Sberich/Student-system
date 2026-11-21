@@ -3176,9 +3176,14 @@ function handleGradebookKeyDown(e, currentRowIdx, colName) {
 function navigateToGradebookCell(targetRowIdx, colName) {
   const targetInput = document.querySelector(`.gb-score-input[data-row="${targetRowIdx}"][data-col="${colName}"]`);
   if (targetInput) {
-    targetInput.focus();
-    targetInput.select();
-    targetInput.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    targetInput.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    if (gbfEnabled) {
+      const sid = targetInput.getAttribute('data-sid');
+      openGradebookFloatingKeypad(targetInput, targetRowIdx, colName, sid);
+    } else {
+      targetInput.focus();
+      if (typeof targetInput.select === 'function') targetInput.select();
+    }
   }
 }
 
@@ -3347,6 +3352,9 @@ function renderGradebook(container) {
       </tr>
     `;
   } else {
+    const inputAttr = gbfEnabled ? 'readonly inputmode="none"' : 'inputmode="decimal"';
+    const noteAttr = gbfEnabled ? 'readonly inputmode="none"' : 'inputmode="text"';
+
     tableRowsHtml = students.map((s, idx) => {
       const rec = getOrCreateGradeRecord(s);
       return `
@@ -3360,7 +3368,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
               data-row="${idx}" data-col="attPre" data-sid="${esc(s.studentId)}"
-              tabindex="${1000 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1000 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.attPre}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPre')"
@@ -3370,7 +3378,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
               data-row="${idx}" data-col="workPre" data-sid="${esc(s.studentId)}"
-              tabindex="${1100 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1100 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.workPre}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPre')"
@@ -3383,7 +3391,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
               data-row="${idx}" data-col="midRaw" data-sid="${esc(s.studentId)}"
-              tabindex="${1200 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1200 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.midRaw}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midRaw')"
@@ -3393,7 +3401,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
               data-row="${idx}" data-col="midHelp" data-sid="${esc(s.studentId)}"
-              tabindex="${1300 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1300 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.midHelp || 0}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midHelp')"
@@ -3406,7 +3414,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="10" class="gb-score-input" 
               data-row="${idx}" data-col="attPost" data-sid="${esc(s.studentId)}"
-              tabindex="${1400 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1400 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.attPost}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPost')"
@@ -3416,7 +3424,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
               data-row="${idx}" data-col="workPost" data-sid="${esc(s.studentId)}"
-              tabindex="${1500 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1500 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.workPost}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPost')"
@@ -3432,7 +3440,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="60" class="gb-score-input" 
               data-row="${idx}" data-col="finalRaw" data-sid="${esc(s.studentId)}"
-              tabindex="${1600 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1600 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.finalRaw}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalRaw')"
@@ -3442,7 +3450,7 @@ function renderGradebook(container) {
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
               data-row="${idx}" data-col="finalHelp" data-sid="${esc(s.studentId)}"
-              tabindex="${1700 + idx}" inputmode="decimal" enterkeyhint="next"
+              tabindex="${1700 + idx}" ${inputAttr} enterkeyhint="next"
               value="${rec.finalHelp || 0}" 
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
@@ -3461,7 +3469,7 @@ function renderGradebook(container) {
           <td class="td-note-cell">
             <input type="text" class="gb-score-input gb-note-input" 
               data-row="${idx}" data-col="note" data-sid="${esc(s.studentId)}"
-              tabindex="${1800 + idx}" enterkeyhint="next"
+              tabindex="${1800 + idx}" ${noteAttr} enterkeyhint="next"
               value="${esc(rec.note || '')}" 
               placeholder="" 
               onfocus="this.select()"
@@ -3510,8 +3518,8 @@ function renderGradebook(container) {
         </div>
 
         <div class="gb-action-btn-group">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" title="เปิด/ปิด แป้นพิมพ์คะแนนลอยบนไอแพดและแท็บเล็ต">
-            📱 แป้นลอย
+          <button type="button" class="btn btn-secondary btn-sm ${gbfEnabled ? 'active' : ''}" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" title="เปิด/ปิด แป้นพิมพ์คะแนนลอยบนไอแพดและแท็บเล็ต (ปิดแป้นพิมพ์ระบบไม่ให้เด้งบังจอ)">
+            ${gbfEnabled ? '📱 แป้นลอย (ON)' : '⌨️ แป้นระบบ (OFF)'}
           </button>
           <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
             <span>💾</span> บันทึก Sheets
@@ -3837,20 +3845,37 @@ let gbfRow = 0;
 let gbfCol = '';
 let gbfSid = '';
 let gbfJustFocused = false;
-let gbfEnabled = true;
+let gbfEnabled = (localStorage.getItem('sg_keypad_mode') !== 'system');
 
 function toggleGradebookFloatingMode() {
   gbfEnabled = !gbfEnabled;
+  localStorage.setItem('sg_keypad_mode', gbfEnabled ? 'floating' : 'system');
   const btn = document.getElementById('gb-toggle-keypad-btn');
   if (btn) {
     btn.classList.toggle('active', gbfEnabled);
-    btn.innerHTML = gbfEnabled ? '📱 แป้นลอย (ON)' : '📱 แป้นลอย (OFF)';
+    btn.innerHTML = gbfEnabled ? '📱 แป้นลอย (ON)' : '⌨️ แป้นระบบ (OFF)';
   }
+  
+  // อัปเดต attribute ของทุกช่องในตารางตัดเกรดทันที
+  document.querySelectorAll('.gb-score-input').forEach(inp => {
+    if (gbfEnabled) {
+      inp.setAttribute('readonly', 'readonly');
+      inp.setAttribute('inputmode', 'none');
+    } else {
+      inp.removeAttribute('readonly');
+      if (inp.classList.contains('gb-note-input')) {
+        inp.setAttribute('inputmode', 'text');
+      } else {
+        inp.setAttribute('inputmode', 'decimal');
+      }
+    }
+  });
+
   if (!gbfEnabled) {
     closeGradebookFloatingKeypad();
-    showToast('ปิดแป้นกดคะแนนลอยแล้ว', 'info');
+    showToast('สลับใช้แป้นพิมพ์พื้นฐานของระบบแล้ว (แตะช่องเพื่อพิมพ์ด้วยแป้นพิมพ์ปกติ)', 'info');
   } else {
-    showToast('เปิดแป้นกดคะแนนลอยแล้ว (แตะช่องใดๆ ในตารางเพื่อเริ่มกรอก)', 'success');
+    showToast('เปิดใช้แป้นกดคะแนนลอยแล้ว (ปิดแป้นพิมพ์ระบบไม่ให้เด้งบังจอ)', 'success');
   }
 }
 
@@ -4021,9 +4046,9 @@ function closeGradebookFloatingKeypad() {
 }
 
 // Global listener สำหรับตรวจจับการแตะช่องในตารางตัดเกรด เพื่อเปิด Floating Keypad Bar
-document.addEventListener('focusin', (e) => {
-  if (appState.currentTab !== 'gradebook') return;
-  const input = e.target;
+function handleGradebookCellInteraction(e) {
+  if (appState.currentTab !== 'gradebook' || !gbfEnabled) return;
+  const input = e.target && e.target.closest ? e.target.closest('.gb-score-input') : e.target;
   if (input && input.classList && input.classList.contains('gb-score-input')) {
     const row = parseInt(input.getAttribute('data-row'));
     const col = input.getAttribute('data-col');
@@ -4031,5 +4056,56 @@ document.addEventListener('focusin', (e) => {
     if (!isNaN(row) && col && sid) {
       openGradebookFloatingKeypad(input, row, col, sid);
     }
+  }
+}
+
+document.addEventListener('focusin', handleGradebookCellInteraction);
+document.addEventListener('click', handleGradebookCellInteraction);
+
+// Listener สำหรับคีย์บอร์ดจริง (เช่น Magic Keyboard, Laptop) ให้พิมพ์ตัวเลขและกด Enter ได้ลื่นไหล
+document.addEventListener('keydown', (e) => {
+  if (!gbfEnabled || !gbfActiveInput || appState.currentTab !== 'gradebook') return;
+
+  if (document.activeElement && document.activeElement !== gbfActiveInput && 
+      (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') &&
+      !document.activeElement.classList.contains('gb-score-input')) {
+    return;
+  }
+
+  if (gbfCol === 'note') {
+    if (e.key === 'r' || e.key === 'R' || e.key === 'พ' || e.key === 'ร') {
+      gbfSetNote('ร');
+      e.preventDefault();
+    } else if (e.key === 'm' || e.key === 'M' || e.key === 'ม') {
+      gbfSetNote('มส');
+      e.preventDefault();
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      gbfSetNote('');
+      e.preventDefault();
+    } else if (e.key === 'Enter') {
+      gbfConfirmAndNext();
+      e.preventDefault();
+    }
+    return;
+  }
+
+  if (e.key >= '0' && e.key <= '9') {
+    gbfAppendDigit(e.key);
+    e.preventDefault();
+  } else if (e.key === '.') {
+    gbfAppendDigit('.');
+    e.preventDefault();
+  } else if (e.key === 'Backspace') {
+    gbfBackspace();
+    e.preventDefault();
+  } else if (e.key === 'Delete') {
+    gbfClear();
+    e.preventDefault();
+  } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    gbfConfirmAndNext();
+    e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    gbfNavigate(-1);
+    e.preventDefault();
   }
 });

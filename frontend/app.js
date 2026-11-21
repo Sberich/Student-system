@@ -805,10 +805,10 @@ function renderGrading(container) {
                   </span>
                 </div>
                 <div class="score-display-group">
-                  <button type="button" class="btn-score-dec" onclick="adjustStudentScore(event, '${esc(st.studentId)}', -1)" title="ลดคะแนน (ส่งช้า)">−</button>
                   <div class="score-display ${sub.score !== null && sub.score !== '' ? '' : 'empty'}">
                     ${sub.score !== null && sub.score !== '' ? sub.score : '-'}
                   </div>
+                  <button type="button" class="btn-score-dec" onclick="adjustStudentScore(event, '${esc(st.studentId)}', -1)" title="ลดคะแนน (ส่งช้า)">−</button>
                 </div>
               </div>
             `;
@@ -3395,7 +3395,6 @@ function renderGradebook(container) {
       <!-- Gradebook Toolbar -->
       <div class="gradebook-toolbar">
         <div class="ratio-toolbar-row">
-          <span style="font-weight: 600; font-size: 0.78rem; color: var(--text-primary); white-space: nowrap;">สัดส่วน:</span>
           <div class="ratio-switcher">
             <button class="ratio-btn ${!is8020 ? 'active' : ''}" onclick="setGradebookRatio('70/30')">70/30</button>
             <button class="ratio-btn ${is8020 ? 'active' : ''}" onclick="setGradebookRatio('80/20')">80/20</button>

@@ -2717,7 +2717,7 @@ body {
 
 /* ----------------- Mobile Specific Overrides (< 768px) ----------------- */
 @media (max-width: 767px) {
-  /* แสดงปุ่มลบคะแนนด่วนเฉพาะบนมือถือเท่านั้น (iPad และคอมพิวเตอร์จะซ่อน) */
+  /* แสดงปุ่มลบคะแนนด่วนเฉพาะบนมือถือเท่านั้น (อยู่หลังตัวเลขคะแนน) */
   .btn-score-dec {
     display: inline-flex !important;
     width: 22px;
@@ -2734,7 +2734,7 @@ body {
     padding: 0;
     touch-action: manipulation;
     user-select: none;
-    margin-right: 2px;
+    margin-left: 4px;
     transition: all var(--transition-fast);
   }
 
@@ -2744,35 +2744,42 @@ body {
     border-color: #FCA5A5;
   }
 
-  /* หน้าตัดเกรดบนมือถือ: ย่อคอลัมน์ชื่อ-สกุล และรหัสให้แคบ เพื่อให้มองเห็นคอลัมน์คะแนนเพิ่มขึ้น 2-3 ช่อง */
+  /* แถบเลือกสัดส่วนคะแนนบนมือถือ: จัดกึ่งกลางสมดุล สวยงาม */
+  .ratio-toolbar-row {
+    width: 100% !important;
+    justify-content: center !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  /* หน้าตัดเกรดบนมือถือ: ปรับความกว้างคอลัมน์ที่ถูกตรึง (Sticky) รวมเป็น 200px พอดี */
   .gb-sticky-no {
     left: 0 !important;
-    width: 24px !important;
-    min-width: 24px !important;
-    max-width: 24px !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
     padding: 4px 1px !important;
     font-size: 0.72rem !important;
     text-align: center !important;
   }
 
   .gb-sticky-id {
-    left: 24px !important;
-    width: 44px !important;
-    min-width: 44px !important;
-    max-width: 44px !important;
+    left: 28px !important;
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
     padding: 4px 1px !important;
-    font-size: 0.68rem !important;
+    font-size: 0.7rem !important;
     letter-spacing: -0.5px !important;
     text-align: center !important;
   }
 
   .gb-sticky-name {
-    left: 68px !important;
-    width: 95px !important;
-    min-width: 90px !important;
-    max-width: 105px !important;
-    padding: 4px 3px !important;
-    font-size: 0.72rem !important;
+    left: 78px !important;
+    width: 122px !important;
+    min-width: 120px !important;
+    max-width: 125px !important;
+    padding: 4px 4px !important;
+    font-size: 0.74rem !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;

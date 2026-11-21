@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#2563EB">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%232563EB'/%3E%3Cpath d='M12 21L18 27L29 14' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='29' cy='11' r='2.5' fill='%2393C5FD'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%232563EB'/%3E%3Cpath d='M20 9.5L31.5 15.5L20 21.5L8.5 15.5L20 9.5Z' fill='white'/%3E%3Cpath d='M12.5 18V23.5C12.5 26 15.5 28.5 20 28.5C24.5 28.5 27.5 26 27.5 23.5V18' stroke='white' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M30.5 16V23.5L32.5 25' stroke='%2393C5FD' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='20' cy='15.5' r='1.8' fill='%2393C5FD'/%3E%3C/svg%3E">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -20,20 +20,26 @@
       <div class="brand-badge">
         <div class="brand-icon" id="app-brand-logo">
           <svg viewBox="0 0 40 40" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="40" height="40" rx="11" fill="url(#brandGrad)"/>
+            <rect width="40" height="40" rx="10" fill="url(#brandGrad)"/>
+            <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="9.25" stroke="rgba(255, 255, 255, 0.22)" stroke-width="1.5"/>
             <defs>
               <linearGradient id="brandGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stop-color="#2563EB"/>
-                <stop offset="100%" stop-color="#1D4ED8"/>
+                <stop offset="100%" stop-color="#1E40AF"/>
               </linearGradient>
             </defs>
-            <path d="M12 21L18 27L29 14" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle id="logoAccentDot" cx="29" cy="11" r="2.2" fill="#93C5FD"/>
+            <path d="M20 9.5L31.5 15.5L20 21.5L8.5 15.5L20 9.5Z" fill="#FFFFFF"/>
+            <path d="M12.5 18V23.5C12.5 26 15.5 28.5 20 28.5C24.5 28.5 27.5 26 27.5 23.5V18" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+            <path id="logoTassel" d="M30.5 16V23.5L32.5 25" stroke="#93C5FD" stroke-width="2" stroke-linecap="round"/>
+            <circle id="logoAccentDot" cx="20" cy="15.5" r="1.8" fill="#93C5FD"/>
           </svg>
         </div>
-        <div>
+        <div class="brand-text-box">
           <h1 class="brand-title">Smart Grade</h1>
-          <div class="brand-subtitle">สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง</div>
+          <div class="brand-subtitle">
+            <span class="desktop-subtitle">สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง</span>
+            <span class="mobile-subtitle">สมาร์ทเกรด</span>
+          </div>
         </div>
       </div>
 

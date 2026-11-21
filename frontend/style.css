@@ -1930,13 +1930,36 @@ body {
     height: 32px;
   }
 
+  .brand-text-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.1;
+  }
+
   .brand-title {
     font-size: 0.95rem;
     font-weight: 800;
+    line-height: 1.1;
+    margin: 0;
   }
 
   .brand-subtitle {
+    display: block !important;
+    line-height: 1;
+    margin-top: 1px;
+  }
+
+  .desktop-subtitle {
     display: none !important;
+  }
+
+  .mobile-subtitle {
+    display: block !important;
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
 
   #context-selector-container {
@@ -2345,4 +2368,235 @@ body {
   .action-tile-btn .tile-desc {
     display: none; /* ซ่อนคำอธิบายยาวๆ ในหน้าจอมือถือ */
   }
+}
+
+/* ==========================================================================
+   Smart Grade - Mobile Polish & Minimal UI Extensions
+   ========================================================================== */
+
+/* Brand Subtitle Switcher (Desktop default) */
+.desktop-subtitle {
+  display: block;
+}
+.mobile-subtitle {
+  display: none;
+}
+
+/* Overview 4-Item Minimal Stat Strip (Single-Row across all screens) */
+.stats-strip-single-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.5rem;
+  margin-bottom: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-pill-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.25rem 0.15rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.stat-pill-label {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.stat-pill-val {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.stat-pill-val small {
+  font-size: 0.62rem;
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+.stat-pill-success .stat-pill-val {
+  color: #16A34A;
+}
+
+.stat-pill-warning .stat-pill-val {
+  color: #DC2626;
+}
+
+/* Overview Quick Action Compact 2-Line Grid */
+.quick-action-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.action-compact-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-compact-btn:hover {
+  border-color: var(--primary-main);
+  background: var(--primary-light);
+  color: var(--primary-main);
+  transform: translateY(-1px);
+}
+
+.tile-icon-sm {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* Mobile Score Increment/Decrement Controls in Grading */
+.score-display-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  justify-content: flex-end;
+}
+
+.btn-score-dec,
+.btn-score-inc {
+  width: 22px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-fast);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.btn-score-dec:hover,
+.btn-score-dec:active {
+  background: #FEE2E2;
+  color: #DC2626;
+  border-color: #FCA5A5;
+}
+
+.btn-score-inc:hover,
+.btn-score-inc:active {
+  background: #DCFCE7;
+  color: #16A34A;
+  border-color: #86EFAC;
+}
+
+.score-display-group .score-display {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+/* Gradebook Ratio Toolbar Single Line */
+.ratio-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.ratio-pill-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* Gradebook Unified Single-Line Summary & 2-Row Grade Breakdown */
+.gb-stats-row-top-unified {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  border-bottom: 1px dashed var(--border-light);
+  padding-bottom: 0.35rem;
+  white-space: nowrap;
+}
+
+.gb-stats-row-top-unified .sep-dot {
+  color: var(--border-light);
+  font-size: 0.7rem;
+}
+
+.gb-stats-row-top-unified .g3-stat {
+  color: var(--primary-main);
+  font-weight: 600;
+}
+
+.gb-stats-row-top-unified .res-stat.danger {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+.gb-stats-grid-2rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 0.2rem;
+}
+
+.gb-grid-subrow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.gb-grid-subrow .gb-grade-chip {
+  justify-content: center;
+  padding: 2px 2px;
+  font-size: 0.7rem;
+  text-align: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.gb-grid-subrow .gb-grade-chip small {
+  font-size: 0.65rem;
+  color: var(--text-muted);
 }

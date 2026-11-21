@@ -136,6 +136,8 @@ function updateLogoGradient(theme) {
   }
   const dot = document.getElementById('logoAccentDot');
   if (dot) dot.setAttribute('fill', c.dot);
+  const tassel = document.getElementById('logoTassel');
+  if (tassel) tassel.setAttribute('stroke', c.dot);
 }
 
 // ----------------- Initialization -----------------
@@ -571,54 +573,43 @@ function renderOverview(container) {
             </div>
           </div>
 
-          <div class="stats-ribbon">
-            <div class="stat-box">
-              <div class="stat-label">นักเรียนห้อง ${esc(appState.activeClassroom)}</div>
-              <div class="stat-value">${totalStudents} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">คน</span></div>
+          <!-- สรุปสถิติ 4 ช่องแนวนอนแถวเดียว (Single-Row Strip มินิมอล) -->
+          <div class="stats-strip-single-row">
+            <div class="stat-pill-item">
+              <span class="stat-pill-label">👥 นักเรียน</span>
+              <span class="stat-pill-val">${totalStudents} <small>คน</small></span>
             </div>
-            <div class="stat-box">
-              <div class="stat-label">งานในห้องนี้</div>
-              <div class="stat-value">${totalAssignments} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">ชิ้น</span></div>
+            <div class="stat-pill-item">
+              <span class="stat-pill-label">📚 ชิ้นงาน</span>
+              <span class="stat-pill-val">${totalAssignments} <small>ชิ้น</small></span>
             </div>
-            <div class="stat-box success">
-              <div class="stat-label">ส่งแล้ว</div>
-              <div class="stat-value">${totalSubmitted} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">ครั้ง</span></div>
+            <div class="stat-pill-item stat-pill-success">
+              <span class="stat-pill-label">✓ ส่งแล้ว</span>
+              <span class="stat-pill-val">${totalSubmitted}</span>
             </div>
-            <div class="stat-box warning">
-              <div class="stat-label">ค้างส่ง</div>
-              <div class="stat-value">${totalPending} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">ครั้ง</span></div>
+            <div class="stat-pill-item stat-pill-warning">
+              <span class="stat-pill-label">⏳ ค้างส่ง</span>
+              <span class="stat-pill-val">${totalPending}</span>
             </div>
           </div>
 
-          <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem;">เมนูดำเนินการด่วน</h3>
-          <div class="quick-action-grid">
-            <button class="action-tile-btn" onclick="switchTab('grading')">
-              <span class="tile-icon">📝</span>
-              <div>
-                <div class="tile-title">ตรวจงานห้อง ${esc(appState.activeClassroom)}</div>
-                <div class="tile-desc">แผงตัวเลขด่วนบนไอแพด</div>
-              </div>
+          <h3 style="font-size: 0.82rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-secondary);">เมนูดำเนินการด่วน</h3>
+          <div class="quick-action-compact-grid">
+            <button class="action-compact-btn" onclick="switchTab('grading')">
+              <span class="tile-icon-sm">📝</span>
+              <span>ตรวจงาน ${esc(appState.activeClassroom)}</span>
             </button>
-            <button class="action-tile-btn" onclick="openImportModal('${esc(appState.activeClassroom)}')">
-              <span class="tile-icon">📋</span>
-              <div>
-                <div class="tile-title">นำเข้ารายชื่อจาก Excel</div>
-                <div class="tile-desc">วางรายชื่อ ม.4 และ ม.5 ทีละห้อง</div>
-              </div>
+            <button class="action-compact-btn" onclick="openImportModal('${esc(appState.activeClassroom)}')">
+              <span class="tile-icon-sm">📋</span>
+              <span>นำเข้าจาก Excel</span>
             </button>
-            <button class="action-tile-btn" onclick="switchTab('report')">
-              <span class="tile-icon">📄</span>
-              <div>
-                <div class="tile-title">พิมพ์รายงาน A4 แนวนอน</div>
-                <div class="tile-desc">10 งานต่อหน้า แยกรายห้อง</div>
-              </div>
+            <button class="action-compact-btn" onclick="switchTab('report')">
+              <span class="tile-icon-sm">📄</span>
+              <span>พิมพ์รายงาน A4</span>
             </button>
-            <button class="action-tile-btn" onclick="switchTab('students')">
-              <span class="tile-icon">👥</span>
-              <div>
-                <div class="tile-title">ดูนักเรียนทั้งหมด (${appState.students.length} คน)</div>
-                <div class="tile-desc">ครอบคลุม 13 ห้องเรียน</div>
-              </div>
+            <button class="action-compact-btn" onclick="switchTab('students')">
+              <span class="tile-icon-sm">👥</span>
+              <span>ดูรายชื่อ (${totalStudents} คน)</span>
             </button>
           </div>
         </div>
@@ -805,8 +796,12 @@ function renderGrading(container) {
                     ${isSubmitted ? '✓ ส่งแล้ว' : '✕ ค้างส่ง'}
                   </span>
                 </div>
-                <div class="score-display ${sub.score !== null && sub.score !== '' ? '' : 'empty'}">
-                  ${sub.score !== null && sub.score !== '' ? sub.score : '-'}
+                <div class="score-display-group">
+                  <button type="button" class="btn-score-dec" onclick="adjustStudentScore(event, '${esc(st.studentId)}', -1)" title="ลดคะแนน (ส่งช้า)">−</button>
+                  <div class="score-display ${sub.score !== null && sub.score !== '' ? '' : 'empty'}">
+                    ${sub.score !== null && sub.score !== '' ? sub.score : '-'}
+                  </div>
+                  <button type="button" class="btn-score-inc" onclick="adjustStudentScore(event, '${esc(st.studentId)}', 1)" title="เพิ่มคะแนน">+</button>
                 </div>
               </div>
             `;
@@ -1010,6 +1005,49 @@ function quickGradeStudent(studentId) {
   } else {
     renderGrading(document.getElementById('app-view-container'));
   }
+}
+
+/**
+ * ปรับคะแนนขึ้น/ลงทีละ 1 คะแนนบนมือถือ (สำหรับกรณีส่งช้า หรือตัดแต้มด่วน)
+ */
+function adjustStudentScore(event, studentId, delta) {
+  if (event) event.stopPropagation();
+  const currentAssignments = getFilteredAssignments();
+  const assign = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
+  if (!assign) return;
+
+  const maxScore = assign.fullScore || 5;
+  const key = `${assign.id}_${studentId}`;
+  const sub = appState.submissions[key];
+
+  let currentScore;
+  if (!sub || sub.status !== 'ส่งแล้ว' || sub.score === null || sub.score === '') {
+    currentScore = delta < 0 ? maxScore : 0;
+  } else {
+    currentScore = Number(sub.score);
+  }
+
+  let newScore = Math.max(0, Math.min(maxScore, Math.round((currentScore + delta) * 10) / 10));
+
+  appState.submissions[key] = {
+    ...sub,
+    assignmentId: assign.id,
+    studentId: studentId,
+    status: 'ส่งแล้ว',
+    score: newScore,
+    updatedAt: new Date().toISOString()
+  };
+
+  appState.selectedStudentId = studentId;
+  appState.isDirty = true;
+  saveLocalState();
+  scheduleAutoSync();
+  renderGrading(document.getElementById('app-view-container'));
+
+  const currentStudents = getFilteredStudents();
+  const st = currentStudents.find(s => s.studentId === studentId);
+  const name = st ? st.fullName : '';
+  showToast(`✏️ ${name}: ${newScore}/${maxScore} คะแนน`);
 }
 
 function undoLastGrading() {
@@ -3114,24 +3152,26 @@ function updateGradebookStatsBarDOM() {
   const pct = (n) => countAll > 0 ? ((n / countAll) * 100).toFixed(1) + '%' : '0%';
 
   bar.innerHTML = `
-    <div class="gb-stats-row-top">
-      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <span>👥 ทั้งหมด <strong>${countAll}</strong> คน</span>
-        <span style="color: var(--text-muted);">•</span>
-        <span style="color: #15803D; font-weight: 600;">🌟 เกรด 3 ขึ้นไป <strong>${g3Plus}</strong> คน (${pct(g3Plus)})</span>
-        <span style="color: var(--text-muted);">•</span>
-        <span style="${(dist['ร'] + dist['มส']) > 0 ? 'color: #DC2626; font-weight: 700;' : 'color: var(--text-muted);'}">ติด ร/มส: <strong>${dist['ร'] + dist['มส']}</strong></span>
-      </div>
+    <div class="gb-stats-row-top-unified">
+      <span>👥 ทั้งหมด <strong>${countAll}</strong> คน</span>
+      <span class="sep-dot">•</span>
+      <span class="g3-stat">🌟 เกรด 3+ <strong>${g3Plus}</strong> (${pct(g3Plus)})</span>
+      <span class="sep-dot">•</span>
+      <span class="${(dist['ร'] + dist['มส']) > 0 ? 'res-stat danger' : 'res-stat'}">ร/มส: <strong>${dist['ร'] + dist['มส']}</strong></span>
     </div>
-    <div class="gb-stats-row-grades">
-      <span class="gb-grade-chip"><strong class="grade-badge-4">เกรด 4:</strong> ${dist['4']} <small>(${pct(dist['4'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-3">3.5:</strong> ${dist['3.5']} <small>(${pct(dist['3.5'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-3">3:</strong> ${dist['3']} <small>(${pct(dist['3'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-2">2.5:</strong> ${dist['2.5']} <small>(${pct(dist['2.5'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-2">2:</strong> ${dist['2']} <small>(${pct(dist['2'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-1">1.5:</strong> ${dist['1.5']} <small>(${pct(dist['1.5'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-1">1:</strong> ${dist['1']} <small>(${pct(dist['1'])})</small></span>
-      <span class="gb-grade-chip"><strong class="grade-badge-0">0:</strong> ${dist['0']} <small>(${pct(dist['0'])})</small></span>
+    <div class="gb-stats-grid-2rows">
+      <div class="gb-grid-subrow">
+        <span class="gb-grade-chip"><strong class="grade-badge-4">เกรด 4:</strong> ${dist['4']} <small>(${pct(dist['4'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-3">3.5:</strong> ${dist['3.5']} <small>(${pct(dist['3.5'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-3">3:</strong> ${dist['3']} <small>(${pct(dist['3'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-2">2.5:</strong> ${dist['2.5']} <small>(${pct(dist['2.5'])})</small></span>
+      </div>
+      <div class="gb-grid-subrow">
+        <span class="gb-grade-chip"><strong class="grade-badge-2">เกรด 2:</strong> ${dist['2']} <small>(${pct(dist['2'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-1">1.5:</strong> ${dist['1.5']} <small>(${pct(dist['1.5'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-1">1:</strong> ${dist['1']} <small>(${pct(dist['1'])})</small></span>
+        <span class="gb-grade-chip"><strong class="grade-badge-0">0:</strong> ${dist['0']} <small>(${pct(dist['0'])})</small></span>
+      </div>
     </div>
   `;
 }
@@ -3328,16 +3368,14 @@ function renderGradebook(container) {
 
       <!-- Gradebook Toolbar -->
       <div class="gradebook-toolbar">
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 0.35rem;">
-            <span style="font-weight: 600; font-size: 0.82rem; color: var(--text-primary);">สัดส่วน:</span>
-            <div class="ratio-switcher">
-              <button class="ratio-btn ${!is8020 ? 'active' : ''}" onclick="setGradebookRatio('70/30')">70 / 30</button>
-              <button class="ratio-btn ${is8020 ? 'active' : ''}" onclick="setGradebookRatio('80/20')">80 / 20</button>
-            </div>
+        <div class="ratio-toolbar-row">
+          <span style="font-weight: 600; font-size: 0.78rem; color: var(--text-primary); white-space: nowrap;">สัดส่วน:</span>
+          <div class="ratio-switcher">
+            <button class="ratio-btn ${!is8020 ? 'active' : ''}" onclick="setGradebookRatio('70/30')">70/30</button>
+            <button class="ratio-btn ${is8020 ? 'active' : ''}" onclick="setGradebookRatio('80/20')">80/20</button>
           </div>
-          <span style="font-size: 0.75rem; color: var(--text-secondary); background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">
-            ${is8020 ? '📌 ระหว่างภาค 80 + ปลายภาค 20' : '📌 ระหว่างภาค 70 + ปลายภาค 30'}
+          <span class="ratio-pill-hint">
+            ${is8020 ? 'ระหว่าง 80 + ปลาย 20' : 'ระหว่าง 70 + ปลาย 30'}
           </span>
         </div>
 

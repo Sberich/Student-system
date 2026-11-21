@@ -2569,12 +2569,15 @@ function toggleTokenVisibility() {
 }
 
 async function saveSettings() {
+  const currentToken = appState.settings.apiToken || '';
+  const inputToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : currentToken;
+
   appState.settings.schoolName = document.getElementById('cfg-school').value;
   appState.settings.term = document.getElementById('cfg-term').value;
   appState.settings.academicYear = document.getElementById('cfg-year').value;
   appState.settings.teacherName = document.getElementById('cfg-teacher').value;
   appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
-  appState.settings.apiToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : (appState.settings.apiToken || '');
+  appState.settings.apiToken = inputToken;
 
   const codes = document.querySelectorAll('.cfg-sub-code');
   const names = document.querySelectorAll('.cfg-sub-name');
@@ -2589,7 +2592,7 @@ async function saveSettings() {
   saveLocalState();
   renderHeaderControls();
   showToast('💾 บันทึกในเครื่องแล้ว กำลังส่งการตั้งค่าขึ้น Google Sheets...');
-  await pushSettingsToBackend();
+  await pushSettingsToBackend(currentToken, inputToken);
 }
 
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
@@ -2701,17 +2704,18 @@ function scheduleAutoSync(type = 'submissions') {
   }, 2500);
 }
 
-async function pushSettingsToBackend() {
+async function pushSettingsToBackend(currentToken = '', newToken = '') {
   if (!appState.settings.gasUrl) return;
   updateSyncIndicator('syncing');
 
   try {
-    await fetch(appState.settings.gasUrl, {
+    const res = await fetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'updateSettings',
-        token: appState.settings.apiToken || '',
+        token: currentToken || appState.settings.apiToken || '',
+        newToken: newToken !== undefined ? newToken : (appState.settings.apiToken || ''),
         settings: {
           schoolName: appState.settings.schoolName,
           academicYear: appState.settings.academicYear,
@@ -2720,7 +2724,8 @@ async function pushSettingsToBackend() {
           activeSubject: appState.activeSubject,
           activeClassroom: appState.activeClassroom,
           subjects: appState.settings.subjects,
-          classrooms: appState.settings.classrooms
+          classrooms: appState.settings.classrooms,
+          apiToken: appState.settings.apiToken || ''
         }
       }),
     });
@@ -3335,7 +3340,7 @@ function renderGradebook(container) {
           <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📂</div>
           <p>ยังไม่มีรายชื่อนักเรียนในห้อง ${esc(appState.activeClassroom)}</p>
           <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
-            <button class="btn btn-primary btn-sm" onclick="loadOriginalSchoolGrades()">📥 โหลดข้อมูลนักเรียนต้นฉบับ (ม.4 ธาตุพนม)</button>
+            <button class="btn btn-primary btn-sm" onclick="pullFromGoogleSheets(true)">📥 ดึงข้อมูลจาก Google Sheets</button>
             <button class="btn btn-secondary btn-sm" onclick="switchTab('students')">👥 จัดการรายชื่อนักเรียน</button>
           </div>
         </td>

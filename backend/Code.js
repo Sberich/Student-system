@@ -30,9 +30,40 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
+    .addItem('🔒 ตั้งค่า/เปลี่ยนรหัสความปลอดภัย (Security PIN)', 'setSecurityPinPrompt')
     .addItem('🎓 ตรวจสอบชีททะเบียนคะแนน & SGS', 'initGradebookSheet')
     .addItem('✨ ใส่ข้อมูลตัวอย่าง (ม.4 & ม.5)', 'seedSampleData')
     .addToUi();
+}
+
+/**
+ * เมนูตั้งค่าหรือเปลี่ยนรหัสความปลอดภัย (Security PIN) โดยตรงบน Google Sheets
+ */
+function setSecurityPinPrompt() {
+  const ui = SpreadsheetApp.getUi();
+  const scriptProp = PropertiesService.getScriptProperties();
+  const currentToken = scriptProp.getProperty('API_TOKEN') || '';
+  
+  const statusMsg = currentToken 
+    ? 'สถานะปัจจุบัน: 🔒 มีรหัสความปลอดภัยแล้ว (' + currentToken + ')'
+    : 'สถานะปัจจุบัน: 🔓 ยังไม่ได้ตั้งรหัส (ทุกคนที่ได้ลิงก์ Web App สามารถเชื่อมต่อได้)';
+    
+  const prompt = ui.prompt(
+    '🔒 ตั้งค่ารหัสความปลอดภัย (Security PIN / Token)',
+    statusMsg + '\n\nกรุณากรอกรหัสความปลอดภัยที่ต้องการ (หรือเว้นว่างไว้เพื่อปิดการใช้รหัส):',
+    ui.ButtonSet.OK_CANCEL
+  );
+  
+  if (prompt.getSelectedButton() === ui.Button.OK) {
+    const val = prompt.getResponseText().trim();
+    if (val) {
+      scriptProp.setProperty('API_TOKEN', val);
+      ui.alert('✅ บันทึกรหัสความปลอดภัยเป็น: "' + val + '" เรียบร้อยแล้ว\n\nกรุณานำรหัสนี้ไปกรอกในช่อง "รหัสความปลอดภัย" ที่หน้าตั้งค่าบนเว็บแอป เพื่อให้สามารถเชื่อมต่อและซิงค์ข้อมูลได้');
+    } else {
+      scriptProp.deleteProperty('API_TOKEN');
+      ui.alert('ℹ️ ยกเลิกรหัสความปลอดภัยแล้ว\n\nขณะนี้ระบบเปิดให้เว็บแอปเชื่อมต่อได้โดยไม่ต้องใช้รหัสผ่าน');
+    }
+  }
 }
 
 function initGradebookSheet() {
@@ -53,10 +84,12 @@ function initSheets() {
 function verifyToken_(token) {
   const scriptProp = PropertiesService.getScriptProperties();
   const expectedToken = scriptProp.getProperty('API_TOKEN');
+  // หากใน Google Sheets ยังไม่ได้กำหนด API_TOKEN (โหมดเริ่มต้นสำหรับการเชื่อมต่อครั้งแรก)
+  // ให้ผ่านได้ตามปกติ เพื่อให้ครูสามารถเชื่อมต่อชีทและบันทึกการตั้งค่าได้
   if (!expectedToken || expectedToken.trim() === '') {
-    // ป้องกันความปลอดภัย: หากยังไม่ได้ตั้ง API_TOKEN ใน Script Properties จะไม่อนุญาตให้เข้าถึง
-    return false;
+    return true;
   }
+  // หากมีการกำหนดรหัสไว้แล้ว ต้องระบุรหัสให้ตรงกันทุกตัวอักษร
   return token && String(token).trim() === expectedToken.trim();
 }
 
@@ -153,7 +186,23 @@ function doPost(e) {
 
     if (action === 'updateSettings') {
       handleUpdateSettings(ss, payload.settings || {});
-      return createJsonResponse({ success: true });
+
+      // อัปเดตรหัสความปลอดภัย (Security PIN) ลงใน Script Properties หากส่งมาจากการบันทึกตั้งค่า
+      const scriptProp = PropertiesService.getScriptProperties();
+      const submittedToken = (payload.newToken !== undefined)
+        ? payload.newToken
+        : ((payload.settings && payload.settings.apiToken !== undefined) ? payload.settings.apiToken : null);
+
+      if (submittedToken !== null) {
+        const cleanToken = String(submittedToken).trim();
+        if (cleanToken !== '') {
+          scriptProp.setProperty('API_TOKEN', cleanToken);
+        } else {
+          scriptProp.deleteProperty('API_TOKEN');
+        }
+      }
+
+      return createJsonResponse({ success: true, message: 'บันทึกการตั้งค่าเรียบร้อยแล้ว' });
     }
 
     if (action === 'saveGradebook') {

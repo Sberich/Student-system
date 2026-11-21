@@ -16,11 +16,11 @@ const DEFAULT_CLASSROOMS = [
 ];
 
 const DEFAULT_SUBJECTS = [
-  { code: 'ส31101', name: 'สังคมศึกษา 1 (ม.4)' },
-  { code: 'ส31102', name: 'ประวัติศาสตร์ไทย 1 (ม.4)' },
-  { code: 'ส30226', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)' },
-  { code: 'ส32101', name: 'สังคมศึกษา 3 (ม.5)' },
-  { code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)' }
+  { code: 'ส31101', name: 'สังคมศึกษา 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
+  { code: 'ส31102', name: 'ประวัติศาสตร์ไทย 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
+  { code: 'ส30226', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', classrooms: ['ม.4/11'] },
+  { code: 'ส32101', name: 'สังคมศึกษา 3 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] },
+  { code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] }
 ];
 
 /**
@@ -35,6 +35,28 @@ function esc(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+/**
+ * ดึงรายการห้องเรียนที่ผูกกับวิชาที่ระบุ (หรือวิชาปัจจุบัน)
+ * หากวิชานั้นยังไม่ได้ระบุห้อง หรือรายชื่อห้องว่าง ให้ใช้รายการห้องเรียนทั้งหมดเป็นค่าเริ่มต้น (Fallback)
+ */
+function getClassroomsForSubject(subjectCode = null) {
+  const code = subjectCode || (appState && appState.activeSubject) || 'ส31101';
+  const subjects = (appState && appState.settings && Array.isArray(appState.settings.subjects)) 
+    ? appState.settings.subjects 
+    : DEFAULT_SUBJECTS;
+  const sub = subjects.find(s => s.code === code);
+  const masterClassrooms = (appState && appState.settings && Array.isArray(appState.settings.classrooms) && appState.settings.classrooms.length > 0)
+    ? appState.settings.classrooms 
+    : DEFAULT_CLASSROOMS;
+
+  if (sub && Array.isArray(sub.classrooms) && sub.classrooms.length > 0) {
+    const valid = sub.classrooms.filter(c => masterClassrooms.includes(c));
+    if (valid.length > 0) return valid;
+  }
+  return masterClassrooms;
+}
+window.getClassroomsForSubject = getClassroomsForSubject;
 
 let appState = {
   currentTab: 'overview',
@@ -193,6 +215,27 @@ function loadLocalState() {
           appState.gradebook[k] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
         });
       }
+
+      // ตรวจสอบและเติมห้องเรียนเริ่มต้นให้แก่รายวิชาที่ยังไม่มีการผูกห้องเรียน (Backward Compatibility)
+      if (appState.settings && Array.isArray(appState.settings.subjects)) {
+        appState.settings.subjects.forEach(sub => {
+          if (!sub.classrooms || !Array.isArray(sub.classrooms) || sub.classrooms.length === 0) {
+            const defMatch = DEFAULT_SUBJECTS.find(d => d.code === sub.code);
+            if (defMatch && defMatch.classrooms) {
+              sub.classrooms = [...defMatch.classrooms];
+            } else {
+              sub.classrooms = [...(appState.settings.classrooms || DEFAULT_CLASSROOMS)];
+            }
+          }
+        });
+      }
+
+      // ตรวจสอบว่าห้องเรียนที่เลือก สอดคล้องกับวิชาที่เลือกอยู่หรือไม่
+      const validRooms = getClassroomsForSubject(appState.activeSubject);
+      if (!validRooms.includes(appState.activeClassroom)) {
+        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+      }
+
       hasSavedLocalState = true;
     }
   } catch (e) {
@@ -300,21 +343,26 @@ function renderHeaderControls() {
   if (!container) return;
 
   const subjectObj = getActiveSubjectObj();
+  const subjectRooms = getClassroomsForSubject(appState.activeSubject);
 
   const subjectItemsHtml = appState.settings.subjects.map(s => {
     const isActive = s.code === appState.activeSubject;
+    const sRooms = getClassroomsForSubject(s.code);
     return `
       <div class="popover-menu-item ${isActive ? 'active' : ''}" onclick="selectSubjectFromPopover('${esc(s.code)}')">
         <div class="popover-item-main">
           <span class="popover-item-num">📖</span>
           <span class="popover-item-title">${esc(s.code)} ${esc(s.name)}</span>
         </div>
-        ${isActive ? '<span class="popover-item-check">✓</span>' : ''}
+        <div class="popover-item-side">
+          <span class="popover-item-tag">${sRooms.length} ห้อง</span>
+          ${isActive ? '<span class="popover-item-check">✓</span>' : ''}
+        </div>
       </div>
     `;
   }).join('');
 
-  const classItemsHtml = appState.settings.classrooms.map(c => {
+  const classItemsHtml = subjectRooms.map(c => {
     const isActive = c === appState.activeClassroom;
     const count = appState.students.filter(st => st.classroom === c).length;
     return `
@@ -334,7 +382,7 @@ function renderHeaderControls() {
   container.innerHTML = `
     <div class="context-unified-bar">
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-subject-popover', this, event)" title="เลือกรายวิชา">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-subject-popover', this, event)" title="เลือกรายวิชา (${appState.settings.subjects.length} วิชา)">
           <span class="context-bar-icon">📖</span>
           <span class="context-picker-text">${esc(subjectObj.code)}</span>
           <span class="popover-arrow">▾</span>
@@ -345,7 +393,7 @@ function renderHeaderControls() {
       </div>
       <span class="context-sep">•</span>
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-classroom-popover', this, event)" title="เลือกห้องเรียน">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-classroom-popover', this, event)" title="เลือกห้องเรียน (${subjectRooms.length} ห้อง)">
           <span class="context-bar-icon">🏫</span>
           <span class="context-picker-text">${esc(appState.activeClassroom)}</span>
           <span class="popover-arrow">▾</span>
@@ -375,6 +423,27 @@ function selectAssignmentFromPopover(assignId) {
 
 function changeActiveSubject(subCode) {
   appState.activeSubject = subCode;
+
+  // ตรวจสอบว่าห้องเรียนปัจจุบันอยู่ในวิชาใหม่หรือไม่ หากไม่อยู่ ให้สลับไปยังห้องแรกของวิชานี้อัตโนมัติ
+  const validRooms = getClassroomsForSubject(subCode);
+  if (!validRooms.includes(appState.activeClassroom)) {
+    appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+  }
+
+  // ปรับงานและนักเรียนที่เลือกให้ตรงกับห้องใหม่
+  const classAssignments = getFilteredAssignments();
+  if (classAssignments.length > 0) {
+    appState.selectedAssignmentId = classAssignments[0].id;
+  } else {
+    appState.selectedAssignmentId = '';
+  }
+  const classStudents = getFilteredStudents();
+  if (classStudents.length > 0) {
+    appState.selectedStudentId = classStudents[0].studentId;
+  } else {
+    appState.selectedStudentId = '';
+  }
+
   saveLocalState();
   renderHeaderControls();
   renderApp();
@@ -605,11 +674,14 @@ function renderOverview(container) {
   const percentage = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 0;
   const strokeDashoffset = 283 - (283 * percentage) / 100;
 
-  // โหมดขอบเขตข้อมูลของ Donut Chart (เฉพาะห้องนี้ หรือ รวมทุกห้อง)
+  // โหมดขอบเขตข้อมูลของ Donut Chart (เฉพาะห้องนี้ หรือ รวมทุกห้องของวิชานี้)
   const overviewScope = appState.overviewScope || 'room';
   const isAllRooms = (overviewScope === 'all');
 
-  const donutStudents = isAllRooms ? appState.students : currentStudents;
+  const allClassrooms = getClassroomsForSubject(appState.activeSubject);
+  const donutStudents = isAllRooms 
+    ? appState.students.filter(st => allClassrooms.includes(st.classroom)) 
+    : currentStudents;
   const donutExpected = donutStudents.length * currentAssignments.length;
   let donutSubmitted = 0;
   let donutPending = 0;
@@ -626,8 +698,7 @@ function renderOverview(container) {
   const donutPct = donutExpected > 0 ? Math.round((donutSubmitted / donutExpected) * 100) : 0;
   const donutDashoffset = 283 - (283 * donutPct) / 100;
 
-  // เปรียบเทียบสัดส่วนส่งงานแยกรายห้อง (สำหรับดูว่าห้องไหนส่งงานเท่าไหร่)
-  const allClassrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+  // เปรียบเทียบสัดส่วนส่งงานแยกรายห้องในวิชานี้
   const classroomComparison = allClassrooms.map(c => {
     const cStudents = appState.students.filter(s => s.classroom === c);
     const cExpected = cStudents.length * currentAssignments.length;
@@ -700,8 +771,8 @@ function renderOverview(container) {
     `;
   }
 
-  // แถบห้องเรียนด่วน
-  const classPillsHtml = appState.settings.classrooms.map(c => {
+  // แถบห้องเรียนด่วนเฉพาะวิชานี้
+  const classPillsHtml = allClassrooms.map(c => {
     const count = appState.students.filter(s => s.classroom === c).length;
     const isActive = c === appState.activeClassroom;
     return `
@@ -712,7 +783,7 @@ function renderOverview(container) {
   }).join('');
 
   container.innerHTML = `
-    <!-- แถบเลือกห้องเรียนด่วน (13 ห้อง) -->
+    <!-- แถบเลือกห้องเรียนด่วน (${allClassrooms.length} ห้อง) -->
     <div class="classroom-pill-strip">
       <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">เลือกระดับชั้น:</span>
       ${classPillsHtml}
@@ -1771,9 +1842,11 @@ function exportToCSV() {
 // ----------------- View: Student Roster (จัดการรายชื่อ) -----------------
 function renderStudents(container) {
   const currentStudents = getFilteredStudents();
+  const currentRooms = getClassroomsForSubject(appState.activeSubject);
   const totalAllClasses = appState.students.length;
+  const subjectStudentsCount = appState.students.filter(s => currentRooms.includes(s.classroom)).length;
 
-  const classPillsHtml = appState.settings.classrooms.map(c => {
+  const classPillsHtml = currentRooms.map(c => {
     const count = appState.students.filter(s => s.classroom === c).length;
     return `
       <button class="class-pill ${c === appState.activeClassroom ? 'active' : ''}" onclick="changeActiveClassroom('${esc(c)}')">
@@ -1787,7 +1860,7 @@ function renderStudents(container) {
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
       <div class="classroom-pill-strip" style="margin-bottom: 0; flex: 1;">
         <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; margin-right: 0.25rem;">
-          🏫 เลือกดูห้อง:
+          🏫 ห้องเรียนวิชานี้:
         </span>
         ${classPillsHtml}
       </div>
@@ -1814,7 +1887,7 @@ function renderStudents(container) {
             </span>
           </div>
           <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem;">
-            นักเรียนทั้งหมดในระบบ: <strong>${totalAllClasses} คน</strong> ใน ${appState.settings.classrooms.length} ห้องเรียน
+            วิชานี้: <strong>${currentRooms.length} ห้องเรียน</strong> (${subjectStudentsCount} คน) • ทั้งหมดในระบบ: ${appState.settings.classrooms.length} ห้อง (${totalAllClasses} คน)
           </p>
         </div>
         <div class="student-header-actions">
@@ -1918,6 +1991,7 @@ function deleteStudent(studentId) {
 
 // ----------------- Modal: แทรกนักเรียนในห้อง & แต่ละเลขที่ -----------------
 function openInsertStudentModal(defaultClass, defaultNo) {
+  const availableRooms = getClassroomsForSubject(appState.activeSubject);
   const targetClass = defaultClass || appState.activeClassroom;
   const classStudents = appState.students.filter(s => s.classroom === targetClass);
   const nextNo = defaultNo !== undefined ? defaultNo : (classStudents.length > 0 ? Math.max(...classStudents.map(s => s.no)) + 1 : 1);
@@ -1936,7 +2010,7 @@ function openInsertStudentModal(defaultClass, defaultNo) {
             <div>
               <label class="form-label">ห้องเรียน:</label>
               <select id="insert-st-class" class="form-input">
-                ${appState.settings.classrooms.map(c => `
+                ${availableRooms.map(c => `
                   <option value="${esc(c)}" ${c === targetClass ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
@@ -2036,6 +2110,11 @@ function openEditStudentModal(studentId) {
   const st = appState.students.find(s => s.studentId === studentId);
   if (!st) return;
 
+  const availableRooms = [...getClassroomsForSubject(appState.activeSubject)];
+  if (st.classroom && !availableRooms.includes(st.classroom)) {
+    availableRooms.push(st.classroom);
+  }
+
   const modalHtml = `
     <div class="modal-overlay" id="edit-student-modal">
       <div class="modal-content" style="max-width: 480px;">
@@ -2053,7 +2132,7 @@ function openEditStudentModal(studentId) {
             <div>
               <label class="form-label">ห้องเรียน:</label>
               <select id="edit-st-class" class="form-input">
-                ${appState.settings.classrooms.map(c => `
+                ${availableRooms.map(c => `
                   <option value="${esc(c)}" ${c === st.classroom ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
@@ -2195,6 +2274,12 @@ function openAddClassroomModal() {
         return;
       }
       appState.settings.classrooms.push(trimmed);
+      const curSub = (appState.settings.subjects || []).find(s => s.code === appState.activeSubject);
+      if (curSub && Array.isArray(curSub.classrooms)) {
+        if (!curSub.classrooms.includes(trimmed)) {
+          curSub.classrooms.push(trimmed);
+        }
+      }
       appState.activeClassroom = trimmed;
       appState.isDirty = true;
       saveLocalState();
@@ -2273,6 +2358,13 @@ function handleAddRoomFromManager() {
   }
 
   appState.settings.classrooms.push(name);
+  const curSub = (appState.settings.subjects || []).find(s => s.code === appState.activeSubject);
+  if (curSub && Array.isArray(curSub.classrooms)) {
+    if (!curSub.classrooms.includes(name)) {
+      curSub.classrooms.push(name);
+    }
+  }
+
   appState.isDirty = true;
   saveLocalState();
   renderHeaderControls();
@@ -2306,6 +2398,12 @@ function renameClassroom(oldName) {
       appState.assignments.forEach(a => {
         if (a.classroom === oldName) a.classroom = trimmed;
       });
+      // อัปเดตห้องใน subjects ด้วย
+      (appState.settings.subjects || []).forEach(sub => {
+        if (Array.isArray(sub.classrooms)) {
+          sub.classrooms = sub.classrooms.map(c => c === oldName ? trimmed : c);
+        }
+      });
       if (appState.activeClassroom === oldName) appState.activeClassroom = trimmed;
 
       appState.isDirty = true;
@@ -2337,6 +2435,11 @@ function deleteClassroom(className) {
     appState.settings.classrooms = appState.settings.classrooms.filter(c => c !== className);
     appState.students = appState.students.filter(s => s.classroom !== className);
     appState.assignments = appState.assignments.filter(a => a.classroom !== className);
+    (appState.settings.subjects || []).forEach(sub => {
+      if (Array.isArray(sub.classrooms)) {
+        sub.classrooms = sub.classrooms.filter(c => c !== className);
+      }
+    });
 
     if (appState.activeClassroom === className) {
       appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
@@ -2362,6 +2465,7 @@ function closeModal(modalId) {
 
 // ----------------- Smart Import Modal (ระบบนำเข้ารายชื่อ) -----------------
 function openImportModal(defaultClass) {
+  const availableRooms = getClassroomsForSubject(appState.activeSubject);
   const targetClass = defaultClass || appState.activeClassroom;
   importPreviewData = [];
 
@@ -2382,7 +2486,7 @@ function openImportModal(defaultClass) {
                 🏫 ห้องเรียนปลายทาง:
               </label>
               <select id="import-target-class" class="form-input" onchange="updateImportPreview()">
-                ${appState.settings.classrooms.map(c => `
+                ${availableRooms.map(c => `
                   <option value="${esc(c)}" ${c === targetClass ? 'selected' : ''}>${esc(c)}</option>
                 `).join('')}
               </select>
@@ -2844,16 +2948,73 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <!-- รายชื่อ 5 วิชา -->
+      <!-- รายชื่อ 5 วิชา และการผูกห้องเรียนที่สอน -->
       <div style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">📚 5 รายวิชาที่สอน</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h4 style="font-size: 0.95rem; font-weight: 600; margin: 0;">📚 5 รายวิชา และห้องเรียนที่สอน</h4>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+              แตะเลือกเฉพาะห้องที่คุณครูสอนในแต่ละวิชา (ระบบจะกรองห้องให้ตรงกับวิชานั้นๆ อัตโนมัติ)
+            </p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
+            ⚙️ จัดการห้องเรียนทั้งหมด (${(appState.settings.classrooms || DEFAULT_CLASSROOMS).length} ห้อง)
+          </button>
+        </div>
+
         <div id="subject-list-config">
-          ${appState.settings.subjects.map((sub, idx) => `
-            <div style="display: grid; grid-template-columns: 110px 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
-              <input type="text" class="form-input cfg-sub-code" value="${esc(sub.code)}" />
-              <input type="text" class="form-input cfg-sub-name" value="${esc(sub.name)}" />
-            </div>
-          `).join('')}
+          ${appState.settings.subjects.map((sub, idx) => {
+            const allRooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+            const assignedRooms = (sub.classrooms && Array.isArray(sub.classrooms) && sub.classrooms.length > 0)
+              ? sub.classrooms.filter(r => allRooms.includes(r))
+              : allRooms;
+            return `
+              <div class="cfg-subject-card" data-sub-idx="${idx}">
+                <div class="cfg-sub-top-row">
+                  <div class="cfg-sub-code-col">
+                    <label class="form-label" style="font-size: 0.78rem; margin-bottom: 2px; font-weight: 600;">รหัสวิชา</label>
+                    <input type="text" class="form-input cfg-sub-code" value="${esc(sub.code)}" placeholder="เช่น ส31101" />
+                  </div>
+                  <div class="cfg-sub-name-col">
+                    <label class="form-label" style="font-size: 0.78rem; margin-bottom: 2px; font-weight: 600;">ชื่อรายวิชา</label>
+                    <input type="text" class="form-input cfg-sub-name" value="${esc(sub.name)}" placeholder="เช่น สังคมศึกษา 1 (ม.4)" />
+                  </div>
+                </div>
+
+                <div class="cfg-sub-rooms-section">
+                  <div class="cfg-sub-rooms-header">
+                    <div class="cfg-sub-rooms-title">
+                      <span>🏫 ห้องเรียนที่สอน:</span>
+                      <span class="cfg-sub-room-badge ${assignedRooms.length === 0 ? 'badge-empty-warning' : ''}" id="cfg-sub-badge-${idx}">
+                        ${assignedRooms.length} ห้อง
+                      </span>
+                    </div>
+                    <div class="cfg-sub-quick-actions">
+                      <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, true)">✓ เลือกทุกห้อง</button>
+                      <span class="cfg-action-sep">|</span>
+                      <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, false)">✕ ล้างออก</button>
+                    </div>
+                  </div>
+                  
+                  <div class="sub-room-chips-grid" id="cfg-room-chips-${idx}">
+                    ${allRooms.map(room => {
+                      const isSelected = assignedRooms.includes(room);
+                      return `
+                        <button type="button" 
+                          class="sub-room-chip ${isSelected ? 'selected' : ''}" 
+                          data-room="${esc(room)}" 
+                          onclick="toggleSubjectRoomChip(${idx}, this)"
+                          title="${isSelected ? 'แตะเพื่อยกเลิกห้อง ' + esc(room) : 'แตะเพื่อเลือกห้อง ' + esc(room)}">
+                          <span class="chip-check">${isSelected ? '✓' : '+'}</span>
+                          <span class="chip-label">${esc(room)}</span>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
 
@@ -2919,21 +3080,97 @@ async function saveSettings() {
   appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
   appState.settings.apiToken = inputToken;
 
-  const codes = document.querySelectorAll('.cfg-sub-code');
-  const names = document.querySelectorAll('.cfg-sub-name');
+  const subCards = document.querySelectorAll('.cfg-subject-card');
   const newSubs = [];
-  codes.forEach((codeEl, i) => {
-    if (codeEl.value.trim()) {
-      newSubs.push({ code: codeEl.value.trim(), name: names[i].value.trim() });
+  let validationError = '';
+
+  subCards.forEach((card, idx) => {
+    const code = card.querySelector('.cfg-sub-code').value.trim();
+    const name = card.querySelector('.cfg-sub-name').value.trim();
+    const selectedRooms = Array.from(card.querySelectorAll('.sub-room-chip.selected')).map(el => el.getAttribute('data-room'));
+    
+    if (code) {
+      if (selectedRooms.length === 0) {
+        validationError = `วิชา "${code} ${name}" ยังไม่ได้เลือกห้องเรียนเลย กรุณาเลือกห้องเรียนที่สอนอย่างน้อย 1 ห้อง`;
+      }
+      newSubs.push({
+        code: code,
+        name: name,
+        classrooms: selectedRooms.length > 0 ? selectedRooms : (appState.settings.classrooms || DEFAULT_CLASSROOMS)
+      });
     }
   });
+
+  if (validationError) {
+    alert(validationError);
+    return;
+  }
+
   if (newSubs.length > 0) appState.settings.subjects = newSubs;
+
+  // ตรวจสอบว่า activeClassroom ปัจจุบัน สอดคล้องกับวิชาที่กำลังเลือกอยู่หรือไม่
+  const currentValid = getClassroomsForSubject(appState.activeSubject);
+  if (!currentValid.includes(appState.activeClassroom)) {
+    appState.activeClassroom = currentValid[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+  }
 
   saveLocalState();
   renderHeaderControls();
   showToast('💾 บันทึกในเครื่องแล้ว กำลังส่งการตั้งค่าขึ้น Google Sheets...');
   await pushSettingsToBackend(currentToken, inputToken);
 }
+
+function toggleSubjectRoomChip(subIdx, chipEl) {
+  chipEl.classList.toggle('selected');
+  const checkEl = chipEl.querySelector('.chip-check');
+  const room = chipEl.getAttribute('data-room');
+  if (chipEl.classList.contains('selected')) {
+    if (checkEl) checkEl.textContent = '✓';
+    chipEl.title = 'แตะเพื่อยกเลิกห้อง ' + room;
+  } else {
+    if (checkEl) checkEl.textContent = '+';
+    chipEl.title = 'แตะเพื่อเลือกห้อง ' + room;
+  }
+  updateSubjectCardBadge(subIdx);
+}
+
+function toggleAllSubjectRooms(subIdx, selectAll) {
+  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
+  if (!container) return;
+  const chips = container.querySelectorAll('.sub-room-chip');
+  chips.forEach(chip => {
+    const room = chip.getAttribute('data-room');
+    if (selectAll) {
+      chip.classList.add('selected');
+      const checkEl = chip.querySelector('.chip-check');
+      if (checkEl) checkEl.textContent = '✓';
+      chip.title = 'แตะเพื่อยกเลิกห้อง ' + room;
+    } else {
+      chip.classList.remove('selected');
+      const checkEl = chip.querySelector('.chip-check');
+      if (checkEl) checkEl.textContent = '+';
+      chip.title = 'แตะเพื่อเลือกห้อง ' + room;
+    }
+  });
+  updateSubjectCardBadge(subIdx);
+}
+
+function updateSubjectCardBadge(subIdx) {
+  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
+  const badge = document.getElementById(`cfg-sub-badge-${subIdx}`);
+  if (!container || !badge) return;
+  const selectedCount = container.querySelectorAll('.sub-room-chip.selected').length;
+  badge.textContent = `${selectedCount} ห้อง`;
+  if (selectedCount === 0) {
+    badge.classList.add('badge-empty-warning');
+  } else {
+    badge.classList.remove('badge-empty-warning');
+  }
+}
+
+window.toggleSubjectRoomChip = toggleSubjectRoomChip;
+window.toggleAllSubjectRooms = toggleAllSubjectRooms;
+window.updateSubjectCardBadge = updateSubjectCardBadge;
 
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
 async function pullFromGoogleSheets(isManual = false) {
@@ -3005,6 +3242,12 @@ async function pullFromGoogleSheets(isManual = false) {
         if (data.settings.teacherName) appState.settings.teacherName = data.settings.teacherName;
         if (data.settings.academicYear) appState.settings.academicYear = data.settings.academicYear;
         if (data.settings.term) appState.settings.term = data.settings.term;
+      }
+
+      // ตรวจสอบความถูกต้องของ activeClassroom กับวิชาที่เลือก
+      const validRooms = getClassroomsForSubject(appState.activeSubject);
+      if (!validRooms.includes(appState.activeClassroom)) {
+        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
       }
 
       appState.isDirty = false;
@@ -3662,8 +3905,8 @@ function renderGradebook(container) {
   const ratio = appState.gradebookRatio || '70/30';
   const is8020 = (ratio === '80/20');
 
-  // ห้องเรียนทั้งหมด
-  const classrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+  // ห้องเรียนเฉพาะวิชานี้
+  const classrooms = getClassroomsForSubject(appState.activeSubject);
 
   let tableRowsHtml = '';
   if (students.length === 0) {

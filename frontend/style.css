@@ -4950,3 +4950,178 @@ body {
   background: #1E293B;
   border-color: #2E3C52;
 }
+
+/* ==========================================================================
+   ⚙️ Settings: Subject-Classroom Mapping Cards & Chips
+   ========================================================================== */
+.cfg-subject-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0.9rem;
+  margin-bottom: 0.85rem;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.cfg-subject-card:hover {
+  border-color: var(--primary-border);
+}
+
+.cfg-sub-top-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+@media (max-width: 480px) {
+  .cfg-sub-top-row {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+}
+
+.cfg-sub-rooms-section {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+}
+
+.cfg-sub-rooms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.cfg-sub-rooms-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cfg-sub-room-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--primary-subtle);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
+.cfg-sub-room-badge.badge-empty-warning {
+  background: #FEE2E2 !important;
+  color: #DC2626 !important;
+  border-color: #FCA5A5 !important;
+}
+
+.cfg-sub-quick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-text-action {
+  background: none;
+  border: none;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-text-action:hover {
+  background: var(--primary-subtle);
+}
+
+.cfg-action-sep {
+  color: var(--border-light);
+  font-size: 0.75rem;
+}
+
+.sub-room-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sub-room-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.sub-room-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.sub-room-chip.selected {
+  background: var(--primary);
+  color: #FFFFFF;
+  border-color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.sub-room-chip.selected .chip-check {
+  font-weight: 800;
+}
+
+.sub-room-chip .chip-check {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Dark Mode overrides for Subject-Classroom Mapping */
+[data-theme="dark"] .cfg-subject-card {
+  background: #182234;
+  border-color: #27354A;
+}
+
+[data-theme="dark"] .cfg-sub-rooms-section {
+  background: #121A27;
+  border-color: #27354A;
+}
+
+[data-theme="dark"] .sub-room-chip {
+  background: #1E293B;
+  border-color: #334155;
+  color: #CBD5E1;
+}
+
+[data-theme="dark"] .sub-room-chip:hover {
+  border-color: var(--primary);
+  color: #FFFFFF;
+  background: rgba(56, 189, 248, 0.15);
+}
+
+[data-theme="dark"] .sub-room-chip.selected {
+  background: var(--primary);
+  color: #0F172A;
+  border-color: var(--primary);
+}

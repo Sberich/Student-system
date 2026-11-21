@@ -398,6 +398,23 @@ function changeActiveClassroom(className) {
   renderApp();
 }
 
+function setOverviewScope(scope) {
+  appState.overviewScope = scope;
+  renderApp();
+}
+
+function selectClassroomAndFocus(classroom) {
+  changeActiveClassroom(classroom);
+  appState.overviewScope = 'room';
+  renderApp();
+  if (typeof showToast === 'function') {
+    showToast('สลับไปดูห้อง ' + classroom + ' เรียบร้อยแล้ว');
+  }
+}
+
+window.setOverviewScope = setOverviewScope;
+window.selectClassroomAndFocus = selectClassroomAndFocus;
+
 // ----------------- Anchored Popover Dropdown Engine (Image 1 Style) -----------------
 function toggleCustomDropdown(popoverId, triggerBtn, event) {
   if (event && typeof event.stopPropagation === 'function') {
@@ -588,6 +605,50 @@ function renderOverview(container) {
   const percentage = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 0;
   const strokeDashoffset = 283 - (283 * percentage) / 100;
 
+  // โหมดขอบเขตข้อมูลของ Donut Chart (เฉพาะห้องนี้ หรือ รวมทุกห้อง)
+  const overviewScope = appState.overviewScope || 'room';
+  const isAllRooms = (overviewScope === 'all');
+
+  const donutStudents = isAllRooms ? appState.students : currentStudents;
+  const donutExpected = donutStudents.length * currentAssignments.length;
+  let donutSubmitted = 0;
+  let donutPending = 0;
+
+  currentAssignments.forEach(assign => {
+    donutStudents.forEach(st => {
+      const key = `${assign.id}_${st.studentId}`;
+      const sub = appState.submissions[key];
+      if (sub && sub.status === 'ส่งแล้ว') donutSubmitted++;
+      else donutPending++;
+    });
+  });
+
+  const donutPct = donutExpected > 0 ? Math.round((donutSubmitted / donutExpected) * 100) : 0;
+  const donutDashoffset = 283 - (283 * donutPct) / 100;
+
+  // เปรียบเทียบสัดส่วนส่งงานแยกรายห้อง (สำหรับดูว่าห้องไหนส่งงานเท่าไหร่)
+  const allClassrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+  const classroomComparison = allClassrooms.map(c => {
+    const cStudents = appState.students.filter(s => s.classroom === c);
+    const cExpected = cStudents.length * currentAssignments.length;
+    let cSub = 0;
+    currentAssignments.forEach(assign => {
+      cStudents.forEach(st => {
+        const key = `${assign.id}_${st.studentId}`;
+        const sub = appState.submissions[key];
+        if (sub && sub.status === 'ส่งแล้ว') cSub++;
+      });
+    });
+    const cPct = cExpected > 0 ? Math.round((cSub / cExpected) * 100) : 0;
+    return {
+      classroom: c,
+      studentsCount: cStudents.length,
+      submitted: cSub,
+      pending: cExpected - cSub,
+      pct: cPct
+    };
+  });
+
   // คำนวณรายชื่อนักเรียนที่ค้างส่งสะสมสูงสุดในห้องนี้ (Top 5)
   const studentPendingCounts = currentStudents.map(st => {
     let pending = 0;
@@ -702,16 +763,25 @@ function renderOverview(container) {
 
       <div>
         <div class="card donut-container">
-          <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem;">สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)}</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.4rem;">
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin: 0;">
+              ${isAllRooms ? 'สัดส่วนส่งงานรวมทุกห้อง' : `สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)}`}
+            </h3>
+            <div class="scope-toggle-pills">
+              <button type="button" class="scope-pill-btn ${!isAllRooms ? 'active' : ''}" onclick="setOverviewScope('room')">เฉพาะห้องนี้</button>
+              <button type="button" class="scope-pill-btn ${isAllRooms ? 'active' : ''}" onclick="setOverviewScope('all')">รวมทุกห้อง (${allClassrooms.length})</button>
+            </div>
+          </div>
+
           <div class="donut-body-horizontal">
             <div class="donut-chart-wrapper">
               <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
+                <circle class="donut-track" cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
                 <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
-                  stroke-dasharray="283" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" />
+                  stroke-dasharray="283" stroke-dashoffset="${donutDashoffset}" stroke-linecap="round" />
               </svg>
               <div class="donut-center-text">
-                <span class="donut-pct">${percentage}%</span>
+                <span class="donut-pct">${donutPct}%</span>
                 <span class="donut-sub">ส่งครบ</span>
               </div>
             </div>
@@ -720,18 +790,37 @@ function renderOverview(container) {
                 <span class="donut-stat-dot" style="background: #10B981;"></span>
                 <div class="donut-stat-info">
                   <span class="donut-stat-label">ส่งแล้ว</span>
-                  <span class="donut-stat-val">${totalSubmitted} <small>ครั้ง</small></span>
+                  <span class="donut-stat-val">${donutSubmitted} <small>ครั้ง</small></span>
                 </div>
               </div>
               <div class="donut-stat-card stat-card-pending">
                 <span class="donut-stat-dot" style="background: #EF4444;"></span>
                 <div class="donut-stat-info">
                   <span class="donut-stat-label">ค้างส่ง</span>
-                  <span class="donut-stat-val">${totalPending} <small>ครั้ง</small></span>
+                  <span class="donut-stat-val">${donutPending} <small>ครั้ง</small></span>
                 </div>
               </div>
             </div>
           </div>
+
+          ${isAllRooms ? `
+            <div class="room-compare-container">
+              <div class="room-compare-title">
+                <span>📊 สรุปสัดส่วนการส่งงานแยกรายห้อง (แตะเพื่อสลับห้อง):</span>
+              </div>
+              <div class="room-compare-grid">
+                ${classroomComparison.map(r => `
+                  <div class="room-compare-item" onclick="selectClassroomAndFocus('${esc(r.classroom)}')" title="แตะเพื่อเลือกห้อง ${esc(r.classroom)}">
+                    <span class="room-compare-name">${esc(r.classroom)}</span>
+                    <div class="room-compare-bar-bg">
+                      <div class="room-compare-bar-fill" style="width: ${r.pct}%; background: ${r.pct >= 80 ? '#10B981' : (r.pct >= 50 ? '#F59E0B' : '#EF4444')};"></div>
+                    </div>
+                    <span class="room-compare-pct ${r.pct >= 80 ? 'good' : (r.pct >= 50 ? 'warn' : 'danger')}">${r.pct}%</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
           <div style="margin-top: 1rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 0.75rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
               ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets

@@ -3415,18 +3415,6 @@ function renderGradebook(container) {
   // ห้องเรียนทั้งหมด
   const classrooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
 
-  // แถบเลือกห้องเรียนดีไซน์ใหม่ สวยงาม มินิมอล ไม่มี scrollbar ขัดตา
-  const classPillsHtml = classrooms.map(c => {
-    const count = appState.students.filter(s => s.classroom === c).length;
-    const isActive = (c === appState.activeClassroom);
-    return `
-      <button class="gb-room-pill ${isActive ? 'active' : ''}" onclick="switchGradebookClassroom('${esc(c)}')">
-        <span>${esc(c)}</span>
-        <span class="pill-count">${count} คน</span>
-      </button>
-    `;
-  }).join('');
-
   let tableRowsHtml = '';
   if (students.length === 0) {
     tableRowsHtml = `
@@ -3574,26 +3562,6 @@ function renderGradebook(container) {
 
   container.innerHTML = `
     <div class="gradebook-container">
-      <!-- แถบเลือกห้องเรียนดีไซน์ใหม่ มินิมอล สบายตา แถวเดียว -->
-      <div class="gb-classroom-card">
-        <div class="gb-classroom-single-row">
-          <div class="gb-classroom-label">
-            <span>🏫</span> <span>ห้อง:</span>
-          </div>
-          <div class="gb-classroom-slider">
-            ${classPillsHtml}
-          </div>
-        </div>
-      </div>
-
-      <!-- แถบแจ้งเตือนคีย์บอร์ดลัดแบบลอย (Auto-hide Floating Hint) -->
-      <div class="gb-quick-nav-hint" id="gb-nav-hint">
-        <div style="flex: 1; text-align: center; font-size: 0.8rem; line-height: 1.4;">
-          <span>⚡ <b>โหมดกรอกด่วน:</b> กด <b>Enter / ⬇️</b> เพื่อลงคนถัดไป • หากติด <b>ร</b> หรือ <b>มส</b> ให้พิมพ์ <b>ร</b> หรือ <b>มส</b> ลงไป</span>
-        </div>
-        <button type="button" class="gb-quick-nav-hint-close" onclick="closeGradebookNavHint()" title="ปิดคำแนะนำ">✕</button>
-      </div>
-
       <!-- Gradebook Toolbar -->
       <div class="gradebook-toolbar">
         <div class="ratio-toolbar-row">
@@ -3701,7 +3669,6 @@ function renderGradebook(container) {
   `;
 
   updateGradebookStatsBarDOM();
-  autoDismissNavHint();
 }
 
 function autoDismissNavHint() {

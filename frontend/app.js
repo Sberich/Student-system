@@ -91,7 +91,7 @@ function setAppTheme(themeName, showToastMsg = true) {
     const icons = {
       'blue': '🔷',
       'emerald': '🌿',
-      'purple': '💜',
+      'purple': '🌸',
       'dark': '🌙'
     };
     toggleBtn.textContent = icons[themeName] || '🎨';
@@ -103,7 +103,7 @@ function setAppTheme(themeName, showToastMsg = true) {
     const names = {
       'blue': '🔷 ธีมฟ้าคราม (Classic)',
       'emerald': '🌿 ธีมเขียวมินต์ (Fresh)',
-      'purple': '💜 ธีมม่วงคราม (Indigo)',
+      'purple': '🌸 ธีมพิงก์วอร์เทกซ์ (Pink Vortex)',
       'dark': '🌙 โหมดมืด (Dark Mode)'
     };
     showToast(`เปลี่ยนธีม: ${names[themeName] || themeName}`);
@@ -127,7 +127,7 @@ function updateLogoGradient(theme) {
   const colors = {
     'blue': { start: '#2563EB', end: '#1D4ED8', dot: '#93C5FD' },
     'emerald': { start: '#059669', end: '#0F766E', dot: '#6EE7B7' },
-    'purple': { start: '#6366F1', end: '#4338CA', dot: '#A5B4FC' },
+    'purple': { start: '#FF748A', end: '#4D5784', dot: '#B7DED7' },
     'dark': { start: '#475569', end: '#0F172A', dot: '#38BDF8' }
   };
   const c = colors[theme] || colors.blue;
@@ -2686,7 +2686,7 @@ function renderSettings(container) {
             🌿 เขียวมินต์ (Fresh)
           </button>
           <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.82rem;">
-            💜 ม่วงคราม (Indigo)
+            🌸 พิงก์วอร์เทกซ์ (Pink Vortex)
           </button>
           <button type="button" class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')" style="font-size: 0.82rem;">
             🌙 โหมดมืด (Dark)

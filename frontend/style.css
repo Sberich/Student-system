@@ -77,17 +77,60 @@
   --logo-accent-dot: #6EE7B7;
 }
 
-/* 💜 Royal Indigo Theme */
+/* 🌸 Pink Vortex Theme (เปลี่ยนจากม่วงครามเดิม ตาม Color in Palette: #ff748a, #fff2e5, #b7ded7, #6f97b1, #4d5784) */
 [data-theme="purple"] {
   --theme-name: 'purple';
-  --primary: #6366F1;
-  --primary-hover: #4F46E5;
-  --primary-subtle: #EEF2FF;
-  --primary-border: #C7D2FE;
-  --border-focus: #6366F1;
-  --logo-grad-start: #6366F1;
-  --logo-grad-end: #4338CA;
-  --logo-accent-dot: #A5B4FC;
+  --primary: #FF748A;
+  --primary-hover: #E85B73;
+  --primary-subtle: #FFF2E5;
+  --primary-border: #FFCCD4;
+  --border-focus: #FF748A;
+  
+  --bg-subtle: #FFF8F2;
+  --border-light: #EFE5DC;
+  
+  --logo-grad-start: #FF748A;
+  --logo-grad-end: #4D5784;
+  --logo-accent-dot: #B7DED7;
+
+  /* Pink Vortex Extended Palette */
+  --pv-pink: #FF748A;
+  --pv-cream: #FFF2E5;
+  --pv-mint: #B7DED7;
+  --pv-slate-blue: #6F97B1;
+  --pv-navy: #4D5784;
+}
+
+[data-theme="purple"] .btn-primary {
+  background: #FF748A;
+  border-color: #FF748A;
+  color: #FFFFFF;
+}
+
+[data-theme="purple"] .btn-primary:hover {
+  background: #E85B73;
+  border-color: #E85B73;
+}
+
+[data-theme="purple"] .bottom-nav-item.active {
+  color: #FF748A;
+}
+
+[data-theme="purple"] .scope-pill-btn.active {
+  background: #FF748A;
+  color: #FFFFFF;
+}
+
+[data-theme="purple"] .mini-donut-card.is-active-room {
+  border-color: #FF748A;
+  background: rgba(255, 116, 138, 0.08);
+  box-shadow: 0 0 0 1.5px #FF748A;
+}
+
+[data-theme="purple"] .custom-select-trigger:focus,
+[data-theme="purple"] .form-input:focus {
+  border-color: #FF748A;
+  box-shadow: 0 0 0 3px rgba(255, 116, 138, 0.18);
 }
 
 /* 🌙 Midnight Dark Mode */

@@ -29,6 +29,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
+    .addItem('🔑 สร้าง/ตรวจสอบชีทคุมสิทธิ์กลาง (Master License)', 'createMasterLicenseSheetMenuAction')
     .addItem('🔒 ตั้งค่า/เปลี่ยนรหัสความปลอดภัย (Security PIN)', 'setSecurityPinPrompt')
     .addItem('🎓 ตรวจสอบชีททะเบียนคะแนน & SGS', 'initGradebookSheet')
     .addItem('🧹 รีเซ็ตคะแนนเริ่มต้นปีการศึกษาใหม่', 'resetScoresMenuAction')
@@ -79,6 +80,168 @@ function initSheets() {
 }
 
 /**
+ * 🔑 เมนูสร้างชีทคุมสิทธิ์กลางอัตโนมัติใน Google Drive ของคุณครูในคลิกเดียว
+ */
+function createMasterLicenseSheetMenuAction() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scriptProp = PropertiesService.getScriptProperties();
+  
+  // 1. ตรวจสอบว่าเคยมีชีทคุมสิทธิ์อยู่แล้วหรือไม่
+  let licenseSheetId = scriptProp.getProperty('MASTER_LICENSE_SHEET_ID');
+  if (!licenseSheetId) {
+    const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+    if (settingsSheet) {
+      const data = settingsSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === 'masterLicenseSheetId') {
+          licenseSheetId = String(data[i][1] || '').trim();
+          break;
+        }
+      }
+    }
+  }
+
+  if (licenseSheetId) {
+    try {
+      const existingSheet = SpreadsheetApp.openById(licenseSheetId);
+      ui.alert(
+        'มีชีทคุมสิทธิ์อยู่แล้ว',
+        'ระบบพบชีทคุมสิทธิ์ของคุณครูแล้ว:\n' + existingSheet.getUrl() + '\n\nคุณครูสามารถเปิดเข้าไปเพิ่มหรือระงับอีเมลเพื่อนครูได้ทันทีครับ',
+        ui.ButtonSet.OK
+      );
+      return;
+    } catch (e) {
+      // If inaccessible, proceed to create new
+    }
+  }
+
+  // 2. สั่ง Google Drive สร้างไฟล์ Google Sheets แผ่นใหม่ให้อัตโนมัติ
+  const newSheet = SpreadsheetApp.create('SmartGrade_Master_Licenses');
+  const sheet = newSheet.getActiveSheet();
+  sheet.setName('Licenses');
+
+  // ตกแต่งหัวตารางให้อัตโนมัติ
+  const headers = ['อีเมล (Email)', 'ชื่อคุณครู (Teacher Name)', 'โรงเรียน / กลุ่มสาระ', 'สถานะ (Status)', 'วันที่เพิ่ม'];
+  sheet.appendRow(headers);
+  formatHeaderRow(sheet);
+
+  // ใส่อีเมลของคุณครูเป็นคนแรกที่ได้รับอนุญาต
+  const myEmail = Session.getActiveUser().getEmail() || (ss ? ss.getOwner()?.getEmail() : '') || '';
+  const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+  sheet.appendRow([myEmail, 'คุณครูผู้พัฒนา (Admin)', 'โรงเรียนธาตุพนม', 'อนุญาต', now]);
+
+  sheet.setColumnWidth(1, 260);
+  sheet.setColumnWidth(2, 180);
+  sheet.setColumnWidth(3, 180);
+  sheet.setColumnWidth(4, 120);
+  sheet.setColumnWidth(5, 160);
+
+  licenseSheetId = newSheet.getId();
+  scriptProp.setProperty('MASTER_LICENSE_SHEET_ID', licenseSheetId);
+
+  // บันทึกรหัสลงในชีท Settings ของแม่แบบด้วย เพื่อให้ตอนเพื่อนครูทำสำเนา (/copy) รหัสนี้จะติดไปด้วย
+  const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+  if (settingsSheet) {
+    let found = false;
+    const sData = settingsSheet.getDataRange().getValues();
+    for (let i = 1; i < sData.length; i++) {
+      if (sData[i][0] === 'masterLicenseSheetId') {
+        settingsSheet.getRange(i + 1, 2).setValue(licenseSheetId);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      settingsSheet.appendRow(['masterLicenseSheetId', licenseSheetId]);
+    }
+  }
+
+  // เปิดสิทธิ์ Viewer ให้ทุกคนที่มีลิงก์เข้าถึงได้ เพื่อให้ชีทสำเนาของเพื่อนครูดึงข้อมูลไปเช็คสิทธิ์ได้
+  try {
+    DriveApp.getFileById(licenseSheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {
+    console.warn('Set sharing error:', err);
+  }
+
+  const url = newSheet.getUrl();
+  ui.alert(
+    '🎉 สร้างชีทคุมสิทธิ์สำเร็จใน 1 คลิก!',
+    'ระบบได้สร้างชีท "SmartGrade_Master_Licenses" ใน Google Drive ของคุณครูเรียบร้อยแล้ว\n\n' +
+    '📌 ลิงก์เปิดชีทคุมสิทธิ์:\n' + url + '\n\n' +
+    '💡 ระบบได้เปิดสิทธิ์ "ผู้มีสิทธิ์ดู (Viewer)" และผูกรหัสเข้ากับแม่แบบนี้เรียบร้อยแล้ว\n' +
+    'เวลาคุณครูอยากให้เพื่อนครูคนใดใช้งาน เพียงเปิดชีทดังกล่าว แล้วพิมพ์อีเมลเพื่อนครูลงไปเท่านั้นครับ!',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * 🔒 ตรวจสอบสิทธิ์การใช้งานของเจ้าของชีทปัจจุบันกับชีทคุมสิทธิ์กลาง
+ */
+function verifyLicenseAuthorization(ss) {
+  let licenseSheetId = '';
+  const scriptProp = PropertiesService.getScriptProperties();
+  licenseSheetId = scriptProp.getProperty('MASTER_LICENSE_SHEET_ID');
+
+  if (!licenseSheetId && ss) {
+    const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+    if (settingsSheet) {
+      const data = settingsSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === 'masterLicenseSheetId') {
+          licenseSheetId = String(data[i][1] || '').trim();
+          break;
+        }
+      }
+    }
+  }
+
+  // หากยังไม่เคยตั้งค่าชีทคุมสิทธิ์ ให้ใช้งานได้ปกติ (สำหรับช่วงเริ่มต้น)
+  if (!licenseSheetId) return { authorized: true };
+
+  try {
+    const ownerEmail = (ss ? ss.getOwner()?.getEmail() : '') || Session.getEffectiveUser().getEmail() || Session.getActiveUser().getEmail() || '';
+    if (!ownerEmail) return { authorized: true };
+
+    const licenseSheet = SpreadsheetApp.openById(licenseSheetId);
+    const sheet = licenseSheet.getSheetByName('Licenses') || licenseSheet.getSheets()[0];
+    const data = sheet.getDataRange().getValues();
+
+    const cleanOwnerEmail = ownerEmail.toLowerCase().trim();
+    let isApproved = false;
+    let teacherName = '';
+
+    for (let i = 1; i < data.length; i++) {
+      const email = String(data[i][0] || '').toLowerCase().trim();
+      const name = String(data[i][1] || '');
+      const status = String(data[i][3] || '').trim();
+
+      if (email === cleanOwnerEmail) {
+        teacherName = name;
+        if (status === 'อนุญาต' || status === 'Active' || status === 'Approved') {
+          isApproved = true;
+        }
+        break;
+      }
+    }
+
+    if (!isApproved) {
+      return {
+        authorized: false,
+        email: cleanOwnerEmail,
+        error: '⚠️ ขออภัย บัญชี ' + cleanOwnerEmail + ' ยังไม่ได้รับอนุญาตให้ใช้งานระบบ Smart Grade กรุณาติดต่อคุณครูผู้พัฒนาเพื่อขอรับสิทธิ์'
+      };
+    }
+
+    return { authorized: true, email: cleanOwnerEmail, name: teacherName };
+  } catch (err) {
+    console.error('License check error:', err);
+    // หากเปิดชีทคุมสิทธิ์ไม่ได้ ให้ผ่านเพื่อไม่ให้กระทบการทำงาน
+    return { authorized: true };
+  }
+}
+
+/**
  * ฟังก์ชันตรวจสอบความปลอดภัยด้วย API Token
  */
 function verifyToken_(token) {
@@ -111,6 +274,13 @@ function doGet(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     ensureSheetsExist(ss);
+
+    if (action !== 'ping') {
+      const licenseCheck = verifyLicenseAuthorization(ss);
+      if (!licenseCheck.authorized) {
+        return createJsonResponse({ success: false, error: licenseCheck.error });
+      }
+    }
 
     if (action !== 'ping' && !verifyToken_(token)) {
       return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });
@@ -159,6 +329,11 @@ function doPost(e) {
 
     const action = payload.action;
     const token = payload.token || (e && e.parameter && e.parameter.token);
+
+    const licenseCheck = verifyLicenseAuthorization(ss);
+    if (!licenseCheck.authorized) {
+      return createJsonResponse({ success: false, error: licenseCheck.error });
+    }
 
     if (!verifyToken_(token)) {
       return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });

@@ -2240,7 +2240,7 @@ function executeInsertStudent() {
   const autoShift = document.getElementById('insert-st-autoshift').checked;
 
   if (!fullName) {
-    alert('กรุณากรอกชื่อ-นามสกุลนักเรียน');
+    showToast('⚠️ กรุณากรอกชื่อ-นามสกุลนักเรียน');
     return;
   }
 
@@ -2513,6 +2513,76 @@ function showModernConfirm({
   setTimeout(() => okBtn?.focus(), 50);
 }
 
+function showModernAlert({
+  title = 'แจ้งเตือนระบบ',
+  subtitle = '',
+  message = '',
+  icon = '🔔',
+  iconBg = 'rgba(59, 130, 246, 0.12)',
+  iconBorder = 'rgba(59, 130, 246, 0.25)',
+  buttonText = 'เข้าใจแล้ว',
+  buttonClass = 'btn-primary',
+  onClose = null
+}) {
+  const modalId = 'modern-alert-modal';
+  closeModal(modalId);
+  const text = message || subtitle || '';
+  const html = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10700; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content prompt-modal-card" style="max-width: 430px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; border: 1px solid ${iconBorder};">
+              ${icon}
+            </div>
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main); line-height: 1.3;">${esc(title)}</h3>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); padding: 0.2rem; line-height: 1;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        ${text ? `
+          <div style="margin: 0.85rem 0 1.25rem 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55; background: var(--bg-subtle, #f8fafc); padding: 0.85rem 1rem; border-radius: var(--radius-md); border-left: 3px solid ${buttonClass.includes('danger') ? 'var(--danger, #ef4444)' : 'var(--primary, #3b82f6)'};">
+            ${esc(text).replace(/\n/g, '<br>')}
+          </div>
+        ` : ''}
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="btn ${buttonClass}" id="modern-alert-ok-btn" style="min-width: 95px; font-weight: 600;">${esc(buttonText)}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const okBtn = document.getElementById('modern-alert-ok-btn');
+  const handleClose = () => {
+    closeModal(modalId);
+    if (typeof onClose === 'function') onClose();
+  };
+  okBtn?.addEventListener('click', handleClose);
+
+  const handleKey = (e) => {
+    if (e.key === 'Escape' || e.key === 'Enter') {
+      window.removeEventListener('keydown', handleKey);
+      handleClose();
+    }
+  };
+  window.addEventListener('keydown', handleKey);
+
+  setTimeout(() => okBtn?.focus(), 50);
+}
+
+// Global override: ป้องกันกล่องข้อความดั้งเดิมของเบราว์เซอร์ไม่ให้แสดงผลในทุกกรณี
+window.alert = function(msg) {
+  showModernAlert({
+    title: 'แจ้งเตือนระบบ',
+    message: String(msg || ''),
+    icon: '🔔'
+  });
+};
+
 // ----------------- Modal: จัดการห้องเรียน (เพิ่ม / ลบ / เปลี่ยนชื่อ) -----------------
 function openAddClassroomModal() {
   showModernPrompt({
@@ -2546,41 +2616,127 @@ function openAddClassroomModal() {
   });
 }
 
+// ----------------- Natural Classroom Sorting (เรียง ม.1 -> ม.6 และห้อง 1 -> 13 เป็นธรรมชาติ) -----------------
+function compareClassroomNames(a, b) {
+  const rx = /^([^\d]+)(\d+)(?:[\/\-\s](\d+))?$/;
+  const pA = String(a).match(rx);
+  const pB = String(b).match(rx);
+  if (pA && pB) {
+    const prefixComp = pA[1].localeCompare(pB[1], 'th');
+    if (prefixComp !== 0) return prefixComp;
+    const lvlA = parseInt(pA[2], 10);
+    const lvlB = parseInt(pB[2], 10);
+    if (lvlA !== lvlB) return lvlA - lvlB;
+    const roomA = pA[3] ? parseInt(pA[3], 10) : 0;
+    const roomB = pB[3] ? parseInt(pB[3], 10) : 0;
+    return roomA - roomB;
+  }
+  return String(a).localeCompare(String(b), 'th', { numeric: true });
+}
+
+function sortClassroomNames(arr) {
+  return [...arr].sort(compareClassroomNames);
+}
+
 function openClassroomManagerModal() {
+  const sortedRooms = sortClassroomNames(appState.settings.classrooms || []);
+  const emptyRooms = sortedRooms.filter(c => !appState.students.some(s => s.classroom === c));
+  
+  // รวบรวมระดับชั้นที่มีในระบบ
+  const levels = [...new Set(sortedRooms.map(r => {
+    const m = String(r).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
+    return m ? m[0] : 'อื่นๆ';
+  }))].filter(Boolean);
+
   const modalHtml = `
     <div class="modal-overlay" id="classroom-manager-modal">
-      <div class="modal-content" style="max-width: 550px;">
+      <div class="modal-content" style="max-width: 580px; width: 100%;">
         <div class="modal-header">
-          <h3 style="font-size: 1.1rem; font-weight: 600;">⚙️ จัดการห้องเรียนทั้งหมด (${appState.settings.classrooms.length} ห้อง)</h3>
-          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer;" onclick="closeModal('classroom-manager-modal')">✕</button>
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+              <span>⚙️</span> จัดการห้องเรียนทั้งหมด (${sortedRooms.length} ห้อง)
+            </h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.2rem 0 0 0;">
+              สร้างห้องเรียนได้ทุกระดับชั้น (ม.1 - ม.6) ไม่จำกัดจำนวนห้องตามความเป็นจริงในแต่ละปี
+            </p>
+          </div>
+          <button style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);" onclick="closeModal('classroom-manager-modal')">✕</button>
         </div>
 
-        <div class="modal-body">
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <input type="text" id="new-room-input" class="form-input" placeholder="พิมพ์ชื่อห้องใหม่ เช่น ม.4/12" />
-            <button class="btn btn-primary" onclick="handleAddRoomFromManager()">+ เพิ่มห้อง</button>
+        <div class="modal-body" style="padding: 1.15rem 1.25rem;">
+          <!-- ⚡ ส่วนที่ 1: สร้างห้องเรียนแบบชุดตามระดับชั้น -->
+          <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 0.9rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+              <span style="font-size: 0.86rem; font-weight: 700; color: var(--primary);">⚡ สร้างห้องเรียนแบบชุดตามระดับชั้น</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">เลือกสร้าง ม.1 ถึง ม.6 อัตโนมัติ</span>
+            </div>
+            <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center;">
+              <select id="batch-level-prefix" class="form-input" style="width: 95px; padding: 0.42rem 0.5rem; font-size: 0.85rem; font-weight: 600;">
+                <option value="ม.1">ม.1</option>
+                <option value="ม.2">ม.2</option>
+                <option value="ม.3">ม.3</option>
+                <option value="ม.4" selected>ม.4</option>
+                <option value="ม.5">ม.5</option>
+                <option value="ม.6">ม.6</option>
+                <option value="ป.1">ป.1</option>
+                <option value="ป.2">ป.2</option>
+                <option value="ป.3">ป.3</option>
+                <option value="ป.4">ป.4</option>
+                <option value="ป.5">ป.5</option>
+                <option value="ป.6">ป.6</option>
+              </select>
+              <span style="font-size: 0.82rem; color: var(--text-secondary);">จำนวน</span>
+              <input type="number" id="batch-level-count" class="form-input" value="12" min="1" max="50" style="width: 75px; padding: 0.42rem 0.5rem; font-size: 0.85rem; text-align: center;" />
+              <span style="font-size: 0.82rem; color: var(--text-secondary);">ห้อง</span>
+              <button type="button" class="btn btn-primary btn-sm" onclick="handleGenerateBatchRooms()" style="padding: 0.42rem 0.85rem; font-size: 0.82rem; white-space: nowrap;">
+                + สร้างห้องชุดทันที
+              </button>
+            </div>
           </div>
 
-          <div style="max-height: 380px; overflow-y: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+          <!-- ➕ ส่วนที่ 2: เพิ่มห้องเดี่ยว หรือชื่อพิเศษ (เช่น ม.4/EP) -->
+          <div style="display: flex; gap: 0.45rem; margin-bottom: 0.9rem;">
+            <input type="text" id="new-room-input" class="form-input" placeholder="หรือพิมพ์ชื่อห้องเดี่ยว เช่น ม.2/13, ม.4/EP" style="padding: 0.45rem 0.75rem; font-size: 0.85rem;" />
+            <button class="btn btn-secondary btn-sm" onclick="handleAddRoomFromManager()" style="white-space: nowrap; padding: 0.45rem 0.85rem;">+ เพิ่มห้องเดี่ยว</button>
+          </div>
+
+          <!-- 📋 ส่วนที่ 3: ตารางรายการห้องเรียน -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+            <div style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">
+              รายการห้องทั้งหมด (${sortedRooms.length} ห้อง)
+            </div>
+            ${emptyRooms.length > 0 ? `
+              <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.78rem;" onclick="handleCleanEmptyRooms()">
+                🧹 ล้างห้องว่างที่ไม่มีนักเรียน (${emptyRooms.length} ห้อง)
+              </button>
+            ` : ''}
+          </div>
+
+          <div style="max-height: 340px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
               <thead>
                 <tr style="background: var(--bg-subtle); border-bottom: 2px solid var(--border-light); text-align: left;">
-                  <th style="padding: 0.5rem 0.35rem; font-size: 0.85rem;">ห้องเรียน</th>
-                  <th style="padding: 0.5rem 0.35rem; text-align: center; width: 65px; white-space: nowrap; font-size: 0.85rem;">นักเรียน</th>
-                  <th style="padding: 0.5rem 0.35rem; text-align: right; width: 145px; white-space: nowrap; font-size: 0.85rem;">จัดการ</th>
+                  <th style="padding: 0.5rem 0.65rem; font-size: 0.82rem;">ห้องเรียน</th>
+                  <th style="padding: 0.5rem 0.35rem; text-align: center; width: 85px; white-space: nowrap; font-size: 0.82rem;">จำนวนนักเรียน</th>
+                  <th style="padding: 0.5rem 0.65rem; text-align: right; width: 145px; white-space: nowrap; font-size: 0.82rem;">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
-                ${appState.settings.classrooms.map(c => {
+                ${sortedRooms.map(c => {
                   const count = appState.students.filter(s => s.classroom === c).length;
                   return `
                     <tr style="border-bottom: 1px solid var(--border-light);">
-                      <td style="padding: 0.6rem 0.35rem; font-weight: 600; line-height: 1.35; word-break: break-word;">${esc(c)}</td>
-                      <td style="padding: 0.6rem 0.35rem; text-align: center; color: var(--text-secondary); white-space: nowrap; font-size: 0.82rem;">${count} คน</td>
-                      <td style="padding: 0.6rem 0.35rem; text-align: right; white-space: nowrap;">
+                      <td style="padding: 0.55rem 0.65rem; font-weight: 600; line-height: 1.35;">
+                        <span style="display: inline-block; min-width: 65px;">${esc(c)}</span>
+                        ${count === 0 ? '<span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 0.4rem;">(ว่าง)</span>' : ''}
+                      </td>
+                      <td style="padding: 0.55rem 0.35rem; text-align: center; color: ${count > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; white-space: nowrap; font-size: 0.82rem;">
+                        ${count > 0 ? `<b>${count}</b> คน` : '-'}
+                      </td>
+                      <td style="padding: 0.55rem 0.65rem; text-align: right; white-space: nowrap;">
                         <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
-                          <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${esc(c)}')" style="padding: 0.32rem 0.55rem; font-size: 0.78rem; white-space: nowrap;">✏️ เปลี่ยนชื่อ</button>
-                          <button class="btn btn-sm btn-secondary" style="color: #DC2626; padding: 0.32rem 0.55rem; font-size: 0.78rem; white-space: nowrap;" onclick="deleteClassroom('${esc(c)}')">🗑️ ลบห้อง</button>
+                          <button class="btn btn-sm btn-secondary" onclick="renameClassroom('${esc(c)}')" style="padding: 0.28rem 0.5rem; font-size: 0.76rem; white-space: nowrap;">✏️ เปลี่ยนชื่อ</button>
+                          <button class="btn btn-sm btn-secondary" style="color: #DC2626; padding: 0.28rem 0.5rem; font-size: 0.76rem; white-space: nowrap;" onclick="deleteClassroom('${esc(c)}')">🗑️ ลบห้อง</button>
                         </div>
                       </td>
                     </tr>
@@ -2591,7 +2747,7 @@ function openClassroomManagerModal() {
           </div>
         </div>
 
-        <div class="modal-footer">
+        <div class="modal-footer" style="padding: 0.85rem 1.25rem;">
           <button class="btn btn-primary" onclick="closeModal('classroom-manager-modal')">ปิดหน้าต่าง</button>
         </div>
       </div>
@@ -2600,6 +2756,93 @@ function openClassroomManagerModal() {
 
   closeModal('classroom-manager-modal');
   document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function handleGenerateBatchRooms() {
+  const prefix = document.getElementById('batch-level-prefix')?.value || 'ม.4';
+  const countInput = document.getElementById('batch-level-count');
+  const count = parseInt(countInput?.value || '10', 10);
+
+  if (isNaN(count) || count < 1 || count > 50) {
+    showToast('⚠️ กรุณาระบุจำนวนห้องระหว่าง 1 ถึง 50 ห้อง');
+    return;
+  }
+
+  if (!appState.settings.classrooms) appState.settings.classrooms = [];
+
+  const created = [];
+  for (let i = 1; i <= count; i++) {
+    const roomName = `${prefix}/${i}`;
+    if (!appState.settings.classrooms.includes(roomName)) {
+      appState.settings.classrooms.push(roomName);
+      created.push(roomName);
+    }
+  }
+
+  // เรียงลำดับห้องเรียนตามระดับชั้นและเลขห้องตามลำดับธรรมชาติ
+  appState.settings.classrooms = sortClassroomNames(appState.settings.classrooms);
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderHeaderControls();
+  openClassroomManagerModal(); // refresh
+  renderApp();
+
+  if (created.length > 0) {
+    showToast(`✓ สร้างห้อง ${prefix}/1 ถึง ${prefix}/${count} (${created.length} ห้องใหม่) เรียบร้อย`);
+  } else {
+    showToast(`ℹ️ มีห้อง ${prefix}/1 ถึง ${prefix}/${count} ครบทั้งหมดอยู่แล้ว`);
+  }
+
+  pushFullStateToBackend().catch(err => {
+    console.error('Error syncing batch rooms:', err);
+  });
+}
+
+function handleCleanEmptyRooms() {
+  const emptyRooms = appState.settings.classrooms.filter(c => {
+    const hasStudents = appState.students.some(s => s.classroom === c);
+    return !hasStudents;
+  });
+
+  if (emptyRooms.length === 0) {
+    showToast('ℹ️ ทุกห้องมีข้อมูลนักเรียนอยู่แล้ว ไม่มีห้องว่าง');
+    return;
+  }
+
+  if (appState.settings.classrooms.length - emptyRooms.length < 1) {
+    showToast('⚠️ ระบบต้องมีห้องเรียนอย่างน้อย 1 ห้อง');
+    return;
+  }
+
+  showModernConfirm({
+    title: 'ล้างห้องว่างที่ไม่มีนักเรียน?',
+    subtitle: `พบห้องเรียนที่ไม่มีนักเรียนอยู่เลยจำนวน ${emptyRooms.length} ห้อง ได้แก่:\n${emptyRooms.slice(0, 10).join(', ')}${emptyRooms.length > 10 ? ' ...' : ''}\n\nคุณต้องการลบห้องว่างเหล่านี้ออกจากการตั้งค่าเพื่อจัดระเบียบใช่หรือไม่?`,
+    icon: '🧹',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🧹 ล้างห้องว่าง',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      appState.settings.classrooms = appState.settings.classrooms.filter(c => !emptyRooms.includes(c));
+      (appState.settings.subjects || []).forEach(sub => {
+        if (Array.isArray(sub.classrooms)) {
+          sub.classrooms = sub.classrooms.filter(c => !emptyRooms.includes(c));
+        }
+      });
+      if (emptyRooms.includes(appState.activeClassroom)) {
+        appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
+      }
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      openClassroomManagerModal();
+      renderApp();
+      showToast(`ล้างห้องว่าง ${emptyRooms.length} ห้องเรียบร้อยแล้ว`);
+      pushFullStateToBackend().catch(() => {});
+    }
+  });
 }
 
 function handleAddRoomFromManager() {
@@ -2613,6 +2856,8 @@ function handleAddRoomFromManager() {
   }
 
   appState.settings.classrooms.push(name);
+  appState.settings.classrooms = sortClassroomNames(appState.settings.classrooms);
+
   const curSub = (appState.settings.subjects || []).find(s => s.code === appState.activeSubject);
   if (curSub && Array.isArray(curSub.classrooms)) {
     if (!curSub.classrooms.includes(name)) {
@@ -3116,7 +3361,7 @@ function handleAddAssignment() {
   const dueDate = document.getElementById('new-assign-date').value;
 
   if (!title) {
-    alert('กรุณากรอกชื่องาน');
+    showToast('⚠️ กรุณากรอกชื่องาน');
     return;
   }
 
@@ -3248,10 +3493,17 @@ function renderSettings(container) {
 
         <div id="subject-list-config">
           ${(appState.settings.subjects || []).map((sub, idx) => {
-            const allRooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+            const allRooms = sortClassroomNames(appState.settings.classrooms || DEFAULT_CLASSROOMS);
             const assignedRooms = (sub.classrooms && Array.isArray(sub.classrooms) && sub.classrooms.length > 0)
               ? sub.classrooms.filter(r => allRooms.includes(r))
               : allRooms;
+
+            // รวบรวมระดับชั้นที่มี (เช่น ม.1, ม.2, ม.4, ม.5) เพื่อแยกแท็บ
+            const roomLevels = [...new Set(allRooms.map(r => {
+              const m = String(r).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
+              return m ? m[0] : 'อื่นๆ';
+            }))].filter(Boolean);
+
             return `
               <div class="cfg-subject-card" data-sub-idx="${idx}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
@@ -3283,18 +3535,35 @@ function renderSettings(container) {
                     </div>
                     <div class="cfg-sub-quick-actions">
                       <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, true)">✓ เลือกทุกห้อง</button>
+                      ${roomLevels.length > 1 ? `
+                        <span class="cfg-action-sep">|</span>
+                        <button type="button" class="btn-text-action" onclick="toggleSubjectRoomsByActiveLevel(${idx})">✓ สลับเฉพาะระดับนี้</button>
+                      ` : ''}
                       <span class="cfg-action-sep">|</span>
                       <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, false)">✕ ล้างออก</button>
                     </div>
                   </div>
+
+                  ${roomLevels.length > 1 ? `
+                    <div class="sub-room-level-tabs" style="display: flex; gap: 0.35rem; margin: 0.4rem 0 0.6rem 0; flex-wrap: wrap;">
+                      <button type="button" class="pill-btn active" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="filterSubjectRoomChips(${idx}, 'all', this)">ทั้งหมด (${allRooms.length})</button>
+                      ${roomLevels.map(lvl => {
+                        const lvlRooms = allRooms.filter(r => r.startsWith(lvl));
+                        return `<button type="button" class="pill-btn" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="filterSubjectRoomChips(${idx}, '${esc(lvl)}', this)">${esc(lvl)} (${lvlRooms.length})</button>`;
+                      }).join('')}
+                    </div>
+                  ` : ''}
                   
-                  <div class="sub-room-chips-grid" id="cfg-room-chips-${idx}">
+                  <div class="sub-room-chips-grid" id="cfg-room-chips-${idx}" data-active-level="all">
                     ${allRooms.map(room => {
                       const isSelected = assignedRooms.includes(room);
+                      const m = String(room).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
+                      const rLvl = m ? m[0] : 'อื่นๆ';
                       return `
                         <button type="button" 
                           class="sub-room-chip ${isSelected ? 'selected' : ''}" 
                           data-room="${esc(room)}" 
+                          data-level="${esc(rLvl)}"
                           onclick="toggleSubjectRoomChip(${idx}, this)"
                           title="${isSelected ? 'แตะเพื่อยกเลิกห้อง ' + esc(room) : 'แตะเพื่อเลือกห้อง ' + esc(room)}">
                           <span class="chip-check">${isSelected ? '✓' : '+'}</span>
@@ -3458,7 +3727,12 @@ async function saveSettings() {
   });
 
   if (validationError) {
-    alert(validationError);
+    showModernAlert({
+      title: 'ข้อมูลยังไม่ครบถ้วน',
+      message: validationError,
+      icon: '⚠️',
+      buttonClass: 'btn-danger'
+    });
     return;
   }
 
@@ -3511,6 +3785,59 @@ function toggleAllSubjectRooms(subIdx, selectAll) {
   updateSubjectCardBadge(subIdx);
 }
 
+function filterSubjectRoomChips(subIdx, level, btn) {
+  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
+  if (!container) return;
+  
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  const chips = container.querySelectorAll('.sub-room-chip');
+  chips.forEach(chip => {
+    const chipLvl = chip.getAttribute('data-level');
+    if (level === 'all' || chipLvl === level) {
+      chip.style.display = 'inline-flex';
+    } else {
+      chip.style.display = 'none';
+    }
+  });
+
+  container.setAttribute('data-active-level', level);
+}
+
+function toggleSubjectRoomsByActiveLevel(subIdx) {
+  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
+  if (!container) return;
+  const chips = container.querySelectorAll('.sub-room-chip');
+  
+  let anyVisibleUnselected = false;
+  chips.forEach(chip => {
+    if (chip.style.display !== 'none') {
+      if (!chip.classList.contains('selected')) anyVisibleUnselected = true;
+    }
+  });
+
+  chips.forEach(chip => {
+    if (chip.style.display !== 'none') {
+      const room = chip.getAttribute('data-room');
+      const checkEl = chip.querySelector('.chip-check');
+      if (anyVisibleUnselected) {
+        chip.classList.add('selected');
+        if (checkEl) checkEl.textContent = '✓';
+        chip.title = 'แตะเพื่อยกเลิกห้อง ' + room;
+      } else {
+        chip.classList.remove('selected');
+        if (checkEl) checkEl.textContent = '+';
+        chip.title = 'แตะเพื่อเลือกห้อง ' + room;
+      }
+    }
+  });
+
+  updateSubjectCardBadge(subIdx);
+}
+
 function updateSubjectCardBadge(subIdx) {
   const container = document.getElementById(`cfg-room-chips-${subIdx}`);
   const badge = document.getElementById(`cfg-sub-badge-${subIdx}`);
@@ -3531,7 +3858,13 @@ window.updateSubjectCardBadge = updateSubjectCardBadge;
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
 async function pullFromGoogleSheets(isManual = false) {
   if (!appState.settings.gasUrl) {
-    if (isManual) alert('กรุณาระบุ Google Apps Script Web App URL ในหน้าตั้งค่า');
+    if (isManual) {
+      showModernAlert({
+        title: 'ยังไม่ได้ระบุ Web App URL',
+        message: 'กรุณาระบุ Google Apps Script Web App URL ในหน้าตั้งค่าก่อนดึงข้อมูล',
+        icon: '⚙️'
+      });
+    }
     return;
   }
 
@@ -3545,14 +3878,28 @@ async function pullFromGoogleSheets(isManual = false) {
     } catch (e) {
       console.warn('Could not flush dirty state before pull:', e);
       if (isManual) {
-        const proceed = confirm('⚠️ มีข้อมูลคะแนนใหม่ในเครื่องที่ยังส่งขึ้นชีทไม่สำเร็จ หากดึงข้อมูลตอนนี้ ข้อมูลในเครื่องอาจถูกแทนที่ ยืนยันจะดึงข้อมูลหรือไม่?');
-        if (!proceed) {
-          updateSyncIndicator('offline');
-          return;
-        }
+        showModernConfirm({
+          title: 'ยืนยันดึงข้อมูลจาก Google Sheets?',
+          subtitle: '⚠️ มีข้อมูลคะแนนใหม่ในเครื่องที่ยังส่งขึ้นชีทไม่สำเร็จ หากดึงข้อมูลตอนนี้ ข้อมูลในเครื่องอาจถูกแทนที่ ยืนยันจะดึงข้อมูลหรือไม่?',
+          icon: '☁️',
+          confirmText: '📥 ยืนยันดึงข้อมูล',
+          confirmClass: 'btn-primary',
+          onConfirm: () => {
+            continuePullFromGoogleSheets(true);
+          },
+          onCancel: () => {
+            updateSyncIndicator('offline');
+          }
+        });
+        return;
       }
     }
   }
+
+  continuePullFromGoogleSheets(isManual);
+}
+
+async function continuePullFromGoogleSheets(isManual) {
 
   if (isManual) {
     showToast('⏳ กำลังดึงข้อมูลล่าสุดจาก Google Sheets...');
@@ -3811,7 +4158,11 @@ async function trySilentFetch() {
 
 async function triggerManualSync() {
   if (!appState.settings.gasUrl) {
-    alert('กรุณาระบุ Web App URL ในหน้าตั้งค่า');
+    showModernAlert({
+      title: 'ยังไม่ได้ระบุ Web App URL',
+      message: 'กรุณาระบุ Google Apps Script Web App API URL ในหน้าตั้งค่าก่อนเชื่อมต่อชีท',
+      icon: '⚙️'
+    });
     return;
   }
 
@@ -4615,7 +4966,11 @@ function switchGradebookClassroom(classroom) {
  */
 async function saveGradebookToSheet() {
   if (!appState.settings.gasUrl) {
-    alert('โปรดระบุ Web App URL ในหน้าตั้งค่าก่อนบันทึก');
+    showModernAlert({
+      title: 'ยังไม่ได้ระบุ Web App URL',
+      message: 'โปรดระบุ Google Apps Script Web App API URL ในหน้าตั้งค่าก่อนบันทึกลงชีท',
+      icon: '⚙️'
+    });
     return;
   }
 
@@ -4649,12 +5004,22 @@ async function saveGradebookToSheet() {
       showToast(`✅ บันทึกคะแนนห้อง ${appState.activeClassroom} (${recordsToSave.length} คน) ลง Google Sheets (ชีท Gradebook) สำเร็จ`);
     } else {
       updateSyncIndicator('offline');
-      alert('บันทึกลง Google Sheets ไม่สำเร็จ: ' + (result.error || result.message || ''));
+      showModernAlert({
+        title: 'บันทึก Sheets ไม่สำเร็จ',
+        message: 'ไม่สามารถบันทึกลง Google Sheets ได้: ' + (result.error || result.message || 'โปรดตรวจสอบสิทธิ์การเข้าถึง'),
+        icon: '⚠️',
+        buttonClass: 'btn-danger'
+      });
     }
   } catch (err) {
     updateSyncIndicator('offline');
     console.error('Save gradebook error:', err);
-    alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+    showModernAlert({
+      title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+      message: 'ไม่สามารถเชื่อมต่อกับ Google Sheets ได้: ' + err.message,
+      icon: '⚠️',
+      buttonClass: 'btn-danger'
+    });
   }
 }
 
@@ -4664,7 +5029,7 @@ async function saveGradebookToSheet() {
 function exportGradebookSGS() {
   const students = getFilteredStudents();
   if (students.length === 0) {
-    alert('ไม่มีข้อมูลนักเรียนสำหรับส่งออก');
+    showToast('⚠️ ไม่มีข้อมูลนักเรียนสำหรับส่งออก');
     return;
   }
 
@@ -4739,75 +5104,89 @@ function exportGradebookSGS() {
  * โหลดข้อมูลต้นฉบับ 434 คนจากไฟล์ backup_grades_2569.json ของโรงเรียนธาตุพนม
  */
 async function loadOriginalSchoolGrades() {
-  const confirmLoad = confirm('ต้องการโหลดข้อมูลผลการเรียนต้นฉบับ (ม.4 ครบทั้ง 11 ห้อง 434 คน) เข้าสู่ระบบใช่หรือไม่? ข้อมูลจะถูกเชื่อมต่อและแสดงผลในทุกห้องทันที');
-  if (!confirmLoad) return;
+  showModernConfirm({
+    title: 'โหลดข้อมูลผลการเรียนต้นฉบับ?',
+    subtitle: 'ต้องการโหลดข้อมูลผลการเรียนต้นฉบับ (ม.4 ครบทั้ง 11 ห้อง 434 คน) เข้าสู่ระบบใช่หรือไม่?\n\nข้อมูลจะถูกเชื่อมต่อและแสดงผลในทุกห้องทันที',
+    icon: '📊',
+    iconBg: 'rgba(59, 130, 246, 0.12)',
+    iconBorder: 'rgba(59, 130, 246, 0.25)',
+    confirmText: '📥 ยืนยันโหลดข้อมูล',
+    confirmClass: 'btn-primary',
+    cancelText: 'ยกเลิก',
+    onConfirm: async () => {
+      try {
+        showToast('⏳ กำลังโหลดข้อมูลต้นฉบับ...');
+        const res = await fetch('./data/backup_grades_2569.json');
+        if (!res.ok) throw new Error('ไม่พบไฟล์ข้อมูล backup_grades_2569.json');
+        const records = await res.json();
 
-  try {
-    showToast('⏳ กำลังโหลดข้อมูลต้นฉบับ...');
-    const res = await fetch('./data/backup_grades_2569.json');
-    if (!res.ok) throw new Error('ไม่พบไฟล์ข้อมูล backup_grades_2569.json');
-    const records = await res.json();
+        if (!Array.isArray(records) || records.length === 0) {
+          throw new Error('ไฟล์ข้อมูลว่างเปล่า');
+        }
 
-    if (!Array.isArray(records) || records.length === 0) {
-      throw new Error('ไฟล์ข้อมูลว่างเปล่า');
-    }
+        if (!appState.gradebook) appState.gradebook = {};
 
-    if (!appState.gradebook) appState.gradebook = {};
+        const existingIds = new Set(appState.students.map(s => String(s.studentId)));
+        const roomSet = new Set(appState.settings.classrooms || DEFAULT_CLASSROOMS);
 
-    const existingIds = new Set(appState.students.map(s => String(s.studentId)));
-    const roomSet = new Set(appState.settings.classrooms || DEFAULT_CLASSROOMS);
+        records.forEach(r => {
+          const room = r.room || 'ม.4/1';
+          roomSet.add(room);
 
-    records.forEach(r => {
-      const room = r.room || 'ม.4/1';
-      roomSet.add(room);
+          const sid = String(r.studentId);
+          if (!existingIds.has(sid)) {
+            appState.students.push({
+              no: Number(r.no) || 1,
+              studentId: sid,
+              fullName: r.name,
+              classroom: room,
+              status: 'ปกติ'
+            });
+            existingIds.add(sid);
+          }
 
-      const sid = String(r.studentId);
-      if (!existingIds.has(sid)) {
-        appState.students.push({
-          no: Number(r.no) || 1,
-          studentId: sid,
-          fullName: r.name,
-          classroom: room,
-          status: 'ปกติ'
+          const subj = appState.activeSubject || 'ส31101';
+          const key = subj + '_' + room + '_' + sid;
+
+          const rawRec = {
+            subject: subj,
+            classroom: room,
+            studentId: sid,
+            no: Number(r.no) || 1,
+            fullName: r.name,
+            attPre: Number(r.attPre) || 0,
+            workPre: Number(r.workPre) || 0,
+            sumPre: Number(r.sumPre) || 0,
+            midRaw: Number(r.midRaw || 0),
+            midDiv: 1,
+            midHelp: Number(r.midHelp || 0),
+            attPost: Number(r.attPost) || 0,
+            workPost: Number(r.workPost) || 0,
+            sumPost: Number(r.sumPost) || 0,
+            finalRaw: Number(r.finalRaw || 0),
+            finalDiv: appState.finalDivisor || 2,
+            finalHelp: Number(r.finalHelp || 0),
+            note: r.note || (r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : ''))
+          };
+          appState.gradebook[key] = calculateGradeRecord(rawRec, appState.gradebookRatio || '70/30');
         });
-        existingIds.add(sid);
+
+        appState.settings.classrooms = sortClassroomNames(Array.from(roomSet));
+        appState.isDirty = true;
+        saveLocalState();
+        renderApp();
+        showToast('🎉 นำเข้าข้อมูลนักเรียนและคะแนนครบ 434 คนเรียบร้อยแล้ว!');
+      } catch (err) {
+        console.error('Error loading backup grades:', err);
+        showModernAlert({
+          title: 'ไม่สามารถโหลดไฟล์ข้อมูลต้นฉบับได้',
+          message: err.message,
+          icon: '⚠️',
+          buttonClass: 'btn-danger'
+        });
       }
-
-      const subj = appState.activeSubject || 'ส31101';
-      const key = subj + '_' + room + '_' + sid;
-
-      const rawRec = {
-        subject: subj,
-        classroom: room,
-        studentId: sid,
-        no: Number(r.no) || 1,
-        fullName: r.name,
-        attPre: Number(r.attPre) || 0,
-        workPre: Number(r.workPre) || 0,
-        sumPre: Number(r.sumPre) || 0,
-        midRaw: Number(r.midRaw || 0),
-        midDiv: 1,
-        midHelp: Number(r.midHelp || 0),
-        attPost: Number(r.attPost) || 0,
-        workPost: Number(r.workPost) || 0,
-        sumPost: Number(r.sumPost) || 0,
-        finalRaw: Number(r.finalRaw || 0),
-        finalDiv: appState.finalDivisor || 2,
-        finalHelp: Number(r.finalHelp || 0),
-        note: r.note || (r.sgsStatus === 'ร' ? 'ร' : (r.sgsStatus === 'มส' ? 'มส' : ''))
-      };
-      appState.gradebook[key] = calculateGradeRecord(rawRec, appState.gradebookRatio || '70/30');
-    });
-
-    appState.settings.classrooms = Array.from(roomSet);
-    appState.isDirty = true;
-    saveLocalState();
-    renderApp();
-    showToast('🎉 นำเข้าข้อมูลนักเรียนและคะแนนครบ 434 คนเรียบร้อยแล้ว!');
-  } catch (err) {
-    console.error('Error loading backup grades:', err);
-    alert('ไม่สามารถโหลดไฟล์ข้อมูลต้นฉบับได้: ' + err.message);
-  }
+    }
+  });
 }
 
 

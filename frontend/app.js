@@ -2017,21 +2017,13 @@ function renderStudents(container) {
   }).join('');
 
   container.innerHTML = `
-    <!-- แถบสลับห้อง + ปุ่มจัดการห้อง -->
+    <!-- แถบสลับห้อง -->
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
-      <div class="classroom-pill-strip" style="margin-bottom: 0; flex: 1;">
+      <div class="classroom-pill-strip" style="margin-bottom: 0; width: 100%;">
         <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; margin-right: 0.25rem;">
           🏫 ห้องเรียนวิชานี้:
         </span>
         ${classPillsHtml}
-      </div>
-      <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
-        <button class="btn btn-secondary btn-sm" onclick="openAddClassroomModal()">
-          ➕ เพิ่มห้องใหม่
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
-          ⚙️ จัดการห้องเรียน
-        </button>
       </div>
     </div>
 
@@ -3479,12 +3471,9 @@ function renderSettings(container) {
               แตะเลือกเฉพาะห้องที่คุณครูสอนในแต่ละวิชา (ระบบจะกรองห้องให้ตรงกับวิชานั้นๆ อัตโนมัติ)
             </p>
           </div>
-          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          <div>
             <button type="button" class="btn btn-primary btn-sm" onclick="addNewSubjectModal()">
               ➕ เพิ่มวิชาใหม่
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
-              ⚙️ จัดการห้องเรียนทั้งหมด (${(appState.settings.classrooms || DEFAULT_CLASSROOMS).length} ห้อง)
             </button>
           </div>
         </div>
@@ -3608,7 +3597,7 @@ function openAddSubjectModal() {
   const modalId = 'add-subject-modal';
   closeModal(modalId);
 
-  const commonLevels = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6', 'ป.1', 'ป.2', 'ป.3', 'ป.4', 'ป.5', 'ป.6'];
+  const commonLevels = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'];
 
   const modalHtml = `
     <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
@@ -3883,7 +3872,13 @@ function openManageSubjectRoomsModal(subIdx) {
   if (currentRooms.length > 0) {
     const m = String(currentRooms[0]).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
     if (m) defaultLevel = m[0];
+  } else if (sub.name || sub.code) {
+    const m = String(sub.name + ' ' + sub.code).match(/ม\.\d/);
+    if (m) defaultLevel = m[0];
   }
+
+  // แสดงเฉพาะห้องที่มีระดับชั้นตรงกับวิชานี้เท่านั้น (ไม่แสดง ม.4 ในวิชา ม.5)
+  const sameLevelOtherRooms = otherRooms.filter(r => r.startsWith(defaultLevel));
 
   const modalHtml = `
     <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
@@ -3936,8 +3931,8 @@ function openManageSubjectRoomsModal(subIdx) {
             ⚡ เพิ่มเป็นช่วงห้องสำหรับวิชานี้
           </div>
           <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-            <select id="modal-sub-batch-prefix" class="form-input" style="width: 85px; padding: 0.35rem 0.45rem; font-size: 0.82rem; font-weight: 600;">
-              ${['ม.1','ม.2','ม.3','ม.4','ม.5','ม.6','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6'].map(lvl => `
+            <select id="modal-sub-batch-prefix" class="form-input" style="width: 85px; padding: 0.35rem 0.45rem; font-size: 0.82rem; font-weight: 600;" onchange="handleModalSubBatchPrefixChange(${subIdx}, this.value)">
+              ${['ม.1','ม.2','ม.3','ม.4','ม.5','ม.6'].map(lvl => `
                 <option value="${lvl}" ${lvl === defaultLevel ? 'selected' : ''}>${lvl}</option>
               `).join('')}
             </select>
@@ -3958,21 +3953,21 @@ function openManageSubjectRoomsModal(subIdx) {
           </button>
         </div>
 
-        <!-- ส่วนที่ 3: เลือกจากห้องเรียนอื่นที่มีอยู่ในโรงเรียน (ถ้ามี) -->
-        ${otherRooms.length > 0 ? `
-          <div style="margin-top: 0.6rem; border-top: 1px dashed var(--border-light); padding-top: 0.6rem;">
+        <!-- ส่วนที่ 3: เลือกจากห้องเรียนระดับเดียวกันที่ยังไม่ได้เลือก (ถ้ามี) -->
+        <div id="modal-sub-same-level-container" style="display: ${sameLevelOtherRooms.length > 0 ? 'block' : 'none'}; margin-top: 0.6rem; border-top: 1px dashed var(--border-light); padding-top: 0.6rem;">
+          ${sameLevelOtherRooms.length > 0 ? `
             <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
-              หรือแตะเลือกจากห้องเรียนที่มีในระบบโรงเรียน:
+              หรือแตะเลือกจากห้องเรียนระดับ ${esc(defaultLevel)} ที่ยังไม่ได้เลือก:
             </div>
             <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; max-height: 85px; overflow-y: auto;">
-              ${otherRooms.map(r => `
+              ${sameLevelOtherRooms.map(r => `
                 <button type="button" class="pill-btn" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="handleAddExistingRoomToSubject(${subIdx}, '${esc(r)}')">
                   + ${esc(r)}
                 </button>
               `).join('')}
             </div>
-          </div>
-        ` : ''}
+          ` : ''}
+        </div>
 
         <div style="display: flex; justify-content: flex-end; margin-top: 1.15rem; border-top: 1px solid var(--border-light); padding-top: 0.75rem;">
           <button type="button" class="btn btn-primary" onclick="closeModal('${modalId}'); renderSettings(document.getElementById('app-view-container'));">
@@ -4185,6 +4180,38 @@ async function saveSettings() {
   await pushSettingsToBackend(currentToken, inputToken);
 }
 
+function handleModalSubBatchPrefixChange(subIdx, prefix) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+  const currentRooms = sub.classrooms || [];
+  const allMasterRooms = sortClassroomNames(appState.settings.classrooms || DEFAULT_CLASSROOMS);
+  const otherRooms = allMasterRooms.filter(r => !currentRooms.includes(r));
+  const sameLevel = otherRooms.filter(r => r.startsWith(prefix));
+  
+  const container = document.getElementById('modal-sub-same-level-container');
+  if (container) {
+    if (sameLevel.length === 0) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    } else {
+      container.style.display = 'block';
+      container.innerHTML = `
+        <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+          หรือแตะเลือกจากห้องเรียนระดับ ${esc(prefix)} ที่ยังไม่ได้เลือก:
+        </div>
+        <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; max-height: 85px; overflow-y: auto;">
+          ${sameLevel.map(r => `
+            <button type="button" class="pill-btn" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="handleAddExistingRoomToSubject(${subIdx}, '${esc(r)}')">
+              + ${esc(r)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+  }
+}
+
+window.handleModalSubBatchPrefixChange = handleModalSubBatchPrefixChange;
 window.addNewSubjectModal = openAddSubjectModal;
 window.openAddSubjectModal = openAddSubjectModal;
 window.selectNewSubLevel = selectNewSubLevel;

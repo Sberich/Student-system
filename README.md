@@ -33,14 +33,12 @@
 
 ---
 
-## 🚀 ลิงก์และข้อมูลการเชื่อมต่อปัจจุบัน
+## 🚀 การเริ่มต้นใช้งานและการเชื่อมต่อ Google Sheets
 
-- **Google Spreadsheet (ชีทข้อมูลจริง):**
-  [เปิดดูชีทใน Google Drive](https://docs.google.com/spreadsheets/d/1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU/edit)
-- **Google Apps Script Project:**
-  [เปิดสคริปต์ใน Apps Script Editor](https://script.google.com/d/1-85CDk7GozHoaVPDVe_uZfzrvYoI9MLq6QmeVivqPSaKVx_rkOhkl2zK/edit)
-- **Web App API Endpoint (Deploy ล่าสุด):**
-  `https://script.google.com/macros/s/AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx/exec`
+ระบบทำงานแบบ **"ต่างคนต่างชีท" (Independent Sheet per Teacher)** เพื่อความปลอดภัยและเป็นส่วนตัวของข้อมูลนักเรียนสูงสุด (PDPA):
+1. **คัดลอก Google Sheets Template:** ทำสำเนา (Make a copy) จากแม่แบบชีทของระบบ
+2. **Deploy Web App:** ในหน้าชีท ไปที่ *ส่วนขยาย (Extensions) > Apps Script* แล้วกด *ทำให้ใช้งานได้ (Deploy) > การทำให้ใช้งานได้ใหม่ (New deployment)* เลือกสิทธิ์เป็น *Anyone (ทุกคน)*
+3. **เชื่อมต่อในแอป:** นำ Web App URL ที่ได้ มาวางในแท็บ **"⚙️ ตั้งค่า"** ของ Smart Grade พร้อมกำหนดรหัสความปลอดภัย (Security PIN) ของตนเองเพื่อเริ่มใช้งานได้ทันที
 
 ---
 

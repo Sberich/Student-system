@@ -17,13 +17,12 @@ const DEFAULT_CLASSROOMS = [
   'ม.5/1', 'ม.5/2'
 ];
 
-// รายวิชาที่สอน 5 รายวิชา
+// รายวิชาเริ่มต้นของระบบ
 const DEFAULT_SUBJECTS = [
-  { id: 'SUB01', code: 'ส31101', name: 'สังคมศึกษา 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { id: 'SUB02', code: 'ส31102', name: 'ประวัติศาสตร์ไทย 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { id: 'SUB03', code: 'ส30226', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', classrooms: ['ม.4/11'] },
-  { id: 'SUB04', code: 'ส32101', name: 'สังคมศึกษา 3 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] },
-  { id: 'SUB05', code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] }
+  { id: 'SUB01', code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', ratio: '80/20', finalDivisor: 2, classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
+  { id: 'SUB02', code: 'ส31102', name: 'สังคมศึกษา (ม.4)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/2', 'ม.4/3'] },
+  { id: 'SUB03', code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] },
+  { id: 'SUB04', code: 'ส31238', name: 'ต่อต้านการทุจริต', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] }
 ];
 
 function onOpen() {
@@ -32,8 +31,8 @@ function onOpen() {
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
     .addItem('🔒 ตั้งค่า/เปลี่ยนรหัสความปลอดภัย (Security PIN)', 'setSecurityPinPrompt')
     .addItem('🎓 ตรวจสอบชีททะเบียนคะแนน & SGS', 'initGradebookSheet')
-    .addItem('🧹 รีเซ็ตคะแนนเริ่มต้นปีการศึกษา (เก็บวิชากฎหมาย A19-A24)', 'resetScoresMenuAction')
-    .addItem('✨ ใส่ข้อมูลตัวอย่าง (ม.4 & ม.5)', 'seedSampleData')
+    .addItem('🧹 รีเซ็ตคะแนนเริ่มต้นปีการศึกษาใหม่', 'resetScoresMenuAction')
+    .addItem('✨ ใส่ข้อมูลตัวอย่าง', 'seedSampleData')
     .addToUi();
 }
 
@@ -212,8 +211,8 @@ function doPost(e) {
     }
 
     if (action === 'saveGradebook') {
-      const saved = handleSaveGradebook(ss, payload.records || payload.gradebook || []);
-      return createJsonResponse({ success: true, count: saved.length });
+      const count = handleSaveGradebook(ss, payload.records || payload.gradebook || []);
+      return createJsonResponse({ success: true, count: count });
     }
 
     if (action === 'syncFullState') {
@@ -473,7 +472,7 @@ function handleSaveGradebook(ss, gradebookList) {
     'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
     'รวมระหว่างภาค',
     'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
-    'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+    'คะแนนรวม100', 'เกรด', 'สถานะ_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
   ];
 
   const rawData = sheet.getDataRange().getValues();
@@ -540,11 +539,11 @@ function handleSaveGradebook(ss, gradebookList) {
   });
 
   sheet.clearContents();
-  sheet.getRange(1, 1, cleanData.length, headers.length).setValues(cleanData);
-  formatHeaderRow(sheet);
   if (cleanData.length > 1) {
     sheet.getRange(2, 4, cleanData.length - 1, 1).setNumberFormat('@');
   }
+  sheet.getRange(1, 1, cleanData.length, headers.length).setValues(cleanData);
+  formatHeaderRow(sheet);
 
   return cleanData.length - 1;
 }
@@ -599,10 +598,10 @@ function handleBatchSaveSubmissions(ss, submissionsList) {
 
   // เขียนกลับลงชีททั้งหมดด้วยการเรียก setValues เพียงครั้งเดียว
   if (data.length > 0) {
-    sheet.getRange(1, 1, data.length, 6).setValues(data);
     if (data.length > 1) {
       sheet.getRange(2, 1, data.length - 1, 2).setNumberFormat('@');
     }
+    sheet.getRange(1, 1, data.length, 6).setValues(data);
   }
 
   return submissionsList;
@@ -768,7 +767,7 @@ function ensureSheetsExist(ss) {
         'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
         'รวมระหว่างภาค',
         'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
-        'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+        'คะแนนรวม100', 'เกรด', 'สถานะ_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
       ]
     }
   ];
@@ -895,75 +894,33 @@ function seedSampleData() {
 function resetScoresMenuAction() {
   const ui = SpreadsheetApp.getUi();
   const resp = ui.alert(
-    'ยืนยันการรีเซ็ตคะแนน',
-    'คุณต้องการรีเซ็ตคะแนนวิชาประวัติศาสตร์ สังคมศึกษา และต่อต้านทุจริตเป็น 0 เพื่อเริ่มปีการศึกษาใหม่ โดยจะเก็บวิชากฎหมาย (A19-A24) และรายชื่อนักเรียน 356 คนไว้ทั้งหมด ใช่หรือไม่?',
+    'ยืนยันการรีเซ็ตคะแนนเริ่มต้นปีการศึกษาใหม่',
+    'คุณต้องการรีเซ็ตคะแนนทั้งหมดในชีททะเบียนคะแนน (Gradebook) ให้เป็น 0 และเคลียร์คะแนนงานส่ง (Submissions) เพื่อเริ่มต้นปีการศึกษาใหม่ โดยจะเก็บรายชื่อนักเรียนและข้อมูลภาระงานไว้ทั้งหมด ใช่หรือไม่?',
     ui.ButtonSet.YES_NO
   );
   if (resp === ui.Button.YES) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const res = handleResetScores(ss);
-    ui.alert('สำเร็จ', 'รีเซ็ตคะแนนเรียบร้อยแล้ว (นักเรียน ' + res.studentsCount + ' คน, ภาระงานกฎหมาย ' + res.assignmentsCount + ' ชิ้น, รายการคะแนนทั้งหมด ' + res.gradebookCount + ' แถว)', ui.ButtonSet.OK);
+    ui.alert('สำเร็จ', 'รีเซ็ตคะแนนเรียบร้อยแล้ว (นักเรียน ' + res.studentsCount + ' คน, รายการคะแนนทั้งหมด ' + res.gradebookCount + ' แถว)', ui.ButtonSet.OK);
   }
 }
 
 function handleResetScores(ss) {
-  // 1. Assignments: Keep ONLY A19 - A24 (Law subject ส30212 room ม.4/11)
-  const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
-  const assignRows = assignmentsSheet.getDataRange().getValues();
-  const keepAssignments = [];
-  const keepAssignHeaders = assignRows[0] || ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'];
-  keepAssignments.push(keepAssignHeaders);
-  
-  for (let i = 1; i < assignRows.length; i++) {
-    const row = assignRows[i];
-    const aid = String(row[0] || '');
-    if (aid >= 'A19' && aid <= 'A24') {
-      row[5] = 'ม.4/11';
-      keepAssignments.push(row);
-    }
-  }
-  assignmentsSheet.clearContents();
-  assignmentsSheet.getRange(1, 1, keepAssignments.length, keepAssignments[0].length).setValues(keepAssignments);
-  formatHeaderRow(assignmentsSheet);
+  // 1. ตรวจสอบข้อมูลนักเรียนและวิชาที่ถูกต้อง
+  const { validStudentsByRoom, subjectClassroomsMap } = getValidCombinations(ss);
 
-  // 2. Submissions: Keep ONLY submissions for A19 - A24
+  // 2. เคลียร์คะแนนในชีท Submissions แต่คงหัวตารางไว้
   const submissionsSheet = ss.getSheetByName(SHEET_SUBMISSIONS);
-  const subRows = submissionsSheet.getDataRange().getValues();
-  const keepSubs = [];
-  const subHeaders = subRows[0] || ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตเมื่อ'];
-  keepSubs.push(subHeaders);
-  for (let i = 1; i < subRows.length; i++) {
-    const row = subRows[i];
-    const aid = String(row[0] || '');
-    if (aid >= 'A19' && aid <= 'A24') {
-      keepSubs.push(row);
-    }
-  }
-  submissionsSheet.clearContents();
-  submissionsSheet.getRange(1, 1, keepSubs.length, keepSubs[0].length).setValues(keepSubs);
-  formatHeaderRow(submissionsSheet);
-
-  // 3. Students: Read clean 356 students from SHEET_STUDENTS
-  const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
-  const studentRows = studentsSheet.getDataRange().getValues();
-  const students = [];
-  for (let i = 1; i < studentRows.length; i++) {
-    const r = studentRows[i];
-    if (r[1]) {
-      students.push({
-        no: Number(r[0]) || i,
-        studentId: String(r[1]),
-        fullName: String(r[2] || ''),
-        classroom: String(r[3] || '')
-      });
-    }
+  if (submissionsSheet) {
+    const subRows = submissionsSheet.getDataRange().getValues();
+    const subHeaders = (subRows[0] && subRows[0].length >= 6) ? subRows[0] : ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตเมื่อ'];
+    submissionsSheet.clearContents();
+    submissionsSheet.appendRow(subHeaders);
+    formatHeaderRow(submissionsSheet);
   }
 
-  // 4. Gradebook:
-  // - Keep existing real scores for ส30212 in ม.4/11
-  // - Initialize/Reset all other subjects to 0
+  // 3. รีเซ็ตคะแนนในชีท Gradebook เป็น 0 ทั้งหมดตามรายชื่อนักเรียนจริง
   const gradebookSheet = ss.getSheetByName(SHEET_GRADEBOOK);
-  const gbRows = gradebookSheet.getDataRange().getValues();
   const gbHeaders = [
     'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
     'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
@@ -971,78 +928,41 @@ function handleResetScores(ss) {
     'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
     'รวมระหว่างภาค',
     'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
-    'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+    'คะแนนรวม100', 'เกรด', 'สถานะ_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
   ];
 
-  // Capture existing law scores (ส30212 in ม.4/11)
-  const lawScoresMap = {};
-  for (let i = 1; i < gbRows.length; i++) {
-    const r = gbRows[i];
-    const subj = String(r[0] || '');
-    const room = String(r[1] || '');
-    const sid = String(r[3] || '');
-    if (subj === 'ส30212' && (room === 'ม.4/11' || room === 'ม.4/11 กฎหมาย')) {
-      if (!lawScoresMap[sid] || Number(r[20] || 0) > 0) {
-        lawScoresMap[sid] = r;
-      }
-    }
-  }
-
   const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
-  const newGbData = [gbHeaders];
+  const cleanGbData = [gbHeaders];
 
-  // Subject 1: ส31162 (11 rooms, all 356 students -> score 0)
-  students.forEach(s => {
-    newGbData.push([
-      'ส31162', s.classroom, s.no, s.studentId, s.fullName,
-      0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, '0', 'ปกติ', '', now
-    ]);
-  });
-
-  // Subject 2: ส31102 (ม.4/2 and ม.4/3 -> score 0)
-  students.filter(s => s.classroom === 'ม.4/2' || s.classroom === 'ม.4/3').forEach(s => {
-    newGbData.push([
-      'ส31102', s.classroom, s.no, s.studentId, s.fullName,
-      0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, '0', 'ปกติ', '', now
-    ]);
-  });
-
-  // Subject 3: ส30212 (ม.4/11 -> PRESERVE REAL LAW SCORES)
-  students.filter(s => s.classroom === 'ม.4/11').forEach(s => {
-    const existing = lawScoresMap[s.studentId];
-    if (existing) {
-      existing[0] = 'ส30212';
-      existing[1] = 'ม.4/11';
-      existing[2] = s.no;
-      existing[3] = s.studentId;
-      existing[4] = s.fullName;
-      existing[24] = now;
-      newGbData.push(existing);
-    } else {
-      newGbData.push([
-        'ส30212', 'ม.4/11', s.no, s.studentId, s.fullName,
-        0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, '0', 'ปกติ', '', now
-      ]);
-    }
-  });
-
-  // Subject 4: ส31238 (ม.4/11 -> score 0)
-  students.filter(s => s.classroom === 'ม.4/11').forEach(s => {
-    newGbData.push([
-      'ส31238', 'ม.4/11', s.no, s.studentId, s.fullName,
-      0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, '0', 'ปกติ', '', now
-    ]);
+  Object.keys(subjectClassroomsMap).forEach(subjCode => {
+    const rooms = subjectClassroomsMap[subjCode] || [];
+    rooms.forEach(room => {
+      const studentsInRoom = validStudentsByRoom[room] || [];
+      studentsInRoom.forEach(s => {
+        cleanGbData.push([
+          subjCode, room, s.no, s.studentId, s.fullName,
+          0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, '0', 'ปกติ', '', now
+        ]);
+      });
+    });
   });
 
   gradebookSheet.clearContents();
-  gradebookSheet.getRange(1, 1, newGbData.length, gbHeaders.length).setValues(newGbData);
+  if (cleanGbData.length > 1) {
+    gradebookSheet.getRange(2, 4, cleanGbData.length - 1, 1).setNumberFormat('@');
+  }
+  gradebookSheet.getRange(1, 1, cleanGbData.length, gbHeaders.length).setValues(cleanGbData);
   formatHeaderRow(gradebookSheet);
+
+  const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
+  const studentsCount = studentsSheet ? Math.max(0, studentsSheet.getLastRow() - 1) : 0;
+  const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
+  const assignmentsCount = assignmentsSheet ? Math.max(0, assignmentsSheet.getLastRow() - 1) : 0;
 
   return {
     success: true,
-    assignmentsCount: keepAssignments.length - 1,
-    submissionsCount: keepSubs.length - 1,
-    gradebookCount: newGbData.length - 1,
-    studentsCount: students.length
+    studentsCount: studentsCount,
+    assignmentsCount: assignmentsCount,
+    gradebookCount: cleanGbData.length - 1
   };
 }

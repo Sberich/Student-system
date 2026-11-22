@@ -4,8 +4,8 @@
  * รองรับการสอน 5 รายวิชา, ระบบตัดเกรด SGS, และ PWA Mobile-First
  */
 
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwwpQptiXdGKmA7QVj7VtklNeilBa64DfVJ29pviwPyLQ2K4V5irMEGynTzffYve_gb/exec';
-const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU/edit';
+const DEFAULT_GAS_URL = '';
+const SPREADSHEET_URL = '';
 
 const STORAGE_KEY = 'educator_app_state_v2';
 
@@ -15,10 +15,10 @@ const DEFAULT_CLASSROOMS = [
 ];
 
 const DEFAULT_SUBJECTS = [
-  { code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { code: 'ส31102', name: 'สังคมศึกษา (ม.4)', classrooms: ['ม.4/2', 'ม.4/3'] },
-  { code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', classrooms: ['ม.4/11'] },
-  { code: 'ส31238', name: 'ต่อต้านการทุจริต', classrooms: ['ม.4/11'] }
+  { code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', ratio: '80/20', finalDivisor: 2, classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
+  { code: 'ส31102', name: 'สังคมศึกษา (ม.4)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/2', 'ม.4/3'] },
+  { code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] },
+  { code: 'ส31238', name: 'ต่อต้านการทุจริต', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] }
 ];
 
 /**
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.settings.subjects = DEFAULT_SUBJECTS;
     appState.settings.classrooms = DEFAULT_CLASSROOMS;
     appState.activeClassroom = 'ม.4/1';
-    appState.activeSubject = 'ส31101';
+    appState.activeSubject = (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || 'ส31162';
     appState.students = [];
     appState.assignments = [];
     appState.submissions = {};
@@ -182,19 +182,44 @@ document.addEventListener('DOMContentLoaded', () => {
     trySilentFetch();
   }
 
-  // ลงทะเบียน Service Worker สำหรับการใช้งานแบบ Offline และ PWA
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(err => {
-        console.log('SW registration note:', err);
-      });
-    });
-  }
+  // แสดงหน้าต่างแนะนำการเริ่มต้นใช้งาน หากเปิดแอปครั้งแรกในเครื่องใหม่
+  checkFirstRunWizard();
 });
 
 /**
- * ล้างข้อมูลคะแนนและรายการที่ตกค้าง/ผิดพลาดในหน่วยความจำของเบราว์เซอร์ (Prune Ghost/Orphan Records)
- * ป้องกันข้อมูลห้องที่เคยถูกลบไปแล้ว หรือวิชาที่ไม่ตรงกับห้องเรียน ถูกส่งกลับไปขึ้น Google Sheets
+ * สร้าง Snapshot สำรองข้อมูลในเครื่องอัตโนมัติก่อนการเปลี่ยนแปลงโครงสร้าง (Auto State Snapshot)
+ */
+function createStateSnapshot(reason = 'manual') {
+  try {
+    const snapshot = {
+      timestamp: new Date().toISOString(),
+      reason: reason,
+      studentsCount: (appState.students || []).length,
+      assignmentsCount: (appState.assignments || []).length,
+      gradebookCount: Object.keys(appState.gradebook || {}).length,
+      state: {
+        settings: JSON.parse(JSON.stringify(appState.settings || {})),
+        students: JSON.parse(JSON.stringify(appState.students || [])),
+        assignments: JSON.parse(JSON.stringify(appState.assignments || [])),
+        submissions: JSON.parse(JSON.stringify(appState.submissions || {})),
+        gradebook: JSON.parse(JSON.stringify(appState.gradebook || {}))
+      }
+    };
+    let list = [];
+    try {
+      list = JSON.parse(localStorage.getItem('educator_state_snapshots') || '[]');
+    } catch (e) { list = []; }
+    list.unshift(snapshot);
+    if (list.length > 3) list = list.slice(0, 3);
+    localStorage.setItem('educator_state_snapshots', JSON.stringify(list));
+  } catch (e) {
+    console.warn('Could not save state snapshot:', e);
+  }
+}
+
+/**
+ * ตรวจสอบและแยกข้อมูลคะแนนที่ไม่มีในรายชื่อปัจจุบันเข้าถังพักข้อมูลกำพร้า (Non-destructive Orphan Registry)
+ * ป้องกันการลบข้อมูลคะแนนเงียบๆ (Never delete silently)
  */
 function purgeInvalidGradebookRecords() {
   if (!appState.gradebook || typeof appState.gradebook !== 'object') {
@@ -207,7 +232,6 @@ function purgeInvalidGradebookRecords() {
     : DEFAULT_SUBJECTS;
 
   const validKeys = new Set();
-
   subjects.forEach(sub => {
     const code = sub.code;
     const rooms = getClassroomsForSubject(code);
@@ -220,35 +244,154 @@ function purgeInvalidGradebookRecords() {
   });
 
   const isStudentListLoaded = appState.students && appState.students.length > 0;
+  if (!appState.orphanGradebookRecords) appState.orphanGradebookRecords = {};
+  let orphanCount = 0;
 
-  let deletedCount = 0;
+  const keysToMove = [];
   Object.keys(appState.gradebook).forEach(key => {
     const parts = key.split('_');
-    if (parts.length < 3) {
-      delete appState.gradebook[key];
-      deletedCount++;
-      return;
-    }
+    if (parts.length < 3) return;
     const subj = parts[0];
     const room = parts[1];
     const validRooms = getClassroomsForSubject(subj);
 
-    if (!validRooms.includes(room)) {
-      delete appState.gradebook[key];
-      deletedCount++;
-      return;
-    }
+    const isInvalidRoom = !validRooms.includes(room);
+    const isMissingStudent = isStudentListLoaded && !validKeys.has(key);
 
-    if (isStudentListLoaded && !validKeys.has(key)) {
-      delete appState.gradebook[key];
-      deletedCount++;
+    if (isInvalidRoom || isMissingStudent) {
+      keysToMove.push(key);
     }
   });
 
-  if (deletedCount > 0) {
-    console.log(`[Gradebook Cleaner] ล้างข้อมูลคะแนนผี/ห้องที่ถูกลบออกจากเครื่องแล้ว ${deletedCount} รายการ`);
+  if (keysToMove.length > 0) {
+    createStateSnapshot('before_isolate_orphans_' + keysToMove.length);
+    keysToMove.forEach(key => {
+      appState.orphanGradebookRecords[key] = appState.gradebook[key];
+      delete appState.gradebook[key];
+      orphanCount++;
+    });
   }
-  return deletedCount;
+
+  return orphanCount;
+}
+
+/**
+ * แสดงหน้าต่างตรวจสอบและกู้คืนคะแนนตกค้าง (Orphan Records Registry)
+ */
+function showOrphanRecordsModal() {
+  const orphans = appState.orphanGradebookRecords || {};
+  const keys = Object.keys(orphans);
+  if (keys.length === 0) {
+    showToast('ไม่มีข้อมูลคะแนนตกค้างในระบบ');
+    return;
+  }
+
+  const modalId = 'orphan-records-modal';
+  closeModal(modalId);
+
+  const rowsHtml = keys.map(k => {
+    const rec = orphans[k] || {};
+    return `
+      <tr style="border-bottom: 1px solid var(--border-light);">
+        <td style="padding: 0.5rem; font-size: 0.8rem; font-family: monospace;">${esc(k)}</td>
+        <td style="padding: 0.5rem; font-size: 0.82rem;">${esc(rec.fullName || '-')}</td>
+        <td style="padding: 0.5rem; font-size: 0.82rem; text-align: center;">${rec.totalScore !== undefined ? rec.totalScore : '-'}</td>
+        <td style="padding: 0.5rem; font-size: 0.82rem; text-align: center;">${esc(rec.grade || '-')}</td>
+        <td style="padding: 0.5rem; text-align: right;">
+          <button class="btn btn-sm btn-outline-primary" style="padding: 0.2rem 0.55rem; font-size: 0.75rem;" onclick="restoreOrphanRecord('${esc(k)}')">กู้คืน</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10600; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content prompt-modal-card" style="max-width: 640px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: rgba(245, 158, 11, 0.12); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; border: 1px solid rgba(245, 158, 11, 0.25);">
+              ⚠️
+            </div>
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main);">ข้อมูลคะแนนตกค้าง (${keys.length} รายการ)</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0 0;">คะแนนที่เคยบันทึกไว้แต่ห้องเรียนหรือรหัสถูกปรับเปลี่ยน ระบบแยกเก็บไว้ไม่ให้สูญหาย</p>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); padding: 0.2rem;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        <div style="max-height: 280px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 1rem;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg-subtle, #f8fafc); border-bottom: 1px solid var(--border-light); font-size: 0.78rem; color: var(--text-secondary);">
+                <th style="padding: 0.45rem 0.5rem; text-align: left;">คีย์อ้างอิง (วิชา_ห้อง_รหัส)</th>
+                <th style="padding: 0.45rem 0.5rem; text-align: left;">ชื่อ-นามสกุล</th>
+                <th style="padding: 0.45rem 0.5rem; text-align: center;">รวม</th>
+                <th style="padding: 0.45rem 0.5rem; text-align: center;">เกรด</th>
+                <th style="padding: 0.45rem 0.5rem; text-align: right;">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearAllOrphanRecords()">🗑️ ล้างทั้งหมด</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('${modalId}')">ปิด</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="restoreAllOrphanRecords()">📥 กู้คืนทั้งหมดเข้าตาราง</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function restoreOrphanRecord(key) {
+  if (!appState.orphanGradebookRecords || !appState.orphanGradebookRecords[key]) return;
+  if (!appState.gradebook) appState.gradebook = {};
+  appState.gradebook[key] = appState.orphanGradebookRecords[key];
+  delete appState.orphanGradebookRecords[key];
+  saveLocalState();
+  showToast('✓ กู้คืนรายการ ' + key + ' เรียบร้อยแล้ว');
+  closeModal('orphan-records-modal');
+  renderApp();
+}
+
+function restoreAllOrphanRecords() {
+  if (!appState.orphanGradebookRecords) return;
+  if (!appState.gradebook) appState.gradebook = {};
+  let c = 0;
+  Object.keys(appState.orphanGradebookRecords).forEach(k => {
+    appState.gradebook[k] = appState.orphanGradebookRecords[k];
+    c++;
+  });
+  appState.orphanGradebookRecords = {};
+  saveLocalState();
+  showToast(`✓ กู้คืนคะแนนทั้งหมด ${c} รายการเรียบร้อยแล้ว`);
+  closeModal('orphan-records-modal');
+  renderApp();
+}
+
+function clearAllOrphanRecords() {
+  showModernConfirm({
+    title: 'ยืนยันล้างข้อมูลคะแนนตกค้าง?',
+    subtitle: 'คุณแน่ใจหรือไม่ว่าต้องการล้างรายการคะแนนตกค้างทั้งหมดทิ้งอย่างถาวร? (ระบบได้ทำ Snapshot สำรองข้อมูลไว้ก่อนหน้าแล้ว)',
+    icon: '🗑️',
+    confirmText: 'ล้างข้อมูล',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      createStateSnapshot('before_clear_orphans');
+      appState.orphanGradebookRecords = {};
+      saveLocalState();
+      closeModal('orphan-records-modal');
+      renderApp();
+      showToast('ล้างรายการคะแนนตกค้างเรียบร้อยแล้ว');
+    }
+  });
 }
 
 function loadLocalState() {
@@ -267,7 +410,7 @@ function loadLocalState() {
 
           if (!rec.finalDiv) rec.finalDiv = appState.finalDivisor || 2;
           if (rec.midDiv !== 1) rec.midDiv = 1;
-          appState.gradebook[k] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+          appState.gradebook[k] = calculateGradeRecord(rec);
         });
       }
 
@@ -301,10 +444,18 @@ function loadLocalState() {
   }
 
   // ป้องกัน URL เก่าที่อาจค้างใน Browser Cache
-  if (!appState.settings.gasUrl || 
-      appState.settings.gasUrl.includes('AKfycbxkrB2zP2g') || 
-      appState.settings.gasUrl.includes('AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx')) {
-    appState.settings.gasUrl = DEFAULT_GAS_URL;
+  if (appState.settings.gasUrl && 
+      (appState.settings.gasUrl.includes('AKfycbxkrB2zP2g') || 
+       appState.settings.gasUrl.includes('AKfycbyGhv4Xzj1OFV0h7ckHx10UE4CdApjMcMInIkc-ZQJOvXqoWVqvFIYj1nytiRap8nsx'))) {
+    appState.settings.gasUrl = '';
+  }
+
+  // ตรวจสอบความถูกต้องของ activeSubject ป้องกันหน้าว่างหากรหัสวิชาไม่ตรงกับรายการวิชาที่มี
+  const allSubs = (appState.settings && Array.isArray(appState.settings.subjects) && appState.settings.subjects.length > 0)
+    ? appState.settings.subjects
+    : DEFAULT_SUBJECTS;
+  if (!allSubs.some(s => s.code === appState.activeSubject)) {
+    appState.activeSubject = (allSubs[0] && allSubs[0].code) || 'ส31162';
   }
 }
 
@@ -366,13 +517,14 @@ function seedDefaultState() {
     });
   }
 
-  // ตัวอย่างงานสำหรับ ม.4/1 วิชา ส31101
+  const demoSubj = (appState.settings.subjects && appState.settings.subjects[0]) ? appState.settings.subjects[0].code : 'ส31162';
+  appState.activeSubject = demoSubj;
+
+  // ตัวอย่างงานสำหรับ ม.4/1
   appState.assignments = [
-    { id: 'A01', title: '01 ใบงานโครงสร้างสังคมและการขัดเกลา', fullScore: 10, dueDate: '2026-11-10', subject: 'ส31101', classroom: 'ม.4/1' },
-    { id: 'A02', title: '02 แผนผังความคิดสิทธิมนุษยชน', fullScore: 10, dueDate: '2026-11-17', subject: 'ส31101', classroom: 'ม.4/1' },
-    { id: 'A03', title: '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', fullScore: 10, dueDate: '2026-11-24', subject: 'ส31101', classroom: 'ม.4/1' },
-    { id: 'A04', title: '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', fullScore: 10, dueDate: '2026-12-01', subject: 'ส31101', classroom: 'ม.4/1' },
-    { id: 'A05', title: '05 ชิ้นงานสรุปหลักธรรมสากล', fullScore: 10, dueDate: '2026-12-08', subject: 'ส31101', classroom: 'ม.4/1' }
+    { id: 'A01', title: '01 สมุดบันทึกสรุปบทเรียน', fullScore: 10, dueDate: '2026-11-10', subject: demoSubj, classroom: 'ม.4/1' },
+    { id: 'A02', title: '02 ใบงานวิเคราะห์กรณีศึกษา', fullScore: 10, dueDate: '2026-11-17', subject: demoSubj, classroom: 'ม.4/1' },
+    { id: 'A03', title: '03 แบบฝึกหัดทบทวนความรู้', fullScore: 10, dueDate: '2026-11-24', subject: demoSubj, classroom: 'ม.4/1' }
   ];
 
   appState.selectedAssignmentId = 'A01';
@@ -393,6 +545,35 @@ function seedDefaultState() {
   });
 
   saveLocalState();
+}
+
+/**
+ * แนะนำการเริ่มต้นใช้งานเมื่อเปิดแอปครั้งแรกในเครื่องใหม่
+ */
+function checkFirstRunWizard() {
+  const isFresh = !localStorage.getItem(STORAGE_KEY) || (!appState.settings.gasUrl && (!appState.students || appState.students.length === 0));
+  if (!isFresh) return;
+
+  showModernConfirm({
+    title: '👋 ยินดีต้อนรับสู่ Smart Grade',
+    subtitle: 'ระบบบันทึกคะแนนและตัดเกรดอัจฉริยะแบบ Offline-First\n\nสามารถเลือกเริ่มต้นใช้งานได้ 2 รูปแบบ:',
+    icon: '🎓',
+    iconBg: 'rgba(37, 99, 235, 0.12)',
+    iconBorder: 'rgba(37, 99, 235, 0.25)',
+    confirmText: '🚀 ทดลองใช้ด้วยข้อมูลตัวอย่าง',
+    confirmClass: 'btn-primary',
+    cancelText: '⚙️ ตั้งค่าเชื่อมต่อชีท',
+    onConfirm: () => {
+      seedDefaultState();
+      saveLocalState();
+      renderApp();
+      showToast('🎉 โหลดข้อมูลตัวอย่างสำหรับทดลองใช้เรียบร้อยแล้ว');
+    },
+    onCancel: () => {
+      switchTab('settings');
+      showToast('กรุณากรอกข้อมูลและ Web App URL ในหน้าตั้งค่า');
+    }
+  });
 }
 
 // ----------------- Header & Context Control -----------------
@@ -631,6 +812,8 @@ function setupEventListeners() {
 
 function handleGlobalKeydown(e) {
   if (appState.currentTab !== 'grading') return;
+  // ป้องกันคีย์ลัดทำงานขณะมี Modal หรือ Popup เปิดอยู่
+  if (document.querySelector('.modal-overlay')) return;
   // หากกำลังพิมพ์ในช่องค้นหาหรือช่องกรอกตัวเลข ไม่ดักจับปุ่มลัด
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
     return;
@@ -2513,10 +2696,12 @@ function showModernConfirm({
   const cancelBtn = document.getElementById('modern-confirm-cancel-btn');
 
   const handleOk = () => {
+    window.removeEventListener('keydown', handleKey);
     closeModal(modalId);
     if (typeof onConfirm === 'function') onConfirm();
   };
   const handleCancel = () => {
+    window.removeEventListener('keydown', handleKey);
     closeModal(modalId);
     if (typeof onCancel === 'function') onCancel();
   };
@@ -2531,6 +2716,8 @@ function showModernConfirm({
     }
   };
   window.addEventListener('keydown', handleKey);
+  const modalEl = document.getElementById(modalId);
+  if (modalEl) modalEl._cleanupKeydown = handleKey;
 
   setTimeout(() => okBtn?.focus(), 50);
 }
@@ -2580,6 +2767,7 @@ function showModernAlert({
 
   const okBtn = document.getElementById('modern-alert-ok-btn');
   const handleClose = () => {
+    window.removeEventListener('keydown', handleKey);
     closeModal(modalId);
     if (typeof onClose === 'function') onClose();
   };
@@ -2592,6 +2780,8 @@ function showModernAlert({
     }
   };
   window.addEventListener('keydown', handleKey);
+  const alertEl = document.getElementById(modalId);
+  if (alertEl) alertEl._cleanupKeydown = handleKey;
 
   setTimeout(() => okBtn?.focus(), 50);
 }
@@ -2991,7 +3181,13 @@ function deleteClassroom(className) {
 
 function closeModal(modalId) {
   const m = document.getElementById(modalId);
-  if (m) m.remove();
+  if (m) {
+    if (m._cleanupKeydown) {
+      window.removeEventListener('keydown', m._cleanupKeydown);
+      m._cleanupKeydown = null;
+    }
+    m.remove();
+  }
 }
 
 
@@ -3393,7 +3589,7 @@ function handleAddAssignment() {
     return;
   }
 
-  let maxNum = 0;
+  let maxNum = Number(appState.settings && appState.settings.lastAssignmentSeq) || 0;
   (appState.assignments || []).forEach(a => {
     const match = String(a.id || '').match(/^A(\d+)$/i);
     if (match) {
@@ -3401,7 +3597,19 @@ function handleAddAssignment() {
       if (n > maxNum) maxNum = n;
     }
   });
+
+  // ตรวจสอบกับ Submissions ที่เคยมีในระบบด้วยเพื่อป้องกันการชนกับประวัติงานเก่า
+  Object.keys(appState.submissions || {}).forEach(k => {
+    const match = k.match(/^A(\d+)_/i);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  });
+
   const nextNum = maxNum + 1;
+  if (!appState.settings) appState.settings = {};
+  appState.settings.lastAssignmentSeq = nextNum;
   const id = 'A' + (nextNum < 10 ? '0' + nextNum : nextNum);
 
   appState.assignments.push({
@@ -3434,6 +3642,7 @@ function deleteAssignment(assignId) {
     confirmClass: 'btn-danger',
     cancelText: 'ยกเลิก',
     onConfirm: () => {
+      createStateSnapshot('before_delete_assignment_' + assignId);
       appState.assignments = appState.assignments.filter(a => a.id !== assignId);
 
       // ลบข้อมูล Submissions ของงานนี้ออกด้วย
@@ -3621,6 +3830,23 @@ function renderSettings(container) {
                   <div class="cfg-sub-name-col">
                     <label class="form-label" style="font-size: 0.78rem; margin-bottom: 2px; font-weight: 600;">ชื่อรายวิชา</label>
                     <input type="text" class="form-input cfg-sub-name" value="${esc(sub.name)}" placeholder="เช่น สังคมศึกษา 1 (ม.4)" />
+                  </div>
+                </div>
+
+                <div class="cfg-sub-grading-row" style="display: flex; gap: 0.6rem; margin-top: 0.45rem; flex-wrap: wrap;">
+                  <div style="flex: 1; min-width: 140px;">
+                    <label class="form-label" style="font-size: 0.76rem; margin-bottom: 2px; font-weight: 600;">⚖️ สัดส่วนคะแนน</label>
+                    <select class="form-input cfg-sub-ratio" style="padding: 0.35rem 0.5rem; font-size: 0.82rem;">
+                      <option value="70/30" ${sub.ratio !== '80/20' ? 'selected' : ''}>70 / 30 (ทั่วไป)</option>
+                      <option value="80/20" ${sub.ratio === '80/20' ? 'selected' : ''}>80 / 20 (ประวัติศาสตร์/สังคม)</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1; min-width: 140px;">
+                    <label class="form-label" style="font-size: 0.76rem; margin-bottom: 2px; font-weight: 600;">➗ ตัวหารสอบปลายภาค</label>
+                    <select class="form-input cfg-sub-div" style="padding: 0.35rem 0.5rem; font-size: 0.82rem;">
+                      <option value="2" ${Number(sub.finalDivisor || 2) === 2 ? 'selected' : ''}>หาร 2 (ข้อเขียน ÷ 2)</option>
+                      <option value="1" ${Number(sub.finalDivisor || 2) === 1 ? 'selected' : ''}>หาร 1 (ไม่หาร)</option>
+                    </select>
                   </div>
                 </div>
 
@@ -3927,6 +4153,8 @@ function handleConfirmAddSubject() {
   appState.settings.subjects.push({
     code: code,
     name: name,
+    ratio: '70/30',
+    finalDivisor: 2,
     classrooms: [...rooms]
   });
 
@@ -3965,6 +4193,7 @@ function deleteSubject(idx) {
     confirmClass: 'btn-danger',
     cancelText: 'ยกเลิก',
     onConfirm: () => {
+      createStateSnapshot('before_delete_subject_' + sub.code);
       appState.settings.subjects.splice(idx, 1);
       if (appState.activeSubject === sub.code) {
         appState.activeSubject = appState.settings.subjects[0].code;
@@ -3973,7 +4202,7 @@ function deleteSubject(idx) {
       saveLocalState();
       renderHeaderControls();
       renderSettings(document.getElementById('app-view-container'));
-      showToast(`ลบวิชา ${sub.code} เรียบร้อยแล้ว`);
+      showToast(`ลบวิชา ${sub.code} เรียบร้อยแล้ว (สำรองข้อมูลไว้แล้ว)`);
     }
   });
 }
@@ -4257,6 +4486,11 @@ async function saveSettings() {
     const existingSubRooms = (appState.settings.subjects && appState.settings.subjects[idx] && appState.settings.subjects[idx].classrooms) || [];
     const rooms = chipRooms.length > 0 ? chipRooms : existingSubRooms;
 
+    const ratioEl = card.querySelector('.cfg-sub-ratio');
+    const ratio = ratioEl ? ratioEl.value : ((appState.settings.subjects && appState.settings.subjects[idx] && appState.settings.subjects[idx].ratio) || '70/30');
+    const divEl = card.querySelector('.cfg-sub-div');
+    const finalDivisor = divEl ? Number(divEl.value) : ((appState.settings.subjects && appState.settings.subjects[idx] && appState.settings.subjects[idx].finalDivisor) || 2);
+
     if (code) {
       if (rooms.length === 0) {
         validationError = `วิชา "${code} ${name}" ยังไม่ได้ระบุห้องเรียนที่สอน กรุณากดปุ่ม "✏️ จัดการ/เพิ่มห้องที่สอน" อย่างน้อย 1 ห้อง`;
@@ -4264,6 +4498,8 @@ async function saveSettings() {
       newSubs.push({
         code: code,
         name: name,
+        ratio: ratio,
+        finalDivisor: finalDivisor,
         classrooms: sortClassroomNames(rooms)
       });
     }
@@ -4450,6 +4686,7 @@ async function continuePullFromGoogleSheets(isManual) {
       // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
       purgeInvalidGradebookRecords();
 
+      hasEverPulledFromBackend = true;
       appState.isDirty = false;
       saveLocalState();
       renderHeaderControls();
@@ -4550,6 +4787,7 @@ async function pushFullStateToBackend() {
     // Sync guard: ไม่ส่งคำสั่ง replace_all ไปทับชีท ถ้ายังไม่เคยดึงข้อมูลสำเร็จและในเครื่องยังไม่มีนักเรียน
     if (!hasEverPulledFromBackend && appState.students.length === 0) {
       console.warn('Sync guard: ยังไม่เคยดึงข้อมูลจริงจาก Google Sheets จะไม่ส่งคำสั่ง syncFullState ไปทับ');
+      updateSyncIndicator('online');
       return;
     }
 
@@ -4744,12 +4982,29 @@ function showToastWithAction(message, actionLabel, actionCallback) {
 // ==========================================================================
 
 /**
+ * ผู้ช่วยดึงการตั้งค่าเกณฑ์คะแนนประจำรายวิชา (Per-Subject Grading Configuration)
+ */
+function getSubjectConfig(subjectCode) {
+  const code = subjectCode || appState.activeSubject;
+  const subjects = (appState.settings && Array.isArray(appState.settings.subjects))
+    ? appState.settings.subjects
+    : DEFAULT_SUBJECTS;
+  const found = subjects.find(s => s.code === code);
+  return {
+    ratio: (found && found.ratio) || appState.gradebookRatio || '70/30',
+    finalDivisor: (found && found.finalDivisor !== undefined && found.finalDivisor !== null) ? Number(found.finalDivisor) : 2
+  };
+}
+
+/**
  * คำนวณคะแนนตามสัดส่วน (70/30 หรือ 80/20) และสูตรข้อเขียน + คะแนนช่วย
  * - กลางภาค: ตัดตัวหารออก ครูหารมาแล้ว บวกคะแนนช่วยทันที
  * - ตัดเกรด ร / มส: ยุบไปตรวจจับจากช่อง "หมายเหตุ" หากพิมพ์ ร หรือ มส
  */
 function calculateGradeRecord(rec, ratio) {
-  const is8020 = (ratio === '80/20');
+  const subCfg = getSubjectConfig(rec && rec.subject);
+  const effectiveRatio = ratio || subCfg.ratio || '70/30';
+  const is8020 = (effectiveRatio === '80/20');
   
   // 1. ก่อนกลางภาค
   // สัดส่วน 70/30: เต็ม 30 (หรือ 25) | สัดส่วน 80/20: เต็ม 30
@@ -4784,7 +5039,7 @@ function calculateGradeRecord(rec, ratio) {
   // สัดส่วน 70/30: เต็ม 30 | สัดส่วน 80/20: เต็ม 20
   const maxFinal = is8020 ? 20 : 30;
   const finalRaw = Math.max(0, Number(rec.finalRaw) || 0);
-  const globalDiv = (Number(appState.finalDivisor) > 0) ? Number(appState.finalDivisor) : 2;
+  const globalDiv = subCfg.finalDivisor || 2;
   const finalDiv = (Number(rec.finalDiv) > 0) ? Number(rec.finalDiv) : globalDiv;
   const finalHelp = Number(rec.finalHelp) || 0;
   const rawFinalScore = (finalRaw / finalDiv) + finalHelp;
@@ -4864,6 +5119,8 @@ function getOrCreateGradeRecord(student) {
     });
   }
 
+  const subCfg = getSubjectConfig(subj);
+
   if (!appState.gradebook[key]) {
     const defaultRec = {
       subject: subj,
@@ -4882,23 +5139,26 @@ function getOrCreateGradeRecord(student) {
       sumPost: 0,
       termScore: computedWork,
       finalRaw: 0,
-      finalDiv: appState.finalDivisor || 2,
+      finalDiv: subCfg.finalDivisor || 2,
       finalHelp: 0,
       finalScore: 0,
       totalScore: computedWork,
       grade: '0',
       sgsStatus: 'ปกติ',
       note: '',
+      isManualWork: false,
       _autoWork: true
     };
-    appState.gradebook[key] = calculateGradeRecord(defaultRec, appState.gradebookRatio || '70/30');
+    appState.gradebook[key] = calculateGradeRecord(defaultRec, subCfg.ratio);
   } else {
-    // ถ้ามี record เดิมอยู่แล้ว แต่ workPre ยังเป็น 0 หรือถูกระบุให้ซิงค์จากงานจริง (autoWork)
+    // ถ้ามี record เดิมอยู่แล้ว และไม่ได้เป็นคะแนนที่กรอกเอง ให้ซิงค์ตามงานจริงเสมอ
     const rec = appState.gradebook[key];
-    if (computedWork > 0 && (Number(rec.workPre || 0) === 0 || rec._autoWork)) {
-      rec.workPre = computedWork;
-      rec._autoWork = true;
-      appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+    if (!rec.isManualWork) {
+      if (rec.workPre !== computedWork) {
+        rec.workPre = computedWork;
+        rec._autoWork = true;
+        appState.gradebook[key] = calculateGradeRecord(rec, subCfg.ratio);
+      }
     }
   }
 
@@ -4935,8 +5195,9 @@ function syncWorkScoresFromCheckWork() {
 
     const rec = getOrCreateGradeRecord(s);
     rec.workPre = computedWork;
+    rec.isManualWork = false;
     rec._autoWork = true;
-    appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+    appState.gradebook[key] = calculateGradeRecord(rec);
     count++;
   });
 
@@ -4951,9 +5212,15 @@ function syncWorkScoresFromCheckWork() {
  */
 function setGradebookRatio(ratio) {
   appState.gradebookRatio = ratio;
+  const sub = (appState.settings && appState.settings.subjects) ? appState.settings.subjects.find(s => s.code === appState.activeSubject) : null;
+  if (sub) {
+    sub.ratio = ratio;
+  }
   if (appState.gradebook) {
     Object.keys(appState.gradebook).forEach(key => {
-      appState.gradebook[key] = calculateGradeRecord(appState.gradebook[key], ratio);
+      if (key.startsWith(appState.activeSubject + '_')) {
+        appState.gradebook[key] = calculateGradeRecord(appState.gradebook[key], ratio);
+      }
     });
   }
   appState.isDirty = true;
@@ -4971,13 +5238,19 @@ function updateGlobalFinalDivisor(newVal) {
   if (div > 20) div = 20;
 
   appState.finalDivisor = div;
+  const sub = (appState.settings && appState.settings.subjects) ? appState.settings.subjects.find(s => s.code === appState.activeSubject) : null;
+  if (sub) {
+    sub.finalDivisor = div;
+  }
 
   if (appState.gradebook) {
     Object.keys(appState.gradebook).forEach(key => {
-      const rec = appState.gradebook[key];
-      if (rec) {
-        rec.finalDiv = div;
-        appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+      if (key.startsWith(appState.activeSubject + '_')) {
+        const rec = appState.gradebook[key];
+        if (rec) {
+          rec.finalDiv = div;
+          appState.gradebook[key] = calculateGradeRecord(rec);
+        }
       }
     });
   }
@@ -5037,14 +5310,15 @@ function navigateToGradebookCell(targetRowIdx, colName) {
  * ปรับปรุงคะแนนรายช่องแบบ Real-time
  */
 function updateGradebookCell(studentId, field, value) {
-  const subj = appState.activeSubject || 'ส31101';
+  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || 'ส31162';
+  const subj = appState.activeSubject || defaultSubj;
   const room = appState.activeClassroom || 'ม.4/1';
   const sid = String(studentId);
   const key = subj + '_' + room + '_' + sid;
 
   let rec = appState.gradebook[key];
   if (!rec) {
-    const student = appState.students.find(s => String(s.studentId) === sid);
+    const student = (appState.students || []).find(s => String(s.studentId) === sid && s.classroom === room);
     if (!student) return;
     rec = getOrCreateGradeRecord(student);
   }
@@ -5055,12 +5329,19 @@ function updateGradebookCell(studentId, field, value) {
     rec[field] = value === '' ? 0 : Number(value);
   }
 
+  // ป้องกันการเขียนทับ: ถ้าคุณครูกรอกหรือแก้ไขคะแนนช่อง workPre ด้วยตนเอง ให้บันทึกสถานะ isManualWork
+  if (field === 'workPre') {
+    rec.isManualWork = true;
+    rec._autoWork = false;
+  }
+
   // คำนวณผลใหม่
-  const calculated = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+  const calculated = calculateGradeRecord(rec);
   appState.gradebook[key] = calculated;
   appState.isDirty = true;
   saveLocalState();
-  updateSyncIndicator('offline');
+  updateSyncIndicator('dirty');
+  scheduleAutoSync('gradebook');
 
   // อัปเดต DOM ในแถวนั้นทันทีเพื่อความเร็วและไม่หลุดโฟกัส
   updateGradebookRowDOM(sid, calculated);
@@ -5316,8 +5597,18 @@ function renderGradebook(container) {
     }).join('');
   }
 
+  const orphanCount = (appState.orphanGradebookRecords && Object.keys(appState.orphanGradebookRecords).length) || 0;
+
   container.innerHTML = `
     <div class="gradebook-container">
+      ${orphanCount > 0 ? `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; margin-bottom: 0.75rem; border-radius: var(--radius-md); background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.85rem; color: #b45309; flex-wrap: wrap; gap: 0.5rem;">
+          <span>⚠️ มีคะแนนบันทึกตกค้าง <strong>${orphanCount}</strong> รายการ (เนื่องจากห้องหรือรหัสถูกปรับเปลี่ยน ระบบสำรองไว้ปลอดภัย)</span>
+          <button type="button" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;" onclick="showOrphanRecordsModal()">
+            🔍 ตรวจสอบ / กู้คืน
+          </button>
+        </div>
+      ` : ''}
       <!-- Gradebook Toolbar -->
       <div class="gradebook-toolbar">
         <div class="ratio-toolbar-row">

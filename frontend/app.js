@@ -3301,7 +3301,7 @@ function renderAssignments(container) {
               <th style="width: 110px;">คะแนนเต็ม</th>
               <th style="width: 130px;">กำหนดส่ง</th>
               <th style="width: 100px;">วิชา</th>
-              <th style="width: 90px; text-align: right;">การกระทำ</th>
+              <th style="width: 140px; text-align: right;">การกระทำ</th>
             </tr>
           </thead>
           <tbody>
@@ -3312,7 +3312,8 @@ function renderAssignments(container) {
                 <td class="assign-score-cell">${a.fullScore} คะแนน</td>
                 <td class="assign-date-cell">${esc(a.dueDate || '-')}</td>
                 <td class="assign-subj-cell">${esc(a.subject || appState.activeSubject)}</td>
-                <td style="text-align: right;">
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn btn-sm btn-secondary" style="margin-right: 4px;" onclick="openEditAssignmentModal('${esc(a.id)}')">✏️ แก้ไข</button>
                   <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${esc(a.id)}')">🗑️ ลบ</button>
                 </td>
               </tr>
@@ -3334,9 +3335,14 @@ function renderAssignments(container) {
             </div>
             <div class="assign-m-card-bottom">
               <span class="assign-m-meta">📅 กำหนดส่ง: <b>${esc(a.dueDate || '-')}</b></span>
-              <button class="btn btn-sm btn-danger-soft assign-m-del-btn" onclick="deleteAssignment('${esc(a.id)}')">
-                🗑️ ลบ
-              </button>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn btn-sm btn-secondary" onclick="openEditAssignmentModal('${esc(a.id)}')">
+                  ✏️ แก้ไข
+                </button>
+                <button class="btn btn-sm btn-danger-soft assign-m-del-btn" onclick="deleteAssignment('${esc(a.id)}')">
+                  🗑️ ลบ
+                </button>
+              </div>
             </div>
           </div>
         `).join('')}
@@ -3412,12 +3418,95 @@ function deleteAssignment(assignId) {
   });
 }
 
+function openEditAssignmentModal(assignmentId) {
+  const assign = (appState.assignments || []).find(a => a.id === assignmentId);
+  if (!assign) return;
+
+  const modalId = 'edit-assignment-modal';
+  closeModal(modalId);
+
+  const modalHtml = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content" style="max-width: 460px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.95rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--primary-subtle); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; border: 1px solid var(--primary-border);">
+              ✏️
+            </div>
+            <div>
+              <h3 style="font-size: 1.08rem; font-weight: 700; margin: 0; color: var(--text-main);">แก้ไขภาระงาน (${esc(assign.id)})</h3>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 2px 0 0 0;">ห้อง ${esc(assign.classroom || appState.activeClassroom)}</p>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.3rem; cursor: pointer; color: var(--text-muted);" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">ชื่องาน / รายละเอียด</label>
+            <input type="text" id="edit-assign-title" class="form-input" value="${esc(assign.title)}" />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">คะแนนเต็ม</label>
+              <input type="number" id="edit-assign-score" class="form-input" value="${assign.fullScore || 5}" min="1" max="100" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">กำหนดส่ง</label>
+              <input type="date" id="edit-assign-date" class="form-input" value="${esc(assign.dueDate || '')}" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem; border-top: 1px solid var(--border-light); padding-top: 0.75rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('${modalId}')">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" onclick="handleSaveEditAssignment('${esc(assign.id)}')">💾 บันทึกการแก้ไข</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function handleSaveEditAssignment(assignmentId) {
+  const assign = (appState.assignments || []).find(a => a.id === assignmentId);
+  if (!assign) return;
+
+  const newTitle = document.getElementById('edit-assign-title')?.value.trim();
+  const newScore = parseInt(document.getElementById('edit-assign-score')?.value, 10) || 5;
+  const newDate = document.getElementById('edit-assign-date')?.value || '';
+
+  if (!newTitle) {
+    showToast('⚠️ กรุณาระบุชื่องาน');
+    return;
+  }
+
+  assign.title = newTitle;
+  assign.fullScore = newScore;
+  assign.dueDate = newDate;
+
+  appState.isDirty = true;
+  saveLocalState();
+  closeModal('edit-assignment-modal');
+  renderAssignments(document.getElementById('app-view-container'));
+  showToast(`✓ แก้ไขภาระงาน ${assignmentId} เรียบร้อยแล้ว`);
+
+  pushFullStateToBackend().catch(err => {
+    console.error('Error syncing after assignment edit:', err);
+  });
+}
+
+window.openEditAssignmentModal = openEditAssignmentModal;
+window.handleSaveEditAssignment = handleSaveEditAssignment;
+
 // ----------------- View: Settings -----------------
 function renderSettings(container) {
   const currentTheme = localStorage.getItem('smartgrade_theme') || 'blue';
 
   container.innerHTML = `
-    <div class="card" style="max-width: 720px; margin: 0 auto;">
+    <div class="card settings-card-container" style="max-width: 720px; margin: 0 auto;">
       <h2 class="card-title" style="margin-bottom: 1.25rem;">การตั้งค่าโรงเรียน & 5 รายวิชา</h2>
 
       <!-- ธีมและสีสันของระบบ (Theme) -->
@@ -3426,7 +3515,7 @@ function renderSettings(container) {
         <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
           เลือกโทนสีที่สบายตา (โลโก้และสีทั้งระบบจะเปลี่ยนพร้อมกันทันที)
         </p>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
+        <div class="cfg-theme-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
           <button type="button" class="btn ${currentTheme === 'blue' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('blue')" style="font-size: 0.82rem;">
             🔷 ฟ้าคราม (Classic)
           </button>
@@ -3447,7 +3536,7 @@ function renderSettings(container) {
         <input type="text" id="cfg-school" class="form-input" value="${esc(appState.settings.schoolName)}" />
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 0.75rem;">
+      <div class="cfg-school-info-grid" style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 0.75rem;">
         <div class="form-group">
           <label class="form-label">ภาคเรียนที่</label>
           <input type="text" id="cfg-term" class="form-input" value="${esc(appState.settings.term)}" />
@@ -3456,7 +3545,7 @@ function renderSettings(container) {
           <label class="form-label">ปีการศึกษา</label>
           <input type="text" id="cfg-year" class="form-input" value="${esc(appState.settings.academicYear)}" />
         </div>
-        <div class="form-group">
+        <div class="form-group cfg-teacher-group">
           <label class="form-label">ชื่อครูผู้สอน</label>
           <input type="text" id="cfg-teacher" class="form-input" value="${esc(appState.settings.teacherName)}" />
         </div>
@@ -3558,13 +3647,13 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+      <div class="cfg-save-actions-row" style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
         <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
         <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
       </div>
 
       <!-- Cloud Recovery / Pull Data จากฐานข้อมูลจริง -->
-      <div style="margin-top: 1.5rem; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1rem;">
+      <div class="cfg-cloud-box" style="margin-top: 1.5rem; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
           <div>
             <h4 style="font-size: 0.95rem; font-weight: 600; color: #166534;">☁️ คืนค่า & ดึงข้อมูลจริงจาก Google Sheets</h4>
@@ -3601,7 +3690,7 @@ function openAddSubjectModal() {
 
   const modalHtml = `
     <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
-      <div class="modal-content" style="max-width: 540px; width: 100%; border-radius: var(--radius-lg); padding: 1.4rem; text-align: left; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-content add-sub-modal-content" style="max-width: 540px; width: 100%; border-radius: var(--radius-lg); padding: 1.4rem; text-align: left; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
         
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
           <div style="display: flex; align-items: center; gap: 0.65rem;">
@@ -3610,7 +3699,7 @@ function openAddSubjectModal() {
             </div>
             <div>
               <h3 style="font-size: 1.12rem; font-weight: 700; margin: 0; color: var(--text-main);">➕ เพิ่มรายวิชาใหม่</h3>
-              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0 0;">กำหนดรหัสวิชา ชื่อวิชา และเลือกห้องที่สอนตั้งแต่แรก เพื่อไม่ให้ปะปนกับวิชาอื่น</p>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0 0;">กำหนดรหัสวิชา ชื่อวิชา และห้องเรียนที่สอน</p>
             </div>
           </div>
           <button type="button" style="border: none; background: transparent; font-size: 1.35rem; cursor: pointer; color: var(--text-muted); line-height: 1;" onclick="closeModal('${modalId}')">✕</button>
@@ -3646,19 +3735,19 @@ function openAddSubjectModal() {
 
           <!-- รูปแบบการระบุห้องเรียนที่สอน -->
           <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem; margin-top: 0.2rem;">
-            <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
-              <span>🏫 ห้องเรียนที่สอนในวิชานี้:</span>
-              <span style="font-size: 0.74rem; color: var(--primary); font-weight: normal;">(จะเพิ่มเฉพาะในวิชานี้ ไม่กระทบวิชาอื่น)</span>
-            </label>
+            <div style="margin-bottom: 0.55rem;">
+              <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-main);">🏫 ห้องเรียนที่สอนในวิชานี้</div>
+              <div style="font-size: 0.74rem; color: var(--primary); margin-top: 2px;">(จะเพิ่มเฉพาะในวิชานี้ ไม่กระทบวิชาอื่น)</div>
+            </div>
 
-            <div style="display: flex; gap: 0.75rem; margin-bottom: 0.6rem; font-size: 0.82rem;">
-              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+            <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 0.75rem;">
+              <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.84rem; background: var(--bg-surface); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
                 <input type="radio" name="new-sub-room-mode" value="batch" checked onchange="switchNewSubRoomMode('batch')" />
-                <b>สร้างเป็นช่วงห้อง</b> (เช่น ห้อง 1 ถึง 12)
+                <span><b>สร้างเป็นช่วงห้อง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ห้อง 1 ถึง 12)</span></span>
               </label>
-              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+              <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.84rem; background: var(--bg-surface); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
                 <input type="radio" name="new-sub-room-mode" value="custom" onchange="switchNewSubRoomMode('custom')" />
-                <b>ระบุห้องเอง</b> (เช่น ม.4/11)
+                <span><b>ระบุห้องเอง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ม.4/11 หรือ ม.2/1, ม.2/3)</span></span>
               </label>
             </div>
 

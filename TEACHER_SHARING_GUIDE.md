@@ -53,8 +53,8 @@
 
 ระบบนี้รองรับการใช้งานบน iPad, แท็บเล็ต และสมาร์ตโฟน ออกแบบมาเพื่อตรวจการบ้านและตัดเกรดโดยเฉพาะ ฐานข้อมูลจะบันทึกลงใน Google Sheet ใน Google Drive ของคุณครูเองโดยตรง ข้อมูลนักเรียนแยกเป็นอิสระและปลอดภัย 100% ครับ
 
-📌 ลิงก์ทำสำเนา Google Sheet (กดแล้วเลือก "ทำสำเนา"):
-https://docs.google.com/spreadsheets/d/1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU/copy
+📌 ลิงก์ทำสำเนา Google Sheet แม่แบบ (กดแล้วเลือก "ทำสำเนา"):
+https://docs.google.com/spreadsheets/d/11tRlJKSPZinKrqniWC5AuNaSIt5TxB5aCi1PDiRfBP8/copy
 
 📌 ลิงก์เข้าใช้งานหน้าเว็บแอป Smart Grade:
 https://pp5.pages.dev

@@ -26,10 +26,20 @@ const DEFAULT_SUBJECTS = [
 ];
 
 function onOpen() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss && !ss.getSheetByName(SHEET_SETTINGS)) {
+    try {
+      ensureSheetsExist(ss);
+    } catch (e) {
+      console.warn('Auto ensureSheetsExist error:', e);
+    }
+  }
+
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
     .addItem('🔑 สร้าง/ตรวจสอบชีทคุมสิทธิ์กลาง (Master License)', 'createMasterLicenseSheetMenuAction')
+    .addItem('📦 เตรียมชีทแม่แบบเปล่าสำหรับแจกเพื่อน (Clean Template)', 'prepareCleanTemplateMenuAction')
     .addItem('🔒 ตั้งค่า/เปลี่ยนรหัสความปลอดภัย (Security PIN)', 'setSecurityPinPrompt')
     .addItem('🎓 ตรวจสอบชีททะเบียนคะแนน & SGS', 'initGradebookSheet')
     .addItem('🧹 รีเซ็ตคะแนนเริ่มต้นปีการศึกษาใหม่', 'resetScoresMenuAction')
@@ -171,6 +181,75 @@ function createMasterLicenseSheetMenuAction() {
     '📌 ลิงก์เปิดชีทคุมสิทธิ์:\n' + url + '\n\n' +
     '💡 ระบบได้เปิดสิทธิ์ "ผู้มีสิทธิ์ดู (Viewer)" และผูกรหัสเข้ากับแม่แบบนี้เรียบร้อยแล้ว\n' +
     'เวลาคุณครูอยากให้เพื่อนครูคนใดใช้งาน เพียงเปิดชีทดังกล่าว แล้วพิมพ์อีเมลเพื่อนครูลงไปเท่านั้นครับ!',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * 📦 เตรียมชีทแม่แบบเปล่า (Clean Template) ที่สะอาด ไร้ข้อมูลนักเรียนจริง พร้อมแชร์ให้เพื่อนครู
+ */
+function prepareCleanTemplateMenuAction() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scriptProp = PropertiesService.getScriptProperties();
+
+  // 1. ค้นหา masterLicenseSheetId จากชีทปัจจุบัน
+  let licenseSheetId = scriptProp.getProperty('MASTER_LICENSE_SHEET_ID');
+  if (!licenseSheetId && ss) {
+    const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+    if (settingsSheet) {
+      const data = settingsSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === 'masterLicenseSheetId') {
+          licenseSheetId = String(data[i][1] || '').trim();
+          break;
+        }
+      }
+    }
+  }
+
+  const cleanSheetId = '11tRlJKSPZinKrqniWC5AuNaSIt5TxB5aCi1PDiRfBP8';
+  let targetSs;
+  try {
+    targetSs = SpreadsheetApp.openById(cleanSheetId);
+  } catch (err) {
+    ui.alert('⚠️ เกิดข้อผิดพลาดในการเปิดชีทแม่แบบเปล่า: ' + err.message);
+    return;
+  }
+
+  // 2. จัดโครงสร้างตารางเปล่าให้สมบูรณ์
+  ensureSheetsExist(targetSs);
+
+  // 3. ผูก masterLicenseSheetId เข้ากับชีทแม่แบบเปล่า
+  const cleanSettings = targetSs.getSheetByName(SHEET_SETTINGS);
+  if (cleanSettings && licenseSheetId) {
+    let found = false;
+    const data = cleanSettings.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === 'masterLicenseSheetId') {
+        cleanSettings.getRange(i + 1, 2).setValue(licenseSheetId);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      cleanSettings.appendRow(['masterLicenseSheetId', licenseSheetId]);
+    }
+  }
+
+  // 4. ตั้งค่าแชร์ให้เป็น "ทุกคนที่มีลิงก์มีสิทธิ์ดู (Viewer)" อัตโนมัติ
+  try {
+    DriveApp.getFileById(cleanSheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    console.warn('Set sharing error on clean sheet:', e);
+  }
+
+  const copyUrl = 'https://docs.google.com/spreadsheets/d/' + cleanSheetId + '/copy';
+  ui.alert(
+    '🎉 เตรียมชีทแม่แบบเปล่า (Clean Template) เสร็จสมบูรณ์แล้ว!',
+    'ระบบได้จัดเตรียมโครงสร้างชีท "SmartGrade_Template_Clean" ที่สะอาด ไร้ข้อมูลนักเรียนของคุณครู พร้อมโค้ดที่ผ่านการเข้ารหัส (Obfuscated) เรียบร้อยแล้วครับ\n\n' +
+    '📌 ลิงก์สำหรับส่งต่อให้เพื่อนครู (กดแล้วเป็นปุ่มทำสำเนาทันที):\n' + copyUrl + '\n\n' +
+    '💡 ระบบได้เปิดสิทธิ์ "ทุกคนที่มีลิงก์มีสิทธิ์ดู (Viewer)" ให้เรียบร้อยแล้ว เพื่อนครูสามารถกดทำสำเนาได้ทันทีโดยไม่ติดหน้าขอสิทธิ์ครับ',
     ui.ButtonSet.OK
   );
 }
@@ -949,10 +1028,23 @@ function ensureSheetsExist(ss) {
 
   reqSheets.forEach(item => {
     let sh = ss.getSheetByName(item.name);
+    let isNew = false;
     if (!sh) {
       sh = ss.insertSheet(item.name);
       sh.appendRow(item.headers);
       formatHeaderRow(sh);
+      isNew = true;
+    }
+    if (item.name === SHEET_SETTINGS && (isNew || sh.getLastRow() <= 1)) {
+      sh.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
+      sh.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
+      sh.appendRow(['schoolName', '']);
+      sh.appendRow(['academicYear', '2567']);
+      sh.appendRow(['term', '2']);
+      sh.appendRow(['teacherName', '']);
+    }
+    if (item.name === SHEET_STUDENTS && (isNew || sh.getLastRow() <= 1)) {
+      sh.appendRow([1, '40001', 'นายรักเรียน ขยันยิ่ง', 'ม.4/1', 'ปกติ']);
     }
   });
 

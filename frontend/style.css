@@ -4742,47 +4742,7 @@ body {
   color: #38BDF8 !important;
 }
 
-/* 4. Scope Toggle Pills & All-Rooms Donut Gallery */
-.scope-toggle-pills {
-  display: inline-flex;
-  background: var(--bg-subtle, #F1F5F9);
-  padding: 2px;
-  border-radius: var(--radius-pill, 9999px);
-  border: 1px solid var(--border-light, #E2E8F0);
-}
-
-.scope-pill-btn {
-  border: none;
-  background: transparent;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill, 9999px);
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.scope-pill-btn.active {
-  background: var(--primary);
-  color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-
-[data-theme="dark"] .scope-toggle-pills {
-  background: #17212F;
-  border-color: #2E3C52;
-}
-
-[data-theme="dark"] .scope-pill-btn {
-  color: #94A3B8;
-}
-
-[data-theme="dark"] .scope-pill-btn.active {
-  background: #38BDF8;
-  color: #0B1120;
-  font-weight: 700;
-}
+/* 4. All-Rooms Donut Gallery & Summary Bar */
 
 /* All-Rooms Summary Bar */
 .all-rooms-summary-bar {
@@ -4859,40 +4819,58 @@ body {
   }
 }
 
-/* All-Rooms Donut Gallery (จัดแสดงโดนัทรายห้องยืดหยุ่นตามจำนวนห้องของแต่ละวิชา) */
+/* All-Rooms Donut Gallery (จัดแสดงโดนัทรายห้องยืดหยุ่นตามขนาดหน้าจอ) */
 .all-rooms-donut-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.5rem;
   margin-top: 0.5rem;
   padding: 2px 2px 6px 2px;
+  overflow-x: visible;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 767px) {
   .all-rooms-donut-gallery {
-    grid-template-columns: repeat(5, minmax(115px, 1fr));
-    overflow-x: auto;
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
     gap: 0.35rem;
-    padding-bottom: 8px;
-    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    overflow-x: visible;
   }
   .mini-donut-card {
-    padding: 0.4rem 0.35rem;
+    padding: 0.38rem 0.28rem;
   }
   .mini-donut-chart {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
-  .mini-donut-chart svg {
-    width: 48px !important;
-    height: 48px !important;
-  }
-  .mini-donut-pct {
-    font-size: 0.72rem;
+  .mini-donut-stats {
+    font-size: 0.64rem;
+    gap: 1px;
   }
   .mini-stat-text {
     font-size: 0.62rem;
   }
+  .mini-donut-room {
+    font-size: 0.72rem;
+  }
+  .mini-donut-count {
+    font-size: 0.62rem;
+  }
+}
+
+.overview-subj-block.is-active-subject-block {
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.02));
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.55rem 0.65rem 0.55rem;
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+  border-left: 3px solid var(--primary);
+}
+
+[data-theme="dark"] .overview-subj-block.is-active-subject-block {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .mini-donut-card {
@@ -4991,24 +4969,26 @@ body {
 
 .mini-donut-chart {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-}
-
-.mini-donut-center {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
 }
 
-.mini-donut-pct {
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1;
+.mini-donut-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mini-donut-track {
+  stroke: var(--bg-subtle, #F1F5F9);
+}
+
+[data-theme="dark"] .mini-donut-track {
+  stroke: #2E3C52;
 }
 
 .mini-donut-stats {
@@ -5350,16 +5330,24 @@ body {
 
   .cfg-theme-grid {
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.4rem !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 0.38rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .cfg-theme-grid .btn {
-    padding: 0.42rem 0.35rem !important;
-    font-size: 0.78rem !important;
+    padding: 0.45rem 0.25rem !important;
+    font-size: 0.76rem !important;
     text-align: center !important;
     justify-content: center !important;
-    white-space: nowrap !important;
+    align-items: center !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.25 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .cfg-school-info-grid {
@@ -5437,8 +5425,9 @@ body {
   }
 
   .all-rooms-donut-gallery {
-    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)) !important;
     gap: 0.35rem !important;
+    overflow-x: visible !important;
   }
 
   .cfg-save-actions-row {

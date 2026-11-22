@@ -3,12 +3,12 @@
  * ให้บริการ Cache-First สำหรับ App Shell เพื่อการทำงานแบบ Offline
  */
 
-const CACHE_NAME = 'smart-grade-v38';
+const CACHE_NAME = 'smart-grade-v39';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=38',
-  './app.js?v=38',
+  './style.css?v=39',
+  './app.js?v=39',
   './html2canvas.min.js',
   './manifest.json',
   './apple-touch-icon.png',

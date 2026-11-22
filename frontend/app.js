@@ -748,19 +748,22 @@ function renderOverview(container) {
   const percentage = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 0;
   const strokeDashoffset = 283 - (283 * percentage) / 100;
 
-  // โหมดขอบเขตข้อมูลของ Donut Chart (ค่าเริ่มต้น: แสดงภาพรวมทุกวิชาและทุกห้องเรียนที่ครูสอน)
-  const overviewScope = appState.overviewScope || 'all';
-  const isAllRooms = (overviewScope !== 'room');
-
+  // จัดเรียงรายวิชา: ให้วิชาที่กำลังเลือก/สอนอยู่ (activeSubject) ขึ้นมาแสดงเป็นอันดับ 1 บนสุดเสมอ
   const allSubjects = (appState.settings && Array.isArray(appState.settings.subjects) && appState.settings.subjects.length > 0)
     ? appState.settings.subjects
     : DEFAULT_SUBJECTS;
+
+  const sortedSubjects = [...allSubjects].sort((a, b) => {
+    if (a.code === appState.activeSubject) return -1;
+    if (b.code === appState.activeSubject) return 1;
+    return 0;
+  });
 
   let grandExpected = 0;
   let grandSubmitted = 0;
   let totalTaughtRoomsCount = 0;
 
-  const subjectsComparison = allSubjects.map(sub => {
+  const subjectsComparison = sortedSubjects.map(sub => {
     const subRooms = getClassroomsForSubject(sub.code);
     totalTaughtRoomsCount += subRooms.length;
 
@@ -807,22 +810,6 @@ function renderOverview(container) {
 
   const grandPending = grandExpected - grandSubmitted;
   const grandPct = grandExpected > 0 ? Math.round((grandSubmitted / grandExpected) * 100) : 0;
-
-  // สำหรับกรณีเลือกดู "เฉพาะห้องนี้"
-  const roomStudents = currentStudents;
-  const roomAssignments = currentAssignments;
-  const roomExpected = roomStudents.length * roomAssignments.length;
-  let roomSubmitted = 0;
-  roomAssignments.forEach(assign => {
-    roomStudents.forEach(st => {
-      const key = `${assign.id}_${st.studentId}`;
-      const subRec = appState.submissions[key];
-      if (subRec && subRec.status === 'ส่งแล้ว') roomSubmitted++;
-    });
-  });
-  const roomPending = roomExpected - roomSubmitted;
-  const roomPct = roomExpected > 0 ? Math.round((roomSubmitted / roomExpected) * 100) : 0;
-  const roomDashoffset = 283 - (283 * roomPct) / 100;
 
   // คำนวณรายชื่อนักเรียนที่ค้างส่งสะสมสูงสุดในห้องนี้ (Top 5)
   const studentPendingCounts = currentStudents.map(st => {
@@ -943,120 +930,92 @@ function renderOverview(container) {
       <div>
         <div class="card donut-container">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.4rem;">
-            <h3 style="font-size: 0.95rem; font-weight: 600; margin: 0;">
-              ${isAllRooms ? `สัดส่วนส่งงานทุกวิชาและทุกห้องเรียน (${totalTaughtRoomsCount} ห้อง)` : `สัดส่วนส่งงานห้อง ${esc(appState.activeClassroom)} (${esc(subjectObj.code)})`}
+            <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
+              <span>📊 สัดส่วนส่งงานทุกวิชาและทุกห้องเรียน</span>
             </h3>
-            <div class="scope-toggle-pills">
-              <button type="button" class="scope-pill-btn ${isAllRooms ? 'active' : ''}" onclick="setOverviewScope('all')">🌐 ทุกวิชา & ทุกห้อง (${totalTaughtRoomsCount})</button>
-              <button type="button" class="scope-pill-btn ${!isAllRooms ? 'active' : ''}" onclick="setOverviewScope('room')">🏫 เฉพาะห้องนี้ (${esc(appState.activeClassroom)})</button>
-            </div>
+            <span style="font-size: 0.76rem; color: var(--text-secondary); background: var(--bg-subtle); padding: 0.2rem 0.55rem; border-radius: var(--radius-pill); border: 1px solid var(--border-light); font-weight: 600;">
+              ${allSubjects.length} วิชา • ${totalTaughtRoomsCount} ห้อง
+            </span>
           </div>
 
-          ${isAllRooms ? `
-            <!-- สรุปตัวเลขภาพรวมทุกวิชา -->
-            <div class="all-rooms-summary-bar">
-              <span class="all-rooms-sum-chip">📊 ส่งครบเฉลี่ยรวม: <strong>${grandPct}%</strong></span>
-              <span class="all-rooms-sum-chip text-green">✓ ส่งแล้ว: <strong>${grandSubmitted}</strong> ครั้ง</span>
-              <span class="all-rooms-sum-chip text-red">⏳ ค้างส่ง: <strong>${grandPending}</strong> ครั้ง</span>
-              <span class="all-rooms-sum-chip">📚 สอน ${allSubjects.length} วิชา (${totalTaughtRoomsCount} ห้อง)</span>
-            </div>
+          <!-- สรุปตัวเลขภาพรวมทุกวิชา -->
+          <div class="all-rooms-summary-bar">
+            <span class="all-rooms-sum-chip">📊 ส่งครบเฉลี่ยรวม: <strong>${grandPct}%</strong></span>
+            <span class="all-rooms-sum-chip text-green">✓ ส่งแล้ว: <strong>${grandSubmitted}</strong> ครั้ง</span>
+            <span class="all-rooms-sum-chip text-red">⏳ ค้างส่ง: <strong>${grandPending}</strong> ครั้ง</span>
+            <span class="all-rooms-sum-chip">📚 สอน ${allSubjects.length} วิชา (${totalTaughtRoomsCount} ห้อง)</span>
+          </div>
 
-            <!-- แสดงแยกตามรายวิชา มีเส้นกั้นและแบนเนอร์วิชาชัดเจน -->
-            ${subjectsComparison.map((item, sIdx) => `
-              <div class="overview-subj-block" style="${sIdx > 0 ? 'margin-top: 1.15rem; border-top: 1px solid var(--border-light); padding-top: 0.95rem;' : 'margin-top: 0.75rem;'}">
-                <div class="overview-subj-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.55rem; flex-wrap: wrap; gap: 0.4rem;">
-                  <div style="display: flex; align-items: center; gap: 0.45rem;">
-                    <span style="font-size: 1.05rem;">📚</span>
-                    <span style="font-weight: 700; font-size: 0.92rem; color: var(--text-main);">${esc(item.subject.code)} ${esc(item.subject.name)}</span>
-                    ${item.subject.code === appState.activeSubject ? '<span class="badge" style="background: var(--primary-subtle); color: var(--primary); font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: var(--radius-pill); font-weight: 600;">วิชาที่เลือกอยู่</span>' : ''}
-                  </div>
-                  <span style="font-size: 0.76rem; color: var(--text-secondary); background: var(--bg-subtle); padding: 0.15rem 0.5rem; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
-                    ${item.rooms.length} ห้องเรียน • ${item.assignmentsCount} ภาระงาน
-                  </span>
+          <!-- แสดงแยกตามรายวิชา มีเส้นกั้นและแบนเนอร์วิชาชัดเจน (วิชาที่กำลังสอนอยู่จะแสดงอันดับ 1 บนสุดเสมอ) -->
+          ${subjectsComparison.map((item, sIdx) => {
+            const isSubjActive = (item.subject.code === appState.activeSubject);
+            return `
+            <div class="overview-subj-block ${isSubjActive ? 'is-active-subject-block' : ''}" style="${sIdx > 0 ? 'margin-top: 1.15rem; border-top: 1px solid var(--border-light); padding-top: 0.95rem;' : 'margin-top: 0.65rem;'}">
+              <div class="overview-subj-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.55rem; flex-wrap: wrap; gap: 0.4rem;">
+                <div style="display: flex; align-items: center; gap: 0.45rem;">
+                  <span style="font-size: 1.05rem;">📚</span>
+                  <span style="font-weight: 700; font-size: 0.92rem; color: var(--text-main);">${esc(item.subject.code)} ${esc(item.subject.name)}</span>
+                  ${isSubjActive ? '<span class="badge" style="background: var(--primary); color: #FFFFFF; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: var(--radius-pill); font-weight: 700; box-shadow: var(--shadow-xs);">⭐ วิชาที่กำลังสอน</span>' : ''}
                 </div>
+                <span style="font-size: 0.76rem; color: var(--text-secondary); background: var(--bg-subtle); padding: 0.15rem 0.5rem; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
+                  ${item.rooms.length} ห้องเรียน • ${item.assignmentsCount} ภาระงาน
+                </span>
+              </div>
 
-                <div class="all-rooms-donut-gallery">
-                  ${item.rooms.length === 0 ? `
-                    <div style="grid-column: 1 / -1; padding: 0.75rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
-                      ยังไม่มีห้องเรียนที่สอนในวิชานี้
-                    </div>
-                  ` : item.rooms.map(r => {
-                    const cDashoffset = 226.2 - (226.2 * r.pct) / 100;
-                    const isGood = r.pct >= 80;
-                    const isWarn = r.pct >= 50 && r.pct < 80;
-                    const color = r.assignmentsCount === 0 ? '#94A3B8' : (isGood ? '#10B981' : (isWarn ? '#F59E0B' : '#EF4444'));
-                    return `
-                      <div class="mini-donut-card ${r.isCurrent ? 'is-active-room' : ''}" 
-                           onclick="selectSubjectAndClassroom('${esc(item.subject.code)}', '${esc(r.classroom)}')" 
-                           title="แตะเพื่อเลือกวิชา ${esc(item.subject.code)} ห้อง ${esc(r.classroom)}">
-                        <div class="mini-donut-header">
-                          <span class="mini-donut-room">🏫 ${esc(r.classroom)}</span>
-                          <span class="mini-donut-count">${r.studentsCount} คน</span>
-                        </div>
-                        <div class="mini-donut-content">
-                          <div class="mini-donut-chart">
-                            <svg viewBox="0 0 90 90" style="width: 64px; height: 64px; transform: rotate(-90deg);">
-                              <circle class="donut-track" cx="45" cy="45" r="36" fill="none" stroke="#F1F5F9" stroke-width="8" />
-                              <circle cx="45" cy="45" r="36" fill="none" stroke="${color}" stroke-width="8"
-                                stroke-dasharray="226.2" stroke-dashoffset="${r.assignmentsCount === 0 ? 226.2 : cDashoffset}" stroke-linecap="round" />
-                            </svg>
-                            <div class="mini-donut-center">
-                              <span class="mini-donut-pct" style="color: ${color};">${r.assignmentsCount === 0 ? '-' : r.pct + '%'}</span>
-                            </div>
-                          </div>
-                          <div class="mini-donut-stats">
-                            <div class="mini-stat-item">
-                              <span class="mini-stat-dot" style="background: #10B981;"></span>
-                              <span class="mini-stat-text">ส่ง ${r.submitted}</span>
-                            </div>
-                            <div class="mini-stat-item">
-                              <span class="mini-stat-dot" style="background: #EF4444;"></span>
-                              <span class="mini-stat-text">ค้าง ${r.pending}</span>
-                            </div>
-                          </div>
-                        </div>
-                        ${r.isCurrent ? `
-                          <div class="active-room-tag">
-                            <span>📍 ห้องปัจจุบัน</span>
-                          </div>
-                        ` : ''}
+              <div class="all-rooms-donut-gallery">
+                ${item.rooms.length === 0 ? `
+                  <div style="grid-column: 1 / -1; padding: 0.75rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
+                    ยังไม่มีห้องเรียนที่สอนในวิชานี้
+                  </div>
+                ` : item.rooms.map(r => {
+                  const cDashoffset = 226.2 - (226.2 * r.pct) / 100;
+                  const isGood = r.pct >= 80;
+                  const isWarn = r.pct >= 50 && r.pct < 80;
+                  const color = r.assignmentsCount === 0 ? '#94A3B8' : (isGood ? '#10B981' : (isWarn ? '#F59E0B' : '#EF4444'));
+                  return `
+                    <div class="mini-donut-card ${r.isCurrent ? 'is-active-room' : ''}" 
+                         onclick="selectSubjectAndClassroom('${esc(item.subject.code)}', '${esc(r.classroom)}')" 
+                         title="แตะเพื่อเลือกวิชา ${esc(item.subject.code)} ห้อง ${esc(r.classroom)}">
+                      <div class="mini-donut-header">
+                        <span class="mini-donut-room">🏫 ${esc(r.classroom)}</span>
+                        <span class="mini-donut-count">${r.studentsCount} คน</span>
                       </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            `).join('')}
-          ` : `
-            <div class="donut-body-horizontal">
-              <div class="donut-chart-wrapper">
-                <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
-                  <circle class="donut-track" cx="50" cy="50" r="45" fill="none" stroke="#FEE2E2" stroke-width="10" />
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="#10B981" stroke-width="10"
-                    stroke-dasharray="283" stroke-dashoffset="${roomDashoffset}" stroke-linecap="round" />
-                </svg>
-                <div class="donut-center-text">
-                  <span class="donut-pct">${roomPct}%</span>
-                  <span class="donut-sub">ส่งครบ</span>
-                </div>
-              </div>
-              <div class="donut-legend-side">
-                <div class="donut-stat-card stat-card-submitted">
-                  <span class="donut-stat-dot" style="background: #10B981;"></span>
-                  <div class="donut-stat-info">
-                    <span class="donut-stat-label">ส่งแล้ว</span>
-                    <span class="donut-stat-val">${roomSubmitted} <small>ครั้ง</small></span>
-                  </div>
-                </div>
-                <div class="donut-stat-card stat-card-pending">
-                  <span class="donut-stat-dot" style="background: #EF4444;"></span>
-                  <div class="donut-stat-info">
-                    <span class="donut-stat-label">ค้างส่ง</span>
-                    <span class="donut-stat-val">${roomPending} <small>ครั้ง</small></span>
-                  </div>
-                </div>
+                      <div class="mini-donut-content">
+                        <div class="mini-donut-chart">
+                          <svg viewBox="0 0 90 90" class="mini-donut-svg">
+                            <circle class="mini-donut-track" cx="45" cy="45" r="36" fill="none" stroke-width="8" />
+                            <circle cx="45" cy="45" r="36" fill="none" stroke="${color}" stroke-width="8"
+                              stroke-dasharray="226.2" stroke-dashoffset="${r.assignmentsCount === 0 ? 226.2 : cDashoffset}" stroke-linecap="round"
+                              transform="rotate(-90 45 45)" />
+                            <text x="45" y="45" text-anchor="middle" dominant-baseline="central" alignment-baseline="central" fill="${color}"
+                              font-family="Prompt, system-ui, -apple-system, sans-serif" font-size="${r.assignmentsCount === 0 ? '22' : (r.pct === 100 ? '18' : '20')}" font-weight="800">
+                              ${r.assignmentsCount === 0 ? '-' : r.pct + '%'}
+                            </text>
+                          </svg>
+                        </div>
+                        <div class="mini-donut-stats">
+                          <div class="mini-stat-item">
+                            <span class="mini-stat-dot" style="background: #10B981;"></span>
+                            <span class="mini-stat-text">ส่ง ${r.submitted}</span>
+                          </div>
+                          <div class="mini-stat-item">
+                            <span class="mini-stat-dot" style="background: #EF4444;"></span>
+                            <span class="mini-stat-text">ค้าง ${r.pending}</span>
+                          </div>
+                        </div>
+                      </div>
+                      ${r.isCurrent ? `
+                        <div class="active-room-tag">
+                          <span>📍 ห้องปัจจุบัน</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                }).join('')}
               </div>
             </div>
-          `}
+          `;
+          }).join('')}
           <div style="margin-top: 1rem; width: 100%; border-top: 1px solid var(--border-light); padding-top: 0.75rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
               ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets
@@ -3589,17 +3548,17 @@ function renderSettings(container) {
           เลือกโทนสีที่สบายตา (โลโก้และสีทั้งระบบจะเปลี่ยนพร้อมกันทันที)
         </p>
         <div class="cfg-theme-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
-          <button type="button" class="btn ${currentTheme === 'blue' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('blue')" style="font-size: 0.82rem;">
-            🔷 ฟ้าคราม (Classic)
+          <button type="button" class="btn ${currentTheme === 'blue' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('blue')" style="font-size: 0.8rem;">
+            <span>🔷 ฟ้าคราม <span style="font-size: 0.72rem; opacity: 0.85;">(Classic)</span></span>
           </button>
-          <button type="button" class="btn ${currentTheme === 'emerald' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('emerald')" style="font-size: 0.82rem;">
-            🌿 เขียวมินต์ (Fresh)
+          <button type="button" class="btn ${currentTheme === 'emerald' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('emerald')" style="font-size: 0.8rem;">
+            <span>🌿 เขียวมินต์ <span style="font-size: 0.72rem; opacity: 0.85;">(Fresh)</span></span>
           </button>
-          <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.82rem;">
-            🌸 พิงก์วอร์เทกซ์ (Pink Vortex)
+          <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.8rem;">
+            <span>🌸 พิงก์วอร์เทกซ์ <span style="font-size: 0.72rem; opacity: 0.85;">(Pink Vortex)</span></span>
           </button>
-          <button type="button" class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')" style="font-size: 0.82rem;">
-            🌙 โหมดมืด (Dark)
+          <button type="button" class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')" style="font-size: 0.8rem;">
+            <span>🌙 โหมดมืด <span style="font-size: 0.72rem; opacity: 0.85;">(Dark)</span></span>
           </button>
         </div>
       </div>

@@ -3896,6 +3896,14 @@ function renderSettings(container) {
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📊 ลิงก์ Google Sheets ของคุณครู (Spreadsheet URL)</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(สำหรับกดเปิดชีทโดยตรง)</span>
+        </label>
+        <input type="text" id="cfg-sheet-url" class="form-input" value="${esc(appState.settings.spreadsheetUrl || '')}" placeholder="https://docs.google.com/spreadsheets/d/..." />
+      </div>
+
+      <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
           <span>🔒 รหัสความปลอดภัย (Security PIN / Token)</span>
           <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(ไม่บังคับ - ป้องกันบุคคลอื่นเข้าถึงชีท)</span>
         </label>
@@ -3934,33 +3942,79 @@ function renderSettings(container) {
   `;
 }
 
-function openSpreadsheetInGoogleDrive() {
+async function openSpreadsheetInGoogleDrive() {
   if (appState.settings && appState.settings.spreadsheetUrl && appState.settings.spreadsheetUrl.trim() !== '') {
     window.open(appState.settings.spreadsheetUrl, '_blank', 'noopener,noreferrer');
     return;
   }
 
   if (!appState.settings || !appState.settings.gasUrl) {
-    showModernAlert({
-      title: 'ยังไม่ได้เชื่อมต่อ Google Sheets',
-      message: 'กรุณากรอก Web App URL ในหน้าตั้งค่าก่อน เพื่อให้ระบบระบุชีทของคุณครูได้ครับ',
-      icon: '⚙️'
-    });
+    promptForSpreadsheetUrl();
     return;
   }
 
   showToast('⏳ กำลังดึงลิงก์ Google Sheets ของคุณครู...');
-  pullFromGoogleSheets(true).then(() => {
-    if (appState.settings && appState.settings.spreadsheetUrl && appState.settings.spreadsheetUrl.trim() !== '') {
-      window.open(appState.settings.spreadsheetUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      showModernAlert({
-        title: 'ไม่พบลำดับชีท',
-        message: 'ระบบเชื่อมต่อสำเร็จ แต่ยังไม่ได้รับ URL ของชีท กรุณาลองกด "ดึงข้อมูลจาก Google Sheets" อีกครั้งครับ',
-        icon: '⚠️'
-      });
-    }
-  });
+  const success = await pullFromGoogleSheets(true);
+  if (success && appState.settings && appState.settings.spreadsheetUrl && appState.settings.spreadsheetUrl.trim() !== '') {
+    window.open(appState.settings.spreadsheetUrl, '_blank', 'noopener,noreferrer');
+  } else {
+    promptForSpreadsheetUrl();
+  }
+}
+
+function promptForSpreadsheetUrl() {
+  const modalId = 'prompt-sheet-url-modal';
+  closeModal(modalId);
+
+  const modalHtml = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-card" style="max-width: 480px; width: 100%; padding: 1.5rem; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-light); box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <span style="font-size: 1.75rem;">📊</span>
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 0;">เปิดดูชีทจริงใน Google Drive</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">วางลิงก์ Google Sheet ของคุณครูเพื่อเปิดดูและบันทึกไว้ในเครื่อง</p>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.4rem;">
+            ลิงก์ Google Sheets (Spreadsheet URL):
+          </label>
+          <input type="url" id="manual-sheet-url" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/..." value="${esc(appState.settings.spreadsheetUrl || '')}" style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid var(--border-light); font-size: 0.85rem; box-sizing: border-box;" />
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.4rem 0 0 0;">
+            💡 สามารถคัดลอก URL จากแถบเบราว์เซอร์ของ Google Sheet มาวางได้เลยครับ
+          </p>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button class="btn btn-secondary" onclick="closeModal('${modalId}')">ยกเลิก</button>
+          <button class="btn btn-primary" onclick="saveAndOpenSpreadsheetUrl('${modalId}')">
+            🔗 บันทึกและเปิดชีทเดี๋ยวนี้
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  setTimeout(() => {
+    const inp = document.getElementById('manual-sheet-url');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function saveAndOpenSpreadsheetUrl(modalId) {
+  const inp = document.getElementById('manual-sheet-url');
+  const url = inp ? inp.value.trim() : '';
+  if (url) {
+    appState.settings.spreadsheetUrl = url;
+    saveLocalState();
+    closeModal(modalId);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showToast('✓ บันทึกลิงก์ Google Sheet เรียบร้อยแล้ว');
+  } else {
+    showToast('⚠️ กรุณาระบุลิงก์ Google Sheet');
+  }
 }
 
 function toggleTokenVisibility() {
@@ -4504,6 +4558,11 @@ async function saveSettings() {
   appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
   appState.settings.apiToken = inputToken;
 
+  const sheetUrlEl = document.getElementById('cfg-sheet-url');
+  if (sheetUrlEl) {
+    appState.settings.spreadsheetUrl = sheetUrlEl.value.trim();
+  }
+
   const subCards = document.querySelectorAll('.cfg-subject-card');
   const newSubs = [];
   let validationError = '';
@@ -4650,12 +4709,12 @@ async function pullFromGoogleSheets(isManual = false) {
             updateSyncIndicator('offline');
           }
         });
-        return;
+        return false;
       }
     }
   }
 
-  continuePullFromGoogleSheets(isManual);
+  return await continuePullFromGoogleSheets(isManual);
 }
 
 async function continuePullFromGoogleSheets(isManual) {
@@ -4726,6 +4785,7 @@ async function continuePullFromGoogleSheets(isManual) {
       if (isManual) {
         showToast(`✓ ดึงข้อมูลสำเร็จ: พบนักเรียน ${appState.students.length} คน, ${appState.assignments.length} งาน`);
       }
+      return true;
     } else {
       throw new Error(json.error || json.message || 'Data structure invalid');
     }
@@ -4735,6 +4795,7 @@ async function continuePullFromGoogleSheets(isManual) {
     if (isManual) {
       showToast(`⚠️ ${err.message || 'ไม่สามารถดึงข้อมูลได้ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'}`);
     }
+    return false;
   }
 }
 

@@ -3,12 +3,12 @@
  * ให้บริการ Cache-First สำหรับ App Shell เพื่อการทำงานแบบ Offline
  */
 
-const CACHE_NAME = 'smart-grade-v26';
+const CACHE_NAME = 'smart-grade-v29';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './style.css?v=26',
+  './app.js?v=29',
   './html2canvas.min.js',
   './manifest.json',
   './apple-touch-icon.png',
@@ -67,6 +67,10 @@ self.addEventListener('fetch', (event) => {
           cache.put(event.request, responseToCache);
         });
         return networkResponse;
+      }).catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html') || caches.match('./') || caches.match('/');
+        }
       });
     })
   );

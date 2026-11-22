@@ -1114,9 +1114,14 @@ function renderGrading(container) {
             📝 ตรวจละเอียด
           </button>
         </div>
-        <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()">
-          ⚡ ส่งแล้วทุกคนที่เหลือ
-        </button>
+        <div class="btn-group">
+          <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()">
+            ⚡ ส่งแล้วทุกคนที่เหลือ
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="triggerManualSync()" title="ส่งคะแนนเช็คงานทั้งหมดขึ้น Google Sheets (ชีท Submissions และ Gradebook) ทันที">
+            💾 บันทึก Sheets
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1791,6 +1796,9 @@ function renderReport(container) {
 
         <!-- เมนู Export & Print: แถวเดียว 4 ปุ่มบน Laptop / iPad / Tablet และ 2 แถวบนมือถือ -->
         <div class="report-actions-bar">
+          <button class="btn btn-primary report-btn" onclick="triggerManualSync()" title="ส่งคะแนนรายงานการส่งงานทั้งหมดขึ้น Google Sheets (ชีท Submissions และ Gradebook)">
+            💾 บันทึก Sheets
+          </button>
           <button class="btn btn-secondary report-btn" onclick="exportToCSV()" title="ดาวน์โหลดเป็นไฟล์ CSV สำหรับ Excel">
             📥 ส่งออก Excel (CSV)
           </button>
@@ -3711,19 +3719,19 @@ function getOrCreateGradeRecord(student) {
 
   if (!appState.gradebook) appState.gradebook = {};
 
-  if (!appState.gradebook[key]) {
-    let computedWork = 0;
-    const assignments = getFilteredAssignments();
-    if (assignments.length > 0) {
-      assignments.forEach(a => {
-        const subKey = a.id + '_' + sid;
-        const sub = appState.submissions[subKey];
-        if (sub && sub.score !== null && sub.score !== undefined) {
-          computedWork += Number(sub.score);
-        }
-      });
-    }
+  let computedWork = 0;
+  const assignments = (appState.assignments || []).filter(a => a.subject === subj && a.classroom === room);
+  if (assignments.length > 0) {
+    assignments.forEach(a => {
+      const subKey = a.id + '_' + sid;
+      const sub = appState.submissions[subKey];
+      if (sub && sub.score !== null && sub.score !== undefined && sub.score !== '') {
+        computedWork += Number(sub.score);
+      }
+    });
+  }
 
+  if (!appState.gradebook[key]) {
     const defaultRec = {
       subject: subj,
       classroom: room,
@@ -3747,12 +3755,62 @@ function getOrCreateGradeRecord(student) {
       totalScore: computedWork,
       grade: '0',
       sgsStatus: 'ปกติ',
-      note: ''
+      note: '',
+      _autoWork: true
     };
     appState.gradebook[key] = calculateGradeRecord(defaultRec, appState.gradebookRatio || '70/30');
+  } else {
+    // ถ้ามี record เดิมอยู่แล้ว แต่ workPre ยังเป็น 0 หรือถูกระบุให้ซิงค์จากงานจริง (autoWork)
+    const rec = appState.gradebook[key];
+    if (computedWork > 0 && (Number(rec.workPre || 0) === 0 || rec._autoWork)) {
+      rec.workPre = computedWork;
+      rec._autoWork = true;
+      appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+    }
   }
 
   return appState.gradebook[key];
+}
+
+/**
+ * ดึงคะแนนจากหน้าเช็คงาน (Submissions) มาอัปเดตลงช่องงานเก็บก่อนกลางภาค (workPre) ทุกคน
+ */
+function syncWorkScoresFromCheckWork() {
+  const students = getFilteredStudents();
+  if (students.length === 0) {
+    showToast('⚠️ ไม่พบข้อมูลนักเรียนในห้องนี้');
+    return;
+  }
+
+  const subj = appState.activeSubject;
+  const room = appState.activeClassroom;
+  let count = 0;
+
+  students.forEach(s => {
+    const sid = String(s.studentId || '');
+    const key = subj + '_' + room + '_' + sid;
+
+    let computedWork = 0;
+    const assignments = (appState.assignments || []).filter(a => a.subject === subj && a.classroom === room);
+    assignments.forEach(a => {
+      const subKey = a.id + '_' + sid;
+      const sub = appState.submissions[subKey];
+      if (sub && sub.score !== null && sub.score !== undefined && sub.score !== '') {
+        computedWork += Number(sub.score);
+      }
+    });
+
+    const rec = getOrCreateGradeRecord(s);
+    rec.workPre = computedWork;
+    rec._autoWork = true;
+    appState.gradebook[key] = calculateGradeRecord(rec, appState.gradebookRatio || '70/30');
+    count++;
+  });
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderApp();
+  showToast(`✅ ดึงคะแนนงานจริงเข้าตารางตัดเกรดแล้ว ${count} คน`);
 }
 
 /**
@@ -4142,6 +4200,9 @@ function renderGradebook(container) {
         <div class="gb-action-btn-group">
           <button type="button" class="btn btn-secondary btn-sm ${gbfEnabled ? 'active' : ''}" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" title="เปิด/ปิด แป้นพิมพ์คะแนนลอยบนไอแพดและแท็บเล็ต (ปิดแป้นพิมพ์ระบบไม่ให้เด้งบังจอ)">
             ${gbfEnabled ? '📱 แป้นลอย (ON)' : '⌨️ แป้นระบบ (OFF)'}
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="syncWorkScoresFromCheckWork()" title="ดึงคะแนนรวมจากภาระงานที่เช็คมาใส่ช่องงานเก็บก่อนกลางภาคอัตโนมัติ">
+            <span>🔄</span> ดึงคะแนนเช็คงาน
           </button>
           <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
             <span>💾</span> บันทึก Sheets

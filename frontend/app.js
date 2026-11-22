@@ -876,6 +876,7 @@ function renderOverview(container) {
   }
 
   // แถบห้องเรียนด่วนเฉพาะวิชานี้
+  const allClassrooms = getClassroomsForSubject(appState.activeSubject);
   const classPillsHtml = allClassrooms.map(c => {
     const count = appState.students.filter(s => s.classroom === c).length;
     const isActive = c === appState.activeClassroom;

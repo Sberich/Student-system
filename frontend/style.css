@@ -2253,29 +2253,53 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .assign-bar-row-2 .mode-toggle-group {
-    flex: 1 1 auto;
-    display: flex;
-  }
-
-  .assign-bar-row-2 .btn-group {
-    flex: 0 0 auto;
-    display: flex;
+    flex-wrap: nowrap !important;
     gap: 0.25rem;
   }
 
+  .assign-bar-row-2 .mode-toggle-group {
+    flex: 1 1 0;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    min-width: 0;
+  }
+
+  .assign-bar-row-2 .mode-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.28rem 0.35rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    justify-content: center;
+    gap: 0.2rem;
+  }
+
+  .assign-bar-row-2 .btn-group {
+    flex: 1 1 0;
+    display: flex;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
   .btn-mark-all, .btn-clear-sub {
-    font-size: 0.76rem;
-    padding: 0.3rem 0.55rem;
+    font-size: 0.72rem;
+    padding: 0.28rem 0.42rem;
     white-space: nowrap;
     border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .btn-mark-all {
+    flex: 1.15 1 0;
   }
 
   .btn-clear-sub {
+    flex: 0.85 1 0;
     background: var(--bg-subtle);
     color: var(--text-secondary);
     border: 1px solid var(--border-light);
@@ -2570,19 +2594,55 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.35rem;
+    flex-wrap: nowrap !important;
+    gap: 0.2rem;
     width: 100%;
-    margin-top: 0.35rem;
+    margin-top: 0.3rem;
   }
 
   .assign-bar-row-2 .mode-toggle-group {
-    flex-shrink: 0;
+    flex: 1 1 0;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    min-width: 0;
+  }
+
+  .assign-bar-row-2 .mode-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.22rem 0.25rem;
+    font-size: 0.69rem;
+    white-space: nowrap;
+    justify-content: center;
+    gap: 0.15rem;
+  }
+
+  .assign-bar-row-2 .btn-group {
+    flex: 1 1 0;
+    display: flex;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .btn-mark-all, .btn-clear-sub {
+    font-size: 0.69rem !important;
+    padding: 0.24rem 0.32rem !important;
+    white-space: nowrap;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-width: 0;
   }
 
   .btn-mark-all {
-    font-size: 0.72rem !important;
-    padding: 0.35rem 0.5rem !important;
-    white-space: nowrap;
+    flex: 1.15 1 0;
+  }
+
+  .btn-clear-sub {
+    flex: 0.85 1 0;
   }
 
   /* Overview Grid Mobile Optimizations */

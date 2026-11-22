@@ -4392,8 +4392,8 @@ function renderGradebook(container) {
           <button class="btn btn-secondary btn-sm" onclick="syncWorkScoresFromCheckWork()" title="ดึงคะแนนรวมจากภาระงานที่เช็คมาใส่ช่องงานเก็บก่อนกลางภาคอัตโนมัติ">
             <span>🔄</span> ดึงคะแนนเช็คงาน
           </button>
-          <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()">
-            <span>💾</span> บันทึก Sheets
+          <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()" title="บันทึกทะเบียนคะแนนและผลการเรียนห้อง ${esc(appState.activeClassroom)} ลง Google Sheets (ชีท Gradebook)">
+            <span>💾</span> บันทึก ${esc(appState.activeClassroom)}
           </button>
 
           <button class="btn btn-secondary btn-sm" onclick="exportGradebookSGS()">
@@ -4525,7 +4525,7 @@ async function saveGradebookToSheet() {
     return;
   }
 
-  showToast('⏳ กำลังบันทึกทะเบียนคะแนนลง Google Sheets...');
+  showToast(`⏳ กำลังบันทึกทะเบียนคะแนนห้อง ${appState.activeClassroom} ลง Google Sheets...`);
   updateSyncIndicator('syncing');
 
   const recordsToSave = students.map(s => getOrCreateGradeRecord(s));
@@ -4546,7 +4546,7 @@ async function saveGradebookToSheet() {
       appState.isDirty = false;
       saveLocalState();
       updateSyncIndicator('saved');
-      showToast('✅ บันทึกคะแนน ' + recordsToSave.length + ' คนลง Google Sheets (ชีท Gradebook) สำเร็จ');
+      showToast(`✅ บันทึกคะแนนห้อง ${appState.activeClassroom} (${recordsToSave.length} คน) ลง Google Sheets (ชีท Gradebook) สำเร็จ`);
     } else {
       updateSyncIndicator('offline');
       alert('บันทึกลง Google Sheets ไม่สำเร็จ: ' + (result.error || result.message || ''));

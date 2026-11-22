@@ -1203,7 +1203,7 @@ function renderOverview(container) {
             <button class="btn btn-secondary btn-sm" onclick="pullFromGoogleSheets(true)" style="width: 100%;">
               ☁️ ดึงข้อมูลล่าสุดจาก Google Sheets
             </button>
-            <a href="${appState.settings.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;">
+            <a href="javascript:void(0)" onclick="openSpreadsheetInGoogleDrive()" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer;">
               <span>📊 เปิดดูชีทจริงใน Google Drive</span> ↗
             </a>
           </div>
@@ -3926,12 +3926,41 @@ function renderSettings(container) {
       </div>
 
       <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-light); padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
-        <a href="${appState.settings.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-size: 0.85rem; font-weight: 500;">
-          📊 เปิดดูชีทจริงใน Google Drive
+        <a href="javascript:void(0)" onclick="openSpreadsheetInGoogleDrive()" style="color: var(--primary); text-decoration: none; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
+          📊 เปิดดูชีทจริงใน Google Drive ↗
         </a>
       </div>
     </div>
   `;
+}
+
+function openSpreadsheetInGoogleDrive() {
+  if (appState.settings && appState.settings.spreadsheetUrl && appState.settings.spreadsheetUrl.trim() !== '') {
+    window.open(appState.settings.spreadsheetUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  if (!appState.settings || !appState.settings.gasUrl) {
+    showModernAlert({
+      title: 'ยังไม่ได้เชื่อมต่อ Google Sheets',
+      message: 'กรุณากรอก Web App URL ในหน้าตั้งค่าก่อน เพื่อให้ระบบระบุชีทของคุณครูได้ครับ',
+      icon: '⚙️'
+    });
+    return;
+  }
+
+  showToast('⏳ กำลังดึงลิงก์ Google Sheets ของคุณครู...');
+  pullFromGoogleSheets(true).then(() => {
+    if (appState.settings && appState.settings.spreadsheetUrl && appState.settings.spreadsheetUrl.trim() !== '') {
+      window.open(appState.settings.spreadsheetUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      showModernAlert({
+        title: 'ไม่พบลำดับชีท',
+        message: 'ระบบเชื่อมต่อสำเร็จ แต่ยังไม่ได้รับ URL ของชีท กรุณาลองกด "ดึงข้อมูลจาก Google Sheets" อีกครั้งครับ',
+        icon: '⚠️'
+      });
+    }
+  });
 }
 
 function toggleTokenVisibility() {
@@ -4671,6 +4700,7 @@ async function continuePullFromGoogleSheets(isManual) {
         appState.settings.subjects = data.subjects;
       }
       if (data.settings) {
+        if (data.settings.spreadsheetUrl) appState.settings.spreadsheetUrl = data.settings.spreadsheetUrl;
         if (data.settings.schoolName) appState.settings.schoolName = data.settings.schoolName;
         if (data.settings.teacherName) appState.settings.teacherName = data.settings.teacherName;
         if (data.settings.academicYear) appState.settings.academicYear = data.settings.academicYear;

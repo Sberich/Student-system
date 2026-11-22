@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=40">
+  <link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 
@@ -147,11 +147,11 @@
 
   <!-- Scripts -->
   <script src="html2canvas.min.js"></script>
-  <script src="app.js?v=40"></script>
+  <script src="app.js?v=41"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=40').then((reg) => {
+        navigator.serviceWorker.register('./sw.js?v=41').then((reg) => {
           console.log('[PWA] Service Worker registered with scope:', reg.scope);
         }).catch((err) => {
           console.warn('[PWA] Service Worker registration failed:', err);

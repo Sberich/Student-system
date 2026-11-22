@@ -634,6 +634,7 @@ function fetchAllData(ss) {
   const studentClassrooms = students.map(s => s.classroom).filter(Boolean);
   const classroomsInUse = [...new Set([...configuredClassrooms, ...studentClassrooms])];
   settings.classrooms = classroomsInUse;
+  settings.spreadsheetUrl = ss.getUrl();
 
   return {
     settings: settings,

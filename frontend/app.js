@@ -11,16 +11,14 @@ const STORAGE_KEY = 'educator_app_state_v2';
 
 const DEFAULT_CLASSROOMS = [
   'ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6',
-  'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11',
-  'ม.5/1', 'ม.5/2'
+  'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'
 ];
 
 const DEFAULT_SUBJECTS = [
-  { code: 'ส31101', name: 'สังคมศึกษา 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { code: 'ส31102', name: 'ประวัติศาสตร์ไทย 1 (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { code: 'ส30226', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', classrooms: ['ม.4/11'] },
-  { code: 'ส32101', name: 'สังคมศึกษา 3 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] },
-  { code: 'ส32102', name: 'ประวัติศาสตร์ไทย 2 (ม.5)', classrooms: ['ม.5/1', 'ม.5/2'] }
+  { code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
+  { code: 'ส31102', name: 'สังคมศึกษา (ม.4)', classrooms: ['ม.4/2', 'ม.4/3'] },
+  { code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', classrooms: ['ม.4/11'] },
+  { code: 'ส31238', name: 'ต่อต้านการทุจริต', classrooms: ['ม.4/11'] }
 ];
 
 /**
@@ -41,7 +39,7 @@ function esc(str) {
  * หากวิชานั้นยังไม่ได้ระบุห้อง หรือรายชื่อห้องว่าง ให้ใช้รายการห้องเรียนทั้งหมดเป็นค่าเริ่มต้น (Fallback)
  */
 function getClassroomsForSubject(subjectCode = null) {
-  const code = subjectCode || (appState && appState.activeSubject) || 'ส31101';
+  const code = subjectCode || (appState && appState.activeSubject) || 'ส31162';
   const subjects = (appState && appState.settings && Array.isArray(appState.settings.subjects)) 
     ? appState.settings.subjects 
     : DEFAULT_SUBJECTS;
@@ -61,7 +59,7 @@ window.getClassroomsForSubject = getClassroomsForSubject;
 let appState = {
   currentTab: 'overview',
   activeClassroom: 'ม.4/1',
-  activeSubject: 'ส31101',
+  activeSubject: 'ส31162',
   selectedAssignmentId: '',
   selectedStudentId: '',
   filterStatus: 'all', // 'all', 'submitted', 'pending'
@@ -196,6 +194,65 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+/**
+ * ล้างข้อมูลคะแนนและรายการที่ตกค้าง/ผิดพลาดในหน่วยความจำของเบราว์เซอร์ (Prune Ghost/Orphan Records)
+ * ป้องกันข้อมูลห้องที่เคยถูกลบไปแล้ว หรือวิชาที่ไม่ตรงกับห้องเรียน ถูกส่งกลับไปขึ้น Google Sheets
+ */
+function purgeInvalidGradebookRecords() {
+  if (!appState.gradebook || typeof appState.gradebook !== 'object') {
+    appState.gradebook = {};
+    return 0;
+  }
+
+  const subjects = (appState.settings && Array.isArray(appState.settings.subjects))
+    ? appState.settings.subjects
+    : DEFAULT_SUBJECTS;
+
+  const validKeys = new Set();
+
+  subjects.forEach(sub => {
+    const code = sub.code;
+    const rooms = getClassroomsForSubject(code);
+    rooms.forEach(room => {
+      const roomStudents = (appState.students || []).filter(s => s.classroom === room);
+      roomStudents.forEach(st => {
+        validKeys.add(code + '_' + room + '_' + String(st.studentId || ''));
+      });
+    });
+  });
+
+  const isStudentListLoaded = appState.students && appState.students.length > 0;
+
+  let deletedCount = 0;
+  Object.keys(appState.gradebook).forEach(key => {
+    const parts = key.split('_');
+    if (parts.length < 3) {
+      delete appState.gradebook[key];
+      deletedCount++;
+      return;
+    }
+    const subj = parts[0];
+    const room = parts[1];
+    const validRooms = getClassroomsForSubject(subj);
+
+    if (!validRooms.includes(room)) {
+      delete appState.gradebook[key];
+      deletedCount++;
+      return;
+    }
+
+    if (isStudentListLoaded && !validKeys.has(key)) {
+      delete appState.gradebook[key];
+      deletedCount++;
+    }
+  });
+
+  if (deletedCount > 0) {
+    console.log(`[Gradebook Cleaner] ล้างข้อมูลคะแนนผี/ห้องที่ถูกลบออกจากเครื่องแล้ว ${deletedCount} รายการ`);
+  }
+  return deletedCount;
+}
+
 function loadLocalState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -235,6 +292,9 @@ function loadLocalState() {
       if (!validRooms.includes(appState.activeClassroom)) {
         appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
       }
+
+      // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
+      purgeInvalidGradebookRecords();
 
       hasSavedLocalState = true;
     }
@@ -279,7 +339,7 @@ function seedDefaultState() {
   appState.settings.subjects = DEFAULT_SUBJECTS;
   appState.settings.classrooms = DEFAULT_CLASSROOMS;
   appState.activeClassroom = 'ม.4/1';
-  appState.activeSubject = 'ส31101';
+  appState.activeSubject = 'ส31162';
 
   // ตัวอย่าง ม.4/1 (35 คน) และ ม.4/2 (35 คน)
   appState.students = [];
@@ -3220,8 +3280,8 @@ async function pullFromGoogleSheets(isManual = false) {
       if (data.submissions) {
         appState.submissions = data.submissions;
       }
-      if (data.gradebook && Array.isArray(data.gradebook) && data.gradebook.length > 0) {
-        if (!appState.gradebook) appState.gradebook = {};
+      if (data.gradebook && Array.isArray(data.gradebook)) {
+        appState.gradebook = {}; // เคลียร์ขยะเก่าในเครื่องทิ้งทั้งหมด แทนที่ด้วยข้อมูลบริสุทธิ์จากชีท
         data.gradebook.forEach(record => {
           const key = (record.subject || '') + '_' + (record.classroom || '') + '_' + (record.studentId || '');
           appState.gradebook[key] = record;
@@ -3249,6 +3309,9 @@ async function pullFromGoogleSheets(isManual = false) {
       if (!validRooms.includes(appState.activeClassroom)) {
         appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
       }
+
+      // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
+      purgeInvalidGradebookRecords();
 
       appState.isDirty = false;
       saveLocalState();
@@ -3353,6 +3416,14 @@ async function pushFullStateToBackend() {
       return;
     }
 
+    // ล้างข้อมูลคะแนนผีและกรองส่งเฉพาะรายการที่ถูกต้องตามวิชาและห้องเรียนจริงเท่านั้น
+    purgeInvalidGradebookRecords();
+    const validGradebookRecords = Object.values(appState.gradebook || {}).filter(r => {
+      const validRooms = getClassroomsForSubject(r.subject);
+      const studentExists = appState.students.some(s => s.studentId === r.studentId && s.classroom === r.classroom);
+      return validRooms.includes(r.classroom) && studentExists;
+    });
+
     const res = await fetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3372,7 +3443,7 @@ async function pushFullStateToBackend() {
         students: appState.students,
         assignments: appState.assignments,
         submissions: list,
-        gradebook: Object.values(appState.gradebook || {})
+        gradebook: validGradebookRecords
       })
     });
 
@@ -3632,7 +3703,8 @@ function calculateGradeRecord(rec, ratio) {
 }
 
 function getOrCreateGradeRecord(student) {
-  const subj = appState.activeSubject || 'ส31101';
+  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || 'ส31162';
+  const subj = appState.activeSubject || defaultSubj;
   const room = student.classroom || appState.activeClassroom || 'ม.4/1';
   const sid = String(student.studentId || '');
   const key = subj + '_' + room + '_' + sid;

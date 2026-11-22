@@ -405,11 +405,66 @@ function fetchAllData(ss) {
 /**
  * บันทึกคะแนนทะเบียน ปพ.5 / SGS แบบ In-Memory Batch Write
  */
+/**
+ * ดึงรายการคู่รหัสวิชา ห้องเรียน และรหัสนักเรียนที่ถูกต้องตามฐานข้อมูลจริง (Settings & Students)
+ * เพื่อป้องกันข้อมูลผี ข้อมูลเบิ้ล หรือข้อมูลห้องเรียนที่ถูกลบไปแล้ว
+ */
+function getValidCombinations(ss) {
+  const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+  const settingsValues = settingsSheet ? settingsSheet.getDataRange().getValues() : [];
+  let subjects = DEFAULT_SUBJECTS;
+  for (let i = 1; i < settingsValues.length; i++) {
+    if (settingsValues[i][0] === 'subjects') {
+      try { subjects = JSON.parse(settingsValues[i][1]); } catch (e) {}
+    }
+  }
+
+  const subjectClassroomsMap = {};
+  if (Array.isArray(subjects)) {
+    subjects.forEach(s => {
+      if (s && s.code && Array.isArray(s.classrooms)) {
+        subjectClassroomsMap[s.code] = s.classrooms;
+      }
+    });
+  }
+
+  const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
+  const studentRows = studentsSheet ? studentsSheet.getDataRange().getValues() : [];
+  const validKeys = {};
+  const validStudentsByRoom = {};
+
+  for (let i = 1; i < studentRows.length; i++) {
+    const row = studentRows[i];
+    const sid = String(row[1] || '').trim();
+    const room = String(row[3] || '').trim();
+    if (sid && room) {
+      if (!validStudentsByRoom[room]) validStudentsByRoom[room] = [];
+      validStudentsByRoom[room].push({
+        no: Number(row[0]) || i,
+        studentId: sid,
+        fullName: String(row[2] || ''),
+        classroom: room
+      });
+    }
+  }
+
+  Object.keys(subjectClassroomsMap).forEach(subj => {
+    const rooms = subjectClassroomsMap[subj] || [];
+    rooms.forEach(room => {
+      const studs = validStudentsByRoom[room] || [];
+      studs.forEach(st => {
+        validKeys[subj + '_' + room + '_' + st.studentId] = true;
+      });
+    });
+  });
+
+  return { subjectClassroomsMap, validStudentsByRoom, validKeys };
+}
+
 function handleSaveGradebook(ss, gradebookList) {
   if (!gradebookList || gradebookList.length === 0) return [];
   const sheet = ss.getSheetByName(SHEET_GRADEBOOK);
-  const data = sheet.getDataRange().getValues();
-  const rowIndexMap = {};
+  const { validKeys } = getValidCombinations(ss);
 
   const headers = [
     'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
@@ -421,25 +476,31 @@ function handleSaveGradebook(ss, gradebookList) {
     'คะแนนรวม100', 'เกรด', 'ตรง_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
   ];
 
-  if (data.length === 0 || !data[0] || data[0].length < headers.length) {
-    sheet.clearContents();
-    sheet.appendRow(headers);
-    formatHeaderRow(sheet);
-    data[0] = headers;
-  }
+  const rawData = sheet.getDataRange().getValues();
+  const cleanData = [headers];
+  const rowIndexMap = {};
 
-  for (let i = 1; i < data.length; i++) {
-    const key = String(data[i][0] || '') + '_' + String(data[i][1] || '') + '_' + String(data[i][3] || '');
-    rowIndexMap[key] = i;
+  // 1. คัดกรองแถวเดิมในชีท ให้คงอยู่เฉพาะคู่ (วิชา, ห้องเรียน, รหัสนักเรียน) ที่ถูกต้องตามฐานข้อมูลจริงเท่านั้น
+  for (let i = 1; i < rawData.length; i++) {
+    const row = rawData[i];
+    const key = String(row[0] || '') + '_' + String(row[1] || '') + '_' + String(row[3] || '');
+    if (validKeys[key] && rowIndexMap[key] === undefined) {
+      cleanData.push(row);
+      rowIndexMap[key] = cleanData.length - 1;
+    }
   }
 
   const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
 
+  // 2. อัปเดตข้อมูลที่ส่งเข้ามา หรือแทรกเฉพาะรายการที่ถูกต้อง (ป้องกันข้อมูลเบิ้ล 100%)
   gradebookList.forEach(item => {
     const subj = String(item.subject || '');
     const room = String(item.classroom || '');
     const sid = String(item.studentId || '');
     const key = subj + '_' + room + '_' + sid;
+
+    // ถ้าไม่อยู่ใน validKeys ปฏิเสธทันที
+    if (!validKeys[key]) return;
 
     const rowArray = [
       subj,
@@ -471,21 +532,21 @@ function handleSaveGradebook(ss, gradebookList) {
 
     const existingIdx = rowIndexMap[key];
     if (existingIdx !== undefined) {
-      data[existingIdx] = rowArray;
+      cleanData[existingIdx] = rowArray;
     } else {
-      data.push(rowArray);
-      rowIndexMap[key] = data.length - 1;
+      cleanData.push(rowArray);
+      rowIndexMap[key] = cleanData.length - 1;
     }
   });
 
-  if (data.length > 0) {
-    sheet.getRange(1, 1, data.length, headers.length).setValues(data);
-    if (data.length > 1) {
-      sheet.getRange(2, 4, data.length - 1, 1).setNumberFormat('@');
-    }
+  sheet.clearContents();
+  sheet.getRange(1, 1, cleanData.length, headers.length).setValues(cleanData);
+  formatHeaderRow(sheet);
+  if (cleanData.length > 1) {
+    sheet.getRange(2, 4, cleanData.length - 1, 1).setNumberFormat('@');
   }
 
-  return gradebookList;
+  return cleanData.length - 1;
 }
 
 /**

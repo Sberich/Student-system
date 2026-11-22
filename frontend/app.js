@@ -1115,11 +1115,11 @@ function renderGrading(container) {
           </button>
         </div>
         <div class="btn-group">
-          <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()">
-            ⚡ ส่งแล้วทุกคนที่เหลือ
+          <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()" title="บันทึกคนที่ยังค้างส่งทุกคนให้เป็นส่งแล้วและได้คะแนนเต็ม">
+            ⚡ ส่งแล้วทุกคน
           </button>
-          <button class="btn btn-primary btn-sm" onclick="triggerManualSync()" title="ส่งคะแนนเช็คงานทั้งหมดขึ้น Google Sheets (ชีท Submissions และ Gradebook) ทันที">
-            💾 บันทึก Sheets
+          <button class="btn btn-secondary btn-sm btn-clear-sub" onclick="clearAssignmentSubmissions()" title="ล้างสถานะส่งงานของงานนี้ทุกคนกลับเป็นค้างส่ง">
+            🔄 ล้างส่ง
           </button>
         </div>
       </div>
@@ -1571,23 +1571,101 @@ function markAllRemainingAsSubmitted() {
   const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
   if (!currentAssignment) return;
 
+  const previousSnapshot = {};
   let count = 0;
   getFilteredStudents().forEach(st => {
     const key = `${currentAssignment.id}_${st.studentId}`;
     const sub = appState.submissions[key];
     if (!sub || sub.status !== 'ส่งแล้ว') {
+      previousSnapshot[key] = sub ? { ...sub } : { status: 'ค้างส่ง', score: null };
       appState.submissions[key] = {
         status: 'ส่งแล้ว',
-        score: currentAssignment.fullScore
+        score: currentAssignment.fullScore,
+        updatedAt: new Date().toISOString()
       };
       count++;
     }
   });
 
+  if (count === 0) {
+    showToast('นักเรียนทุกคนในห้องนี้ส่งงานนี้ครบแล้ว');
+    return;
+  }
+
   appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync();
-  showToast(`บันทึกส่งแล้ว ${count} คนในห้อง ${appState.activeClassroom} เรียบร้อย`);
+
+  showToastWithAction(
+    `⚡ ส่งแล้ว (เต็ม ${currentAssignment.fullScore}) ${count} คน`,
+    '↩️ เลิกทำ',
+    () => {
+      Object.keys(previousSnapshot).forEach(k => {
+        appState.submissions[k] = previousSnapshot[k];
+      });
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync();
+      showToast('↩️ ยกเลิกการส่งแล้วเรียบร้อย');
+      renderGrading(document.getElementById('app-view-container'));
+    }
+  );
+
+  renderGrading(document.getElementById('app-view-container'));
+}
+
+/**
+ * ล้างสถานะส่งงานของภาระงานปัจจุบันทุกคนในห้องนี้กลับเป็น "ค้างส่ง"
+ */
+function clearAssignmentSubmissions() {
+  const currentAssignments = getFilteredAssignments();
+  const currentAssignment = currentAssignments.find(a => a.id === appState.selectedAssignmentId) || currentAssignments[0];
+  if (!currentAssignment) return;
+
+  const room = appState.activeClassroom;
+  const confirmed = confirm(`คุณแน่ใจว่าต้องการล้างสถานะส่งงานของ "${currentAssignment.title}" ในห้อง ${room} ทั้งหมดหรือไม่?\n\n(นักเรียนทุกคนในห้องนี้จะเปลี่ยนสถานะกลับเป็น "ค้างส่ง" ทั้งหมด)`);
+  if (!confirmed) return;
+
+  const previousSnapshot = {};
+  let count = 0;
+  getFilteredStudents().forEach(st => {
+    const key = `${currentAssignment.id}_${st.studentId}`;
+    const sub = appState.submissions[key];
+    if (sub && sub.status === 'ส่งแล้ว') {
+      previousSnapshot[key] = { ...sub };
+      appState.submissions[key] = {
+        status: 'ค้างส่ง',
+        score: null,
+        updatedAt: new Date().toISOString()
+      };
+      count++;
+    }
+  });
+
+  if (count === 0) {
+    showToast('ไม่มีนักเรียนที่ส่งงานนี้ในห้องนี้');
+    return;
+  }
+
+  appState.isDirty = true;
+  saveLocalState();
+  scheduleAutoSync();
+
+  showToastWithAction(
+    `🔄 ล้างส่งงาน "${currentAssignment.title}" (${count} คน) แล้ว`,
+    '↩️ เลิกทำ',
+    () => {
+      Object.keys(previousSnapshot).forEach(k => {
+        appState.submissions[k] = previousSnapshot[k];
+      });
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync();
+      showToast('↩️ ยกเลิกการล้างส่งเรียบร้อย');
+      renderGrading(document.getElementById('app-view-container'));
+    }
+  );
+
   renderGrading(document.getElementById('app-view-container'));
 }
 

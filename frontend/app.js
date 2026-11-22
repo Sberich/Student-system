@@ -44,15 +44,13 @@ function getClassroomsForSubject(subjectCode = null) {
     ? appState.settings.subjects 
     : DEFAULT_SUBJECTS;
   const sub = subjects.find(s => s.code === code);
+  if (sub && Array.isArray(sub.classrooms) && sub.classrooms.length > 0) {
+    return sortClassroomNames(sub.classrooms);
+  }
   const masterClassrooms = (appState && appState.settings && Array.isArray(appState.settings.classrooms) && appState.settings.classrooms.length > 0)
     ? appState.settings.classrooms 
     : DEFAULT_CLASSROOMS;
-
-  if (sub && Array.isArray(sub.classrooms) && sub.classrooms.length > 0) {
-    const valid = sub.classrooms.filter(c => masterClassrooms.includes(c));
-    if (valid.length > 0) return valid;
-  }
-  return masterClassrooms;
+  return sortClassroomNames(masterClassrooms);
 }
 window.getClassroomsForSubject = getClassroomsForSubject;
 
@@ -3493,16 +3491,7 @@ function renderSettings(container) {
 
         <div id="subject-list-config">
           ${(appState.settings.subjects || []).map((sub, idx) => {
-            const allRooms = sortClassroomNames(appState.settings.classrooms || DEFAULT_CLASSROOMS);
-            const assignedRooms = (sub.classrooms && Array.isArray(sub.classrooms) && sub.classrooms.length > 0)
-              ? sub.classrooms.filter(r => allRooms.includes(r))
-              : allRooms;
-
-            // รวบรวมระดับชั้นที่มี (เช่น ม.1, ม.2, ม.4, ม.5) เพื่อแยกแท็บ
-            const roomLevels = [...new Set(allRooms.map(r => {
-              const m = String(r).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
-              return m ? m[0] : 'อื่นๆ';
-            }))].filter(Boolean);
+            const assignedRooms = sortClassroomNames((sub.classrooms && Array.isArray(sub.classrooms)) ? sub.classrooms : []);
 
             return `
               <div class="cfg-subject-card" data-sub-idx="${idx}">
@@ -3526,51 +3515,36 @@ function renderSettings(container) {
                 </div>
 
                 <div class="cfg-sub-rooms-section">
-                  <div class="cfg-sub-rooms-header">
+                  <div class="cfg-sub-rooms-header" style="flex-wrap: wrap; gap: 0.5rem;">
                     <div class="cfg-sub-rooms-title">
                       <span>🏫 ห้องเรียนที่สอน:</span>
                       <span class="cfg-sub-room-badge ${assignedRooms.length === 0 ? 'badge-empty-warning' : ''}" id="cfg-sub-badge-${idx}">
                         ${assignedRooms.length} ห้อง
                       </span>
                     </div>
-                    <div class="cfg-sub-quick-actions">
-                      <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, true)">✓ เลือกทุกห้อง</button>
-                      ${roomLevels.length > 1 ? `
-                        <span class="cfg-action-sep">|</span>
-                        <button type="button" class="btn-text-action" onclick="toggleSubjectRoomsByActiveLevel(${idx})">✓ สลับเฉพาะระดับนี้</button>
+                    <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+                      <button type="button" class="btn btn-primary btn-sm" onclick="openManageSubjectRoomsModal(${idx})" style="padding: 0.28rem 0.65rem; font-size: 0.78rem;">
+                        ✏️ จัดการ/เพิ่มห้องที่สอน
+                      </button>
+                      ${assignedRooms.length > 0 ? `
+                        <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.75rem;" onclick="handleClearAllRoomsFromSubject(${idx})">
+                          ✕ ล้างทั้งหมด
+                        </button>
                       ` : ''}
-                      <span class="cfg-action-sep">|</span>
-                      <button type="button" class="btn-text-action" onclick="toggleAllSubjectRooms(${idx}, false)">✕ ล้างออก</button>
                     </div>
                   </div>
-
-                  ${roomLevels.length > 1 ? `
-                    <div class="sub-room-level-tabs" style="display: flex; gap: 0.35rem; margin: 0.4rem 0 0.6rem 0; flex-wrap: wrap;">
-                      <button type="button" class="pill-btn active" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="filterSubjectRoomChips(${idx}, 'all', this)">ทั้งหมด (${allRooms.length})</button>
-                      ${roomLevels.map(lvl => {
-                        const lvlRooms = allRooms.filter(r => r.startsWith(lvl));
-                        return `<button type="button" class="pill-btn" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="filterSubjectRoomChips(${idx}, '${esc(lvl)}', this)">${esc(lvl)} (${lvlRooms.length})</button>`;
-                      }).join('')}
-                    </div>
-                  ` : ''}
                   
-                  <div class="sub-room-chips-grid" id="cfg-room-chips-${idx}" data-active-level="all">
-                    ${allRooms.map(room => {
-                      const isSelected = assignedRooms.includes(room);
-                      const m = String(room).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
-                      const rLvl = m ? m[0] : 'อื่นๆ';
-                      return `
-                        <button type="button" 
-                          class="sub-room-chip ${isSelected ? 'selected' : ''}" 
-                          data-room="${esc(room)}" 
-                          data-level="${esc(rLvl)}"
-                          onclick="toggleSubjectRoomChip(${idx}, this)"
-                          title="${isSelected ? 'แตะเพื่อยกเลิกห้อง ' + esc(room) : 'แตะเพื่อเลือกห้อง ' + esc(room)}">
-                          <span class="chip-check">${isSelected ? '✓' : '+'}</span>
-                          <span class="chip-label">${esc(room)}</span>
-                        </button>
-                      `;
-                    }).join('')}
+                  <div class="sub-room-chips-grid" id="cfg-room-chips-${idx}" style="min-height: 38px; align-items: center; margin-top: 0.35rem;">
+                    ${assignedRooms.length === 0 ? `
+                      <span style="font-size: 0.8rem; color: #DC2626; font-style: italic;">
+                        ⚠️ ยังไม่มีห้องเรียนที่สอนในวิชานี้ (กดปุ่ม "✏️ จัดการ/เพิ่มห้องที่สอน" ด้านบน)
+                      </span>
+                    ` : assignedRooms.map(room => `
+                      <span class="sub-taught-chip" data-room="${esc(room)}">
+                        <span>✓ ${esc(room)}</span>
+                        <span class="chip-del" onclick="removeRoomFromSubject(${idx}, '${esc(room)}')" title="ลบห้อง ${esc(room)} ออกจากวิชานี้">✕</span>
+                      </span>
+                    `).join('')}
                   </div>
                 </div>
               </div>
@@ -3630,39 +3604,239 @@ function toggleTokenVisibility() {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-function addNewSubjectModal() {
-  showModernPrompt({
-    title: 'เพิ่มรายวิชาใหม่',
-    subtitle: 'ระบุรหัสวิชาและชื่อวิชา เช่น ส30213 สิทธิมนุษยชน',
-    defaultValue: '',
-    placeholder: 'เช่น ส30213 กฎหมายเบื้องต้น',
-    confirmText: '+ เพิ่มรายวิชา',
-    onConfirm: (val) => {
-      if (!val || !val.trim()) return;
-      const parts = val.trim().split(/\s+/);
-      const code = parts[0];
-      const name = parts.slice(1).join(' ') || code;
+function openAddSubjectModal() {
+  const modalId = 'add-subject-modal';
+  closeModal(modalId);
 
-      if (!appState.settings.subjects) appState.settings.subjects = [];
-      if (appState.settings.subjects.some(s => s.code.toLowerCase() === code.toLowerCase())) {
-        showToast(`⚠️ มีรหัสวิชา ${code} ในระบบแล้ว`);
-        return;
+  const commonLevels = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6', 'ป.1', 'ป.2', 'ป.3', 'ป.4', 'ป.5', 'ป.6'];
+
+  const modalHtml = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content" style="max-width: 540px; width: 100%; border-radius: var(--radius-lg); padding: 1.4rem; text-align: left; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
+        
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary-subtle); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; border: 1px solid var(--primary-border);">
+              📚
+            </div>
+            <div>
+              <h3 style="font-size: 1.12rem; font-weight: 700; margin: 0; color: var(--text-main);">➕ เพิ่มรายวิชาใหม่</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0 0;">กำหนดรหัสวิชา ชื่อวิชา และเลือกห้องที่สอนตั้งแต่แรก เพื่อไม่ให้ปะปนกับวิชาอื่น</p>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.35rem; cursor: pointer; color: var(--text-muted); line-height: 1;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <!-- รหัสวิชาและชื่อวิชา -->
+          <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.6rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 3px;">รหัสวิชา <span style="color:#DC2626;">*</span></label>
+              <input type="text" id="new-sub-code" class="form-input" placeholder="เช่น ส22101" style="font-weight: 600;" oninput="updateNewSubSummary()" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 3px;">ชื่อรายวิชา <span style="color:#DC2626;">*</span></label>
+              <input type="text" id="new-sub-name" class="form-input" placeholder="เช่น สังคมศึกษา 3" oninput="updateNewSubSummary()" />
+            </div>
+          </div>
+
+          <!-- เลือกระดับชั้นที่สอน -->
+          <div>
+            <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">
+              🎓 ระดับชั้นที่สอน (แตะเพื่อเลือกระดับ):
+            </label>
+            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;" id="new-sub-level-pills">
+              ${commonLevels.map((lvl) => `
+                <button type="button" class="pill-btn ${lvl === 'ม.4' ? 'active' : ''}" style="font-size: 0.8rem; padding: 0.25rem 0.6rem;" onclick="selectNewSubLevel('${esc(lvl)}', this)">
+                  ${esc(lvl)}
+                </button>
+              `).join('')}
+            </div>
+            <input type="hidden" id="new-sub-selected-level" value="ม.4" />
+          </div>
+
+          <!-- รูปแบบการระบุห้องเรียนที่สอน -->
+          <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem; margin-top: 0.2rem;">
+            <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+              <span>🏫 ห้องเรียนที่สอนในวิชานี้:</span>
+              <span style="font-size: 0.74rem; color: var(--primary); font-weight: normal;">(จะเพิ่มเฉพาะในวิชานี้ ไม่กระทบวิชาอื่น)</span>
+            </label>
+
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 0.6rem; font-size: 0.82rem;">
+              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+                <input type="radio" name="new-sub-room-mode" value="batch" checked onchange="switchNewSubRoomMode('batch')" />
+                <b>สร้างเป็นช่วงห้อง</b> (เช่น ห้อง 1 ถึง 12)
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+                <input type="radio" name="new-sub-room-mode" value="custom" onchange="switchNewSubRoomMode('custom')" />
+                <b>ระบุห้องเอง</b> (เช่น ม.4/11)
+              </label>
+            </div>
+
+            <!-- กล่องโหมดช่วงห้อง (Batch) -->
+            <div id="new-sub-batch-box" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--primary);" id="new-sub-prefix-label">ม.4</span>
+              <span style="font-size: 0.82rem; color: var(--text-secondary);">ห้อง 1 ถึง</span>
+              <input type="number" id="new-sub-count" class="form-input" value="11" min="1" max="50" style="width: 75px; text-align: center; padding: 0.35rem 0.5rem;" oninput="updateNewSubSummary()" />
+              <span style="font-size: 0.82rem; color: var(--text-secondary);">ห้อง</span>
+            </div>
+
+            <!-- กล่องโหมดพิมพ์ระบุห้องเอง (Custom) -->
+            <div id="new-sub-custom-box" style="display: none;">
+              <input type="text" id="new-sub-custom-input" class="form-input" placeholder="พิมพ์ชื่อห้อง เช่น ม.4/11 หรือ ม.2/1, ม.2/3, ม.2/5" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" oninput="updateNewSubSummary()" />
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 3px;">(หากมีหลายห้อง ให้คั่นด้วยเครื่องหมายจุลภาค , เช่น ม.5/1, ม.5/2)</span>
+            </div>
+
+            <!-- ตัวอย่างห้องที่จะบันทึกให้เห็นทันที -->
+            <div style="margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed var(--border-light);">
+              <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: flex; justify-content: space-between;">
+                <span>ตัวอย่างห้องที่จะบรรจุลงวิชานี้:</span>
+                <b id="new-sub-room-count-badge" style="color: var(--primary);">11 ห้อง</b>
+              </div>
+              <div id="new-sub-preview-chips" style="display: flex; gap: 0.3rem; flex-wrap: wrap; max-height: 80px; overflow-y: auto;">
+                <!-- dynamic chips preview -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem; border-top: 1px solid var(--border-light); padding-top: 0.85rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('${modalId}')">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" onclick="handleConfirmAddSubject()">
+            ➕ สร้างรายวิชานี้ทันที
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  updateNewSubSummary();
+}
+
+function selectNewSubLevel(lvl, btn) {
+  const hidden = document.getElementById('new-sub-selected-level');
+  if (hidden) hidden.value = lvl;
+  const label = document.getElementById('new-sub-prefix-label');
+  if (label) label.textContent = lvl;
+
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  updateNewSubSummary();
+}
+
+function switchNewSubRoomMode(mode) {
+  const batchBox = document.getElementById('new-sub-batch-box');
+  const customBox = document.getElementById('new-sub-custom-box');
+  if (batchBox && customBox) {
+    if (mode === 'batch') {
+      batchBox.style.display = 'flex';
+      customBox.style.display = 'none';
+    } else {
+      batchBox.style.display = 'none';
+      customBox.style.display = 'block';
+    }
+  }
+  updateNewSubSummary();
+}
+
+function getNewSubRoomsList() {
+  const mode = document.querySelector('input[name="new-sub-room-mode"]:checked')?.value || 'batch';
+  const lvl = document.getElementById('new-sub-selected-level')?.value || 'ม.4';
+  const rooms = [];
+
+  if (mode === 'batch') {
+    const count = parseInt(document.getElementById('new-sub-count')?.value || '1', 10);
+    if (!isNaN(count) && count > 0) {
+      for (let i = 1; i <= Math.min(count, 50); i++) {
+        rooms.push(`${lvl}/${i}`);
       }
+    }
+  } else {
+    const raw = document.getElementById('new-sub-custom-input')?.value || '';
+    const parts = raw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    parts.forEach(p => {
+      let r = p;
+      if (/^\d+$/.test(r)) {
+        r = `${lvl}/${r}`;
+      } else if (!r.includes('/') && !r.startsWith('ม.') && !r.startsWith('ป.')) {
+        r = `${lvl}/${r}`;
+      }
+      if (!rooms.includes(r)) rooms.push(r);
+    });
+  }
+  return sortClassroomNames(rooms);
+}
 
-      const allRooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
-      appState.settings.subjects.push({
-        code: code,
-        name: name,
-        classrooms: [...allRooms]
-      });
+function updateNewSubSummary() {
+  const rooms = getNewSubRoomsList();
+  const countBadge = document.getElementById('new-sub-room-count-badge');
+  const previewDiv = document.getElementById('new-sub-preview-chips');
+  if (countBadge) countBadge.textContent = `${rooms.length} ห้อง`;
+  if (previewDiv) {
+    if (rooms.length === 0) {
+      previewDiv.innerHTML = '<span style="font-size:0.75rem; color:#DC2626; font-style:italic;">⚠️ ยังไม่มีห้องเรียนที่เลือก (กรุณาระบุจำนวนหรือพิมพ์ห้อง)</span>';
+    } else {
+      previewDiv.innerHTML = rooms.map(r => `
+        <span style="display:inline-block; font-size:0.75rem; background:var(--primary-subtle); color:var(--primary); padding:0.15rem 0.45rem; border-radius:12px; font-weight:600; border:1px solid var(--primary-border);">
+          ${esc(r)}
+        </span>
+      `).join('');
+    }
+  }
+}
 
-      appState.isDirty = true;
-      saveLocalState();
-      renderHeaderControls();
-      renderSettings(document.getElementById('app-view-container'));
-      showToast(`เพิ่มวิชา ${code} สำเร็จ แตะเลือกห้องที่สอนด้านล่างได้เลยครับ`);
+function handleConfirmAddSubject() {
+  const codeInput = document.getElementById('new-sub-code');
+  const nameInput = document.getElementById('new-sub-name');
+  const code = (codeInput?.value || '').trim();
+  const name = (nameInput?.value || '').trim() || code;
+  const rooms = getNewSubRoomsList();
+
+  if (!code) {
+    showToast('⚠️ กรุณาระบุรหัสวิชา');
+    if (codeInput) codeInput.focus();
+    return;
+  }
+
+  if (!appState.settings.subjects) appState.settings.subjects = [];
+  if (appState.settings.subjects.some(s => s.code.toLowerCase() === code.toLowerCase())) {
+    showToast(`⚠️ มีรหัสวิชา ${code} ในระบบแล้ว`);
+    return;
+  }
+
+  if (rooms.length === 0) {
+    showToast('⚠️ กรุณาระบุห้องเรียนที่สอนในวิชานี้อย่างน้อย 1 ห้อง');
+    return;
+  }
+
+  appState.settings.subjects.push({
+    code: code,
+    name: name,
+    classrooms: [...rooms]
+  });
+
+  if (!appState.settings.classrooms) appState.settings.classrooms = [];
+  rooms.forEach(r => {
+    if (!appState.settings.classrooms.includes(r)) {
+      appState.settings.classrooms.push(r);
     }
   });
+  appState.settings.classrooms = sortClassroomNames(appState.settings.classrooms);
+
+  appState.activeSubject = code;
+  appState.activeClassroom = rooms[0];
+
+  appState.isDirty = true;
+  saveLocalState();
+  closeModal('add-subject-modal');
+  renderHeaderControls();
+  renderSettings(document.getElementById('app-view-container'));
+  showToast(`✓ เพิ่มวิชา ${code} (${rooms.length} ห้อง) สำเร็จเรียบร้อย`);
 }
 
 function deleteSubject(idx) {
@@ -3694,6 +3868,257 @@ function deleteSubject(idx) {
   });
 }
 
+function openManageSubjectRoomsModal(subIdx) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+
+  const modalId = 'manage-subject-rooms-modal';
+  closeModal(modalId);
+
+  const currentRooms = sortClassroomNames(sub.classrooms || []);
+  const allMasterRooms = sortClassroomNames(appState.settings.classrooms || DEFAULT_CLASSROOMS);
+  const otherRooms = allMasterRooms.filter(r => !currentRooms.includes(r));
+
+  let defaultLevel = 'ม.4';
+  if (currentRooms.length > 0) {
+    const m = String(currentRooms[0]).match(/^(?:ม\.|ป\.|)([^\/\-]+)/);
+    if (m) defaultLevel = m[0];
+  }
+
+  const modalHtml = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content" style="max-width: 520px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
+        
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary-subtle); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; border: 1px solid var(--primary-border);">
+              🏫
+            </div>
+            <div>
+              <h3 style="font-size: 1.08rem; font-weight: 700; margin: 0; color: var(--text-main);">
+                จัดการห้องเรียน: ${esc(sub.code)}
+              </h3>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 2px 0 0 0;">
+                ${esc(sub.name)}
+              </p>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.35rem; cursor: pointer; color: var(--text-muted); line-height: 1;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        <!-- รายการห้องปัจจุบันของวิชานี้ -->
+        <div style="margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">
+              ห้องเรียนในวิชานี้ปัจจุบัน (<span id="modal-sub-room-count">${currentRooms.length}</span> ห้อง):
+            </span>
+            ${currentRooms.length > 0 ? `
+              <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.75rem;" onclick="handleClearAllRoomsFromSubject(${subIdx})">
+                ✕ ล้างห้องทั้งหมด
+              </button>
+            ` : ''}
+          </div>
+          <div id="modal-sub-current-rooms" class="sub-room-chips-grid" style="min-height: 36px; padding: 0.45rem; background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+            ${currentRooms.length === 0 ? `
+              <span style="font-size: 0.78rem; color: #DC2626; font-style: italic;">ยังไม่มีห้องเรียนในวิชานี้</span>
+            ` : currentRooms.map(r => `
+              <span class="sub-taught-chip" data-room="${esc(r)}">
+                <span>✓ ${esc(r)}</span>
+                <span class="chip-del" onclick="handleRemoveSingleRoomFromSubjectModal(${subIdx}, '${esc(r)}')" title="ลบห้อง ${esc(r)}">✕</span>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- ส่วนที่ 1: เพิ่มเป็นช่วงห้อง (Batch) -->
+        <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.75rem 0.85rem; margin-bottom: 0.85rem;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 0.4rem;">
+            ⚡ เพิ่มเป็นช่วงห้องสำหรับวิชานี้
+          </div>
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+            <select id="modal-sub-batch-prefix" class="form-input" style="width: 85px; padding: 0.35rem 0.45rem; font-size: 0.82rem; font-weight: 600;">
+              ${['ม.1','ม.2','ม.3','ม.4','ม.5','ม.6','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6'].map(lvl => `
+                <option value="${lvl}" ${lvl === defaultLevel ? 'selected' : ''}>${lvl}</option>
+              `).join('')}
+            </select>
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง 1 ถึง</span>
+            <input type="number" id="modal-sub-batch-count" class="form-input" value="11" min="1" max="50" style="width: 70px; text-align: center; padding: 0.35rem 0.45rem; font-size: 0.82rem;" />
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง</span>
+            <button type="button" class="btn btn-primary btn-sm" onclick="handleAddBatchRoomsToSubject(${subIdx})" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; white-space: nowrap;">
+              + เพิ่มชุดห้อง
+            </button>
+          </div>
+        </div>
+
+        <!-- ส่วนที่ 2: เพิ่มห้องเดี่ยว หรือพิมพ์ชื่อห้องเฉพาะ -->
+        <div style="display: flex; gap: 0.4rem; margin-bottom: 0.85rem;">
+          <input type="text" id="modal-sub-single-room" class="form-input" placeholder="หรือพิมพ์ชื่อห้อง เช่น ม.4/11 หรือ ม.4/EP" style="padding: 0.4rem 0.65rem; font-size: 0.82rem;" />
+          <button type="button" class="btn btn-secondary btn-sm" onclick="handleAddSingleRoomToSubject(${subIdx})" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; white-space: nowrap;">
+            + เพิ่มห้องเดี่ยว
+          </button>
+        </div>
+
+        <!-- ส่วนที่ 3: เลือกจากห้องเรียนอื่นที่มีอยู่ในโรงเรียน (ถ้ามี) -->
+        ${otherRooms.length > 0 ? `
+          <div style="margin-top: 0.6rem; border-top: 1px dashed var(--border-light); padding-top: 0.6rem;">
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+              หรือแตะเลือกจากห้องเรียนที่มีในระบบโรงเรียน:
+            </div>
+            <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; max-height: 85px; overflow-y: auto;">
+              ${otherRooms.map(r => `
+                <button type="button" class="pill-btn" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="handleAddExistingRoomToSubject(${subIdx}, '${esc(r)}')">
+                  + ${esc(r)}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 1.15rem; border-top: 1px solid var(--border-light); padding-top: 0.75rem;">
+          <button type="button" class="btn btn-primary" onclick="closeModal('${modalId}'); renderSettings(document.getElementById('app-view-container'));">
+            ✓ เรียบร้อย / ปิดหน้าต่าง
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function handleAddBatchRoomsToSubject(subIdx) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+  const prefix = document.getElementById('modal-sub-batch-prefix')?.value || 'ม.4';
+  const count = parseInt(document.getElementById('modal-sub-batch-count')?.value || '1', 10);
+  if (isNaN(count) || count < 1) return;
+
+  if (!sub.classrooms) sub.classrooms = [];
+  if (!appState.settings.classrooms) appState.settings.classrooms = [];
+
+  let addedCount = 0;
+  for (let i = 1; i <= Math.min(count, 50); i++) {
+    const room = `${prefix}/${i}`;
+    if (!sub.classrooms.includes(room)) {
+      sub.classrooms.push(room);
+      addedCount++;
+    }
+    if (!appState.settings.classrooms.includes(room)) {
+      appState.settings.classrooms.push(room);
+    }
+  }
+
+  sub.classrooms = sortClassroomNames(sub.classrooms);
+  appState.settings.classrooms = sortClassroomNames(appState.settings.classrooms);
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderHeaderControls();
+  openManageSubjectRoomsModal(subIdx);
+  showToast(`✓ เพิ่มห้อง ${prefix}/1 ถึง ${prefix}/${count} เข้าวิชา ${sub.code} เรียบร้อย`);
+}
+
+function handleAddSingleRoomToSubject(subIdx) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+  const input = document.getElementById('modal-sub-single-room');
+  const room = (input?.value || '').trim();
+  if (!room) {
+    showToast('⚠️ กรุณาระบุชื่อห้อง');
+    return;
+  }
+
+  if (!sub.classrooms) sub.classrooms = [];
+  if (sub.classrooms.includes(room)) {
+    showToast(`⚠️ มีห้อง ${room} ในวิชานี้อยู่แล้ว`);
+    return;
+  }
+
+  sub.classrooms.push(room);
+  sub.classrooms = sortClassroomNames(sub.classrooms);
+
+  if (!appState.settings.classrooms) appState.settings.classrooms = [];
+  if (!appState.settings.classrooms.includes(room)) {
+    appState.settings.classrooms.push(room);
+    appState.settings.classrooms = sortClassroomNames(appState.settings.classrooms);
+  }
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderHeaderControls();
+  openManageSubjectRoomsModal(subIdx);
+  showToast(`✓ เพิ่มห้อง ${room} เข้าวิชา ${sub.code} เรียบร้อย`);
+}
+
+function handleAddExistingRoomToSubject(subIdx, room) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+  if (!sub.classrooms) sub.classrooms = [];
+  if (sub.classrooms.includes(room)) return;
+
+  sub.classrooms.push(room);
+  sub.classrooms = sortClassroomNames(sub.classrooms);
+
+  appState.isDirty = true;
+  saveLocalState();
+  renderHeaderControls();
+  openManageSubjectRoomsModal(subIdx);
+  showToast(`✓ เพิ่มห้อง ${room} เข้าวิชา ${sub.code} เรียบร้อย`);
+}
+
+function handleRemoveSingleRoomFromSubjectModal(subIdx, room) {
+  removeRoomFromSubject(subIdx, room);
+  openManageSubjectRoomsModal(subIdx);
+}
+
+function removeRoomFromSubject(subIdx, room) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub || !sub.classrooms) return;
+
+  sub.classrooms = sub.classrooms.filter(r => r !== room);
+  appState.isDirty = true;
+  saveLocalState();
+  renderHeaderControls();
+
+  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
+  if (container) {
+    const chip = container.querySelector(`.sub-taught-chip[data-room="${room}"]`);
+    if (chip) chip.remove();
+    const remaining = container.querySelectorAll('.sub-taught-chip').length;
+    const badge = document.getElementById(`cfg-sub-badge-${subIdx}`);
+    if (badge) {
+      badge.textContent = `${remaining} ห้อง`;
+      if (remaining === 0) badge.classList.add('badge-empty-warning');
+      else badge.classList.remove('badge-empty-warning');
+    }
+  }
+
+  showToast(`ลบห้อง ${room} ออกจากวิชา ${sub.code} แล้ว`);
+}
+
+function handleClearAllRoomsFromSubject(subIdx) {
+  const sub = appState.settings.subjects[subIdx];
+  if (!sub) return;
+
+  showModernConfirm({
+    title: 'ล้างห้องเรียนทั้งหมด?',
+    subtitle: `คุณแน่ใจว่าต้องการล้างห้องเรียนทั้งหมดในวิชา "${sub.code} ${sub.name}" หรือไม่?`,
+    icon: '🗑️',
+    confirmText: 'ล้างห้องทั้งหมด',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      sub.classrooms = [];
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      closeModal('manage-subject-rooms-modal');
+      renderSettings(document.getElementById('app-view-container'));
+      showToast(`ล้างห้องทั้งหมดในวิชา ${sub.code} เรียบร้อย`);
+    }
+  });
+}
+
 async function saveSettings() {
   const currentToken = appState.settings.apiToken || '';
   const inputToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : currentToken;
@@ -3712,16 +4137,18 @@ async function saveSettings() {
   subCards.forEach((card, idx) => {
     const code = card.querySelector('.cfg-sub-code').value.trim();
     const name = card.querySelector('.cfg-sub-name').value.trim();
-    const selectedRooms = Array.from(card.querySelectorAll('.sub-room-chip.selected')).map(el => el.getAttribute('data-room'));
-    
+    const chipRooms = Array.from(card.querySelectorAll('.sub-taught-chip')).map(el => el.getAttribute('data-room')).filter(Boolean);
+    const existingSubRooms = (appState.settings.subjects && appState.settings.subjects[idx] && appState.settings.subjects[idx].classrooms) || [];
+    const rooms = chipRooms.length > 0 ? chipRooms : existingSubRooms;
+
     if (code) {
-      if (selectedRooms.length === 0) {
-        validationError = `วิชา "${code} ${name}" ยังไม่ได้เลือกห้องเรียนเลย กรุณาเลือกห้องเรียนที่สอนอย่างน้อย 1 ห้อง`;
+      if (rooms.length === 0) {
+        validationError = `วิชา "${code} ${name}" ยังไม่ได้ระบุห้องเรียนที่สอน กรุณากดปุ่ม "✏️ จัดการ/เพิ่มห้องที่สอน" อย่างน้อย 1 ห้อง`;
       }
       newSubs.push({
         code: code,
         name: name,
-        classrooms: selectedRooms.length > 0 ? selectedRooms : (appState.settings.classrooms || DEFAULT_CLASSROOMS)
+        classrooms: sortClassroomNames(rooms)
       });
     }
   });
@@ -3738,6 +4165,14 @@ async function saveSettings() {
 
   if (newSubs.length > 0) appState.settings.subjects = newSubs;
 
+  // รวบรวมและจัดระเบียบ Master Classrooms ให้เหลือเฉพาะห้องที่สอนจริง + ห้องที่มีนักเรียน
+  const activeRoomsSet = new Set();
+  newSubs.forEach(s => (s.classrooms || []).forEach(r => activeRoomsSet.add(r)));
+  (appState.students || []).forEach(st => { if (st.classroom) activeRoomsSet.add(st.classroom); });
+  if (activeRoomsSet.size > 0) {
+    appState.settings.classrooms = sortClassroomNames([...activeRoomsSet]);
+  }
+
   // ตรวจสอบว่า activeClassroom ปัจจุบัน สอดคล้องกับวิชาที่กำลังเลือกอยู่หรือไม่
   const currentValid = getClassroomsForSubject(appState.activeSubject);
   if (!currentValid.includes(appState.activeClassroom)) {
@@ -3750,110 +4185,21 @@ async function saveSettings() {
   await pushSettingsToBackend(currentToken, inputToken);
 }
 
-function toggleSubjectRoomChip(subIdx, chipEl) {
-  chipEl.classList.toggle('selected');
-  const checkEl = chipEl.querySelector('.chip-check');
-  const room = chipEl.getAttribute('data-room');
-  if (chipEl.classList.contains('selected')) {
-    if (checkEl) checkEl.textContent = '✓';
-    chipEl.title = 'แตะเพื่อยกเลิกห้อง ' + room;
-  } else {
-    if (checkEl) checkEl.textContent = '+';
-    chipEl.title = 'แตะเพื่อเลือกห้อง ' + room;
-  }
-  updateSubjectCardBadge(subIdx);
-}
-
-function toggleAllSubjectRooms(subIdx, selectAll) {
-  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
-  if (!container) return;
-  const chips = container.querySelectorAll('.sub-room-chip');
-  chips.forEach(chip => {
-    const room = chip.getAttribute('data-room');
-    if (selectAll) {
-      chip.classList.add('selected');
-      const checkEl = chip.querySelector('.chip-check');
-      if (checkEl) checkEl.textContent = '✓';
-      chip.title = 'แตะเพื่อยกเลิกห้อง ' + room;
-    } else {
-      chip.classList.remove('selected');
-      const checkEl = chip.querySelector('.chip-check');
-      if (checkEl) checkEl.textContent = '+';
-      chip.title = 'แตะเพื่อเลือกห้อง ' + room;
-    }
-  });
-  updateSubjectCardBadge(subIdx);
-}
-
-function filterSubjectRoomChips(subIdx, level, btn) {
-  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
-  if (!container) return;
-  
-  if (btn && btn.parentElement) {
-    btn.parentElement.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-
-  const chips = container.querySelectorAll('.sub-room-chip');
-  chips.forEach(chip => {
-    const chipLvl = chip.getAttribute('data-level');
-    if (level === 'all' || chipLvl === level) {
-      chip.style.display = 'inline-flex';
-    } else {
-      chip.style.display = 'none';
-    }
-  });
-
-  container.setAttribute('data-active-level', level);
-}
-
-function toggleSubjectRoomsByActiveLevel(subIdx) {
-  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
-  if (!container) return;
-  const chips = container.querySelectorAll('.sub-room-chip');
-  
-  let anyVisibleUnselected = false;
-  chips.forEach(chip => {
-    if (chip.style.display !== 'none') {
-      if (!chip.classList.contains('selected')) anyVisibleUnselected = true;
-    }
-  });
-
-  chips.forEach(chip => {
-    if (chip.style.display !== 'none') {
-      const room = chip.getAttribute('data-room');
-      const checkEl = chip.querySelector('.chip-check');
-      if (anyVisibleUnselected) {
-        chip.classList.add('selected');
-        if (checkEl) checkEl.textContent = '✓';
-        chip.title = 'แตะเพื่อยกเลิกห้อง ' + room;
-      } else {
-        chip.classList.remove('selected');
-        if (checkEl) checkEl.textContent = '+';
-        chip.title = 'แตะเพื่อเลือกห้อง ' + room;
-      }
-    }
-  });
-
-  updateSubjectCardBadge(subIdx);
-}
-
-function updateSubjectCardBadge(subIdx) {
-  const container = document.getElementById(`cfg-room-chips-${subIdx}`);
-  const badge = document.getElementById(`cfg-sub-badge-${subIdx}`);
-  if (!container || !badge) return;
-  const selectedCount = container.querySelectorAll('.sub-room-chip.selected').length;
-  badge.textContent = `${selectedCount} ห้อง`;
-  if (selectedCount === 0) {
-    badge.classList.add('badge-empty-warning');
-  } else {
-    badge.classList.remove('badge-empty-warning');
-  }
-}
-
-window.toggleSubjectRoomChip = toggleSubjectRoomChip;
-window.toggleAllSubjectRooms = toggleAllSubjectRooms;
-window.updateSubjectCardBadge = updateSubjectCardBadge;
+window.addNewSubjectModal = openAddSubjectModal;
+window.openAddSubjectModal = openAddSubjectModal;
+window.selectNewSubLevel = selectNewSubLevel;
+window.switchNewSubRoomMode = switchNewSubRoomMode;
+window.updateNewSubSummary = updateNewSubSummary;
+window.handleConfirmAddSubject = handleConfirmAddSubject;
+window.deleteSubject = deleteSubject;
+window.openManageSubjectRoomsModal = openManageSubjectRoomsModal;
+window.handleAddBatchRoomsToSubject = handleAddBatchRoomsToSubject;
+window.handleAddSingleRoomToSubject = handleAddSingleRoomToSubject;
+window.handleAddExistingRoomToSubject = handleAddExistingRoomToSubject;
+window.handleRemoveSingleRoomFromSubjectModal = handleRemoveSingleRoomFromSubjectModal;
+window.removeRoomFromSubject = removeRoomFromSubject;
+window.handleClearAllRoomsFromSubject = handleClearAllRoomsFromSubject;
+window.saveSettings = saveSettings;
 
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------
 async function pullFromGoogleSheets(isManual = false) {

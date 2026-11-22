@@ -5233,3 +5233,57 @@ body {
   color: #0F172A;
   border-color: var(--primary);
 }
+
+/* Dedicated Taught Room Chips */
+.sub-taught-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-subtle);
+  border: 1px solid var(--primary-border, rgba(37, 99, 235, 0.2));
+  border-radius: var(--radius-pill);
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.sub-taught-chip .chip-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: 2px;
+}
+
+.sub-taught-chip .chip-del:hover {
+  background: #EF4444;
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] .sub-taught-chip {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38BDF8;
+}
+
+[data-theme="dark"] .sub-taught-chip .chip-del {
+  background: rgba(255, 255, 255, 0.15);
+  color: #E2E8F0;
+}
+
+[data-theme="dark"] .sub-taught-chip .chip-del:hover {
+  background: #EF4444;
+  color: #FFFFFF;
+}
+

@@ -26,15 +26,6 @@ const DEFAULT_SUBJECTS = [
 ];
 
 function onOpen() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss && !ss.getSheetByName(SHEET_SETTINGS)) {
-    try {
-      ensureSheetsExist(ss);
-    } catch (e) {
-      console.warn('Auto ensureSheetsExist error:', e);
-    }
-  }
-
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')

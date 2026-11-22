@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const JavaScriptObfuscator = require('javascript-obfuscator');
+const JavaScriptObfuscator = require(path.join(__dirname, '..', 'backend', 'node_modules', 'javascript-obfuscator'));
 
-const sourcePath = path.join(__dirname, 'Code.js');
+const sourcePath = path.join(__dirname, '..', 'backend', 'Code.js');
 const outputPath = path.join(__dirname, '..', 'backend-clean', 'Code.js');
 
 console.log('Reading source Code.js from:', sourcePath);

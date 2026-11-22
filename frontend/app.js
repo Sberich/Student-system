@@ -1623,50 +1623,67 @@ function clearAssignmentSubmissions() {
   if (!currentAssignment) return;
 
   const room = appState.activeClassroom;
-  const confirmed = confirm(`คุณแน่ใจว่าต้องการล้างสถานะส่งงานของ "${currentAssignment.title}" ในห้อง ${room} ทั้งหมดหรือไม่?\n\n(นักเรียนทุกคนในห้องนี้จะเปลี่ยนสถานะกลับเป็น "ค้างส่ง" ทั้งหมด)`);
-  if (!confirmed) return;
+  const filteredStudents = getFilteredStudents();
 
-  const previousSnapshot = {};
-  let count = 0;
-  getFilteredStudents().forEach(st => {
-    const key = `${currentAssignment.id}_${st.studentId}`;
-    const sub = appState.submissions[key];
-    if (sub && sub.status === 'ส่งแล้ว') {
-      previousSnapshot[key] = { ...sub };
-      appState.submissions[key] = {
-        status: 'ค้างส่ง',
-        score: null,
-        updatedAt: new Date().toISOString()
-      };
-      count++;
-    }
+  // ตรวจสอบจำนวนนักเรียนที่เคยส่งงานนี้
+  const submittedStudents = filteredStudents.filter(st => {
+    const sub = appState.submissions[`${currentAssignment.id}_${st.studentId}`];
+    return sub && sub.status === 'ส่งแล้ว';
   });
 
-  if (count === 0) {
-    showToast('ไม่มีนักเรียนที่ส่งงานนี้ในห้องนี้');
+  if (submittedStudents.length === 0) {
+    showToast('ℹ️ ยังไม่มีนักเรียนที่ส่งงานนี้ในห้องนี้');
     return;
   }
 
-  appState.isDirty = true;
-  saveLocalState();
-  scheduleAutoSync();
-
-  showToastWithAction(
-    `🔄 ล้างส่งงาน "${currentAssignment.title}" (${count} คน) แล้ว`,
-    '↩️ เลิกทำ',
-    () => {
-      Object.keys(previousSnapshot).forEach(k => {
-        appState.submissions[k] = previousSnapshot[k];
+  showModernConfirm({
+    title: 'ยืนยันล้างสถานะส่งงาน?',
+    subtitle: `คุณแน่ใจว่าต้องการล้างสถานะส่งงานของ "${currentAssignment.title}" ในห้อง ${room} หรือไม่?\n\n(นักเรียนที่ส่งแล้ว ${submittedStudents.length} คน จากทั้งหมด ${filteredStudents.length} คน จะถูกปรับกลับเป็น "ค้างส่ง")`,
+    icon: '🔄',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🔄 ยืนยันล้างส่ง',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      const previousSnapshot = {};
+      let count = 0;
+      filteredStudents.forEach(st => {
+        const key = `${currentAssignment.id}_${st.studentId}`;
+        const sub = appState.submissions[key];
+        if (sub && sub.status === 'ส่งแล้ว') {
+          previousSnapshot[key] = { ...sub };
+          appState.submissions[key] = {
+            status: 'ค้างส่ง',
+            score: null,
+            updatedAt: new Date().toISOString()
+          };
+          count++;
+        }
       });
+
       appState.isDirty = true;
       saveLocalState();
       scheduleAutoSync();
-      showToast('↩️ ยกเลิกการล้างส่งเรียบร้อย');
+
+      showToastWithAction(
+        `🔄 ล้างส่งงาน "${currentAssignment.title}" (${count} คน) แล้ว`,
+        '↩️ เลิกทำ',
+        () => {
+          Object.keys(previousSnapshot).forEach(k => {
+            appState.submissions[k] = previousSnapshot[k];
+          });
+          appState.isDirty = true;
+          saveLocalState();
+          scheduleAutoSync();
+          showToast('↩️ ยกเลิกการล้างส่งเรียบร้อย');
+          renderGrading(document.getElementById('app-view-container'));
+        }
+      );
+
       renderGrading(document.getElementById('app-view-container'));
     }
-  );
-
-  renderGrading(document.getElementById('app-view-container'));
+  });
 }
 
 // ----------------- View: Report (A4 Landscape Matrix with Pagination) -----------------
@@ -2112,27 +2129,36 @@ function deleteStudent(studentId) {
   const st = appState.students.find(s => s.studentId === studentId);
   if (!st) return;
 
-  if (confirm(`คุณแน่ใจว่าต้องการลบ "เลขที่ ${st.no} ${st.fullName}" หรือไม่? ข้อมูลการส่งงานของนักเรียนคนนี้จะถูกลบออกด้วย`)) {
-    const className = st.classroom;
-    appState.students = appState.students.filter(s => s.studentId !== studentId);
+  showModernConfirm({
+    title: 'ยืนยันลบนักเรียน?',
+    subtitle: `คุณแน่ใจว่าต้องการลบ "เลขที่ ${st.no} ${st.fullName}" หรือไม่?\n\nข้อมูลการส่งงานของนักเรียนคนนี้จะถูกลบออกด้วย และเลขที่ของนักเรียนคนถัดไปจะถูกจัดเรียงชิดขึ้นมาแทนที่โดยอัตโนมัติ`,
+    icon: '🗑️',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🗑️ ลบนักเรียน',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      const className = st.classroom;
+      appState.students = appState.students.filter(s => s.studentId !== studentId);
 
-    // ลบข้อมูล Submissions ของนักเรียนคนนี้เพื่อไม่ให้มีข้อมูลกำพร้า
-    Object.keys(appState.submissions).forEach(k => {
-      if (k.endsWith(`_${studentId}`)) delete appState.submissions[k];
-    });
-    
-    // ถามว่าต้องการรันเลขที่คนที่เหลือต่อเลยไหม
-    if (confirm('ต้องการจัดเรียงเลขที่ของนักเรียนคนถัดไปให้ชิดขึ้นมาแทนที่โดยอัตโนมัติหรือไม่?')) {
+      // ลบข้อมูล Submissions ของนักเรียนคนนี้เพื่อไม่ให้มีข้อมูลกำพร้า
+      Object.keys(appState.submissions).forEach(k => {
+        if (k.endsWith(`_${studentId}`)) delete appState.submissions[k];
+      });
+
+      // จัดเรียงเลขที่ของนักเรียนคนถัดไปให้ชิดขึ้นมาแทนที่โดยอัตโนมัติ
       const classStudents = appState.students.filter(s => s.classroom === className);
       classStudents.sort((a, b) => a.no - b.no);
       classStudents.forEach((s, idx) => { s.no = idx + 1; });
-    }
 
-    appState.isDirty = true;
-    saveLocalState();
-    scheduleAutoSync('full');
-    renderStudents(document.getElementById('app-view-container'));
-  }
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync('full');
+      showToast(`ลบนักเรียน ${st.fullName} เรียบร้อยแล้ว`);
+      renderStudents(document.getElementById('app-view-container'));
+    }
+  });
 }
 
 // ----------------- Modal: แทรกนักเรียนในห้อง & แต่ละเลขที่ -----------------
@@ -2402,6 +2428,76 @@ function showModernPrompt({ title, subtitle = '', defaultValue = '', placeholder
     closeModal(modalId);
     if (typeof onConfirm === 'function') onConfirm(val);
   });
+}
+
+function showModernConfirm({
+  title = 'ยืนยันการดำเนินการ',
+  subtitle = '',
+  icon = '⚠️',
+  iconBg = 'rgba(239, 68, 68, 0.12)',
+  iconBorder = 'rgba(239, 68, 68, 0.25)',
+  confirmText = 'ยืนยัน',
+  confirmClass = 'btn-danger',
+  cancelText = 'ยกเลิก',
+  onConfirm = null,
+  onCancel = null
+}) {
+  const modalId = 'modern-confirm-modal';
+  closeModal(modalId);
+  const html = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10600; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-content prompt-modal-card" style="max-width: 440px; width: 100%; border-radius: var(--radius-lg); padding: 1.35rem 1.45rem; text-align: left; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; border: 1px solid ${iconBorder};">
+              ${icon}
+            </div>
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main); line-height: 1.3;">${esc(title)}</h3>
+            </div>
+          </div>
+          <button type="button" style="border: none; background: transparent; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); padding: 0.2rem; line-height: 1;" onclick="closeModal('${modalId}')">✕</button>
+        </div>
+
+        ${subtitle ? `
+          <div style="margin: 0.85rem 0 1.25rem 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55; background: var(--bg-subtle, #f8fafc); padding: 0.85rem 1rem; border-radius: var(--radius-md); border-left: 3px solid ${confirmClass.includes('danger') ? 'var(--danger, #ef4444)' : 'var(--primary, #3b82f6)'};">
+            ${esc(subtitle).replace(/\n/g, '<br>')}
+          </div>
+        ` : ''}
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" id="modern-confirm-cancel-btn" style="min-width: 80px;">${esc(cancelText)}</button>
+          <button type="button" class="btn ${confirmClass}" id="modern-confirm-ok-btn" style="min-width: 95px; font-weight: 600;">${esc(confirmText)}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const okBtn = document.getElementById('modern-confirm-ok-btn');
+  const cancelBtn = document.getElementById('modern-confirm-cancel-btn');
+
+  const handleOk = () => {
+    closeModal(modalId);
+    if (typeof onConfirm === 'function') onConfirm();
+  };
+  const handleCancel = () => {
+    closeModal(modalId);
+    if (typeof onCancel === 'function') onCancel();
+  };
+
+  okBtn?.addEventListener('click', handleOk);
+  cancelBtn?.addEventListener('click', handleCancel);
+
+  const handleKey = (e) => {
+    if (e.key === 'Escape') {
+      window.removeEventListener('keydown', handleKey);
+      handleCancel();
+    }
+  };
+  window.addEventListener('keydown', handleKey);
+
+  setTimeout(() => okBtn?.focus(), 50);
 }
 
 // ----------------- Modal: จัดการห้องเรียน (เพิ่ม / ลบ / เปลี่ยนชื่อ) -----------------
@@ -3029,19 +3125,33 @@ function handleAddAssignment() {
 }
 
 function deleteAssignment(assignId) {
-  if (confirm('คุณแน่ใจว่าต้องการลบงานนี้หรือไม่? ข้อมูลการส่งงานและคะแนนของงานนี้จะถูกลบออกด้วย')) {
-    appState.assignments = appState.assignments.filter(a => a.id !== assignId);
+  const assign = appState.assignments.find(a => a.id === assignId);
+  const title = assign ? assign.title : 'งานนี้';
 
-    // ลบข้อมูล Submissions ของงานนี้ออกด้วย
-    Object.keys(appState.submissions).forEach(k => {
-      if (k.startsWith(`${assignId}_`)) delete appState.submissions[k];
-    });
+  showModernConfirm({
+    title: 'ยืนยันลบภาระงาน?',
+    subtitle: `คุณแน่ใจว่าต้องการลบงาน "${title}" หรือไม่?\n\nข้อมูลการส่งงานและคะแนนทั้งหมดของงานนี้จะถูกลบออกด้วย`,
+    icon: '🗑️',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🗑️ ลบงาน',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      appState.assignments = appState.assignments.filter(a => a.id !== assignId);
 
-    appState.isDirty = true;
-    saveLocalState();
-    scheduleAutoSync('full');
-    renderAssignments(document.getElementById('app-view-container'));
-  }
+      // ลบข้อมูล Submissions ของงานนี้ออกด้วย
+      Object.keys(appState.submissions).forEach(k => {
+        if (k.startsWith(`${assignId}_`)) delete appState.submissions[k];
+      });
+
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync('full');
+      showToast(`ลบงาน "${title}" สำเร็จ`);
+      renderAssignments(document.getElementById('app-view-container'));
+    }
+  });
 }
 
 // ----------------- View: Settings -----------------
@@ -3680,7 +3790,7 @@ function showToastWithAction(message, actionLabel, actionCallback) {
     toast.style.opacity = '0';
     toast.style.transition = 'opacity 0.3s ease';
     setTimeout(() => toast.remove(), 300);
-  }, 3500);
+  }, 5500);
 }
 
 

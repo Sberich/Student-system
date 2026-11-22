@@ -2360,20 +2360,33 @@ function executeEditStudent(originalStudentId) {
 // ----------------- ฟังก์ชันจัดเรียงเลขที่ใหม่ 1 ถึง N -----------------
 function reindexClassroomStudents(className) {
   const classStudents = appState.students.filter(s => s.classroom === className);
-  if (classStudents.length === 0) return;
-
-  if (confirm(`คุณต้องการจัดเรียงเลขที่นักเรียนห้อง ${className} ใหม่ทั้งหมด (${classStudents.length} คน) เป็นเลขที่ 1 ถึง ${classStudents.length} หรือไม่?`)) {
-    classStudents.sort((a, b) => a.no - b.no);
-    classStudents.forEach((s, idx) => {
-      s.no = idx + 1;
-    });
-
-    appState.isDirty = true;
-    saveLocalState();
-    scheduleAutoSync('full');
-    showToast(`จัดเรียงเลขที่ห้อง ${className} ใหม่ (1-${classStudents.length}) เรียบร้อย`);
-    renderStudents(document.getElementById('app-view-container'));
+  if (classStudents.length === 0) {
+    showToast('⚠️ ไม่พบข้อมูลนักเรียนในห้องนี้');
+    return;
   }
+
+  showModernConfirm({
+    title: 'จัดเรียงเลขที่ใหม่?',
+    subtitle: `คุณต้องการจัดเรียงเลขที่นักเรียนห้อง ${className} ใหม่ทั้งหมด (${classStudents.length} คน) ให้เป็นเลขที่ 1 ถึง ${classStudents.length} ตามลำดับหรือไม่?`,
+    icon: '🔢',
+    iconBg: 'rgba(59, 130, 246, 0.12)',
+    iconBorder: 'rgba(59, 130, 246, 0.25)',
+    confirmText: '🔢 จัดเรียงเลขที่',
+    confirmClass: 'btn-primary',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      classStudents.sort((a, b) => a.no - b.no);
+      classStudents.forEach((s, idx) => {
+        s.no = idx + 1;
+      });
+
+      appState.isDirty = true;
+      saveLocalState();
+      scheduleAutoSync('full');
+      showToast(`จัดเรียงเลขที่ห้อง ${className} ใหม่ (1-${classStudents.length}) เรียบร้อย`);
+      renderStudents(document.getElementById('app-view-container'));
+    }
+  });
 }
 
 // ----------------- Modern Modal Dialog System (ทดแทน prompt() และ alert() พื้นฐาน) -----------------
@@ -2664,39 +2677,49 @@ function renameClassroom(oldName) {
 function deleteClassroom(className) {
   const count = appState.students.filter(s => s.classroom === className).length;
   if (appState.settings.classrooms.length <= 1) {
-    alert('ระบบต้องมีห้องเรียนอย่างน้อย 1 ห้อง');
+    showToast('⚠️ ระบบต้องมีห้องเรียนอย่างน้อย 1 ห้อง');
     return;
   }
 
-  let confirmMsg = `คุณแน่ใจว่าต้องการลบห้อง "${className}" หรือไม่?`;
+  let subtitleText = `คุณแน่ใจว่าต้องการลบห้อง "${className}" ออกจากระบบหรือไม่?`;
   if (count > 0) {
-    confirmMsg += `\n⚠️ ห้องนี้มีนักเรียนอยู่ ${count} คน การลบจะทำให้นักเรียนในห้องนี้ถูกลบออกจากระบบด้วย!`;
+    subtitleText += `\n\n⚠️ คำเตือน: ห้องนี้มีนักเรียนอยู่ ${count} คน การลบห้องจะทำให้นักเรียนและคะแนนทั้งหมดของห้องนี้ถูกลบออกจากระบบด้วย!`;
   }
 
-  if (confirm(confirmMsg)) {
-    appState.settings.classrooms = appState.settings.classrooms.filter(c => c !== className);
-    appState.students = appState.students.filter(s => s.classroom !== className);
-    appState.assignments = appState.assignments.filter(a => a.classroom !== className);
-    (appState.settings.subjects || []).forEach(sub => {
-      if (Array.isArray(sub.classrooms)) {
-        sub.classrooms = sub.classrooms.filter(c => c !== className);
+  showModernConfirm({
+    title: 'ยืนยันลบห้องเรียน?',
+    subtitle: subtitleText,
+    icon: '🗑️',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🗑️ ยืนยันลบห้อง',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      appState.settings.classrooms = appState.settings.classrooms.filter(c => c !== className);
+      appState.students = appState.students.filter(s => s.classroom !== className);
+      appState.assignments = appState.assignments.filter(a => a.classroom !== className);
+      (appState.settings.subjects || []).forEach(sub => {
+        if (Array.isArray(sub.classrooms)) {
+          sub.classrooms = sub.classrooms.filter(c => c !== className);
+        }
+      });
+
+      if (appState.activeClassroom === className) {
+        appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
       }
-    });
 
-    if (appState.activeClassroom === className) {
-      appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      openClassroomManagerModal();
+      showToast(`ลบห้อง ${className} เรียบร้อยแล้ว`);
+      renderApp();
+      pushFullStateToBackend().catch(err => {
+        console.error('Error syncing after classroom deletion:', err);
+      });
     }
-
-    appState.isDirty = true;
-    saveLocalState();
-    renderHeaderControls();
-    openClassroomManagerModal();
-    showToast(`ลบห้อง ${className} เรียบร้อย`);
-    renderApp();
-    pushFullStateToBackend().catch(err => {
-      console.error('Error syncing after classroom deletion:', err);
-    });
-  }
+  });
 }
 
 function closeModal(modalId) {
@@ -3204,28 +3227,41 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <!-- รายชื่อ 5 วิชา และการผูกห้องเรียนที่สอน -->
+      <!-- รายชื่อวิชา และการผูกห้องเรียนที่สอน -->
       <div style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <h4 style="font-size: 0.95rem; font-weight: 600; margin: 0;">📚 5 รายวิชา และห้องเรียนที่สอน</h4>
+            <h4 style="font-size: 0.95rem; font-weight: 600; margin: 0;">📚 รายวิชา (${(appState.settings.subjects || []).length} วิชา) และห้องเรียนที่สอน</h4>
             <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
               แตะเลือกเฉพาะห้องที่คุณครูสอนในแต่ละวิชา (ระบบจะกรองห้องให้ตรงกับวิชานั้นๆ อัตโนมัติ)
             </p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
-            ⚙️ จัดการห้องเรียนทั้งหมด (${(appState.settings.classrooms || DEFAULT_CLASSROOMS).length} ห้อง)
-          </button>
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="addNewSubjectModal()">
+              ➕ เพิ่มวิชาใหม่
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openClassroomManagerModal()">
+              ⚙️ จัดการห้องเรียนทั้งหมด (${(appState.settings.classrooms || DEFAULT_CLASSROOMS).length} ห้อง)
+            </button>
+          </div>
         </div>
 
         <div id="subject-list-config">
-          ${appState.settings.subjects.map((sub, idx) => {
+          ${(appState.settings.subjects || []).map((sub, idx) => {
             const allRooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
             const assignedRooms = (sub.classrooms && Array.isArray(sub.classrooms) && sub.classrooms.length > 0)
               ? sub.classrooms.filter(r => allRooms.includes(r))
               : allRooms;
             return `
               <div class="cfg-subject-card" data-sub-idx="${idx}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                  <span style="font-size: 0.8rem; font-weight: 700; color: var(--primary);">วิชาที่ ${idx + 1}</span>
+                  ${appState.settings.subjects.length > 1 ? `
+                    <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.76rem;" onclick="deleteSubject(${idx})" title="ลบวิชานี้ออกจากการตั้งค่า">
+                      🗑️ ลบวิชา
+                    </button>
+                  ` : ''}
+                </div>
                 <div class="cfg-sub-top-row">
                   <div class="cfg-sub-code-col">
                     <label class="form-label" style="font-size: 0.78rem; margin-bottom: 2px; font-weight: 600;">รหัสวิชา</label>
@@ -3323,6 +3359,70 @@ function toggleTokenVisibility() {
   const input = document.getElementById('cfg-token');
   if (!input) return;
   input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function addNewSubjectModal() {
+  showModernPrompt({
+    title: 'เพิ่มรายวิชาใหม่',
+    subtitle: 'ระบุรหัสวิชาและชื่อวิชา เช่น ส30213 สิทธิมนุษยชน',
+    defaultValue: '',
+    placeholder: 'เช่น ส30213 กฎหมายเบื้องต้น',
+    confirmText: '+ เพิ่มรายวิชา',
+    onConfirm: (val) => {
+      if (!val || !val.trim()) return;
+      const parts = val.trim().split(/\s+/);
+      const code = parts[0];
+      const name = parts.slice(1).join(' ') || code;
+
+      if (!appState.settings.subjects) appState.settings.subjects = [];
+      if (appState.settings.subjects.some(s => s.code.toLowerCase() === code.toLowerCase())) {
+        showToast(`⚠️ มีรหัสวิชา ${code} ในระบบแล้ว`);
+        return;
+      }
+
+      const allRooms = appState.settings.classrooms || DEFAULT_CLASSROOMS;
+      appState.settings.subjects.push({
+        code: code,
+        name: name,
+        classrooms: [...allRooms]
+      });
+
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      renderSettings(document.getElementById('app-view-container'));
+      showToast(`เพิ่มวิชา ${code} สำเร็จ แตะเลือกห้องที่สอนด้านล่างได้เลยครับ`);
+    }
+  });
+}
+
+function deleteSubject(idx) {
+  if (appState.settings.subjects.length <= 1) {
+    showToast('⚠️ ระบบต้องมีรายวิชาอย่างน้อย 1 วิชา');
+    return;
+  }
+  const sub = appState.settings.subjects[idx];
+  showModernConfirm({
+    title: 'ยืนยันลบรายวิชา?',
+    subtitle: `คุณแน่ใจว่าต้องการลบวิชา "${sub.code} ${sub.name}" ออกจากการตั้งค่าหรือไม่?\n\n(หากเคยมีคะแนนบันทึกไว้ในชีท Google Sheets ข้อมูลเดิมจะยังคงอยู่ แต่ระบบจะไม่แสดงวิชานี้ในตัวเลือก)`,
+    icon: '🗑️',
+    iconBg: 'rgba(239, 68, 68, 0.12)',
+    iconBorder: 'rgba(239, 68, 68, 0.25)',
+    confirmText: '🗑️ ลบวิชา',
+    confirmClass: 'btn-danger',
+    cancelText: 'ยกเลิก',
+    onConfirm: () => {
+      appState.settings.subjects.splice(idx, 1);
+      if (appState.activeSubject === sub.code) {
+        appState.activeSubject = appState.settings.subjects[0].code;
+      }
+      appState.isDirty = true;
+      saveLocalState();
+      renderHeaderControls();
+      renderSettings(document.getElementById('app-view-container'));
+      showToast(`ลบวิชา ${sub.code} เรียบร้อยแล้ว`);
+    }
+  });
 }
 
 async function saveSettings() {

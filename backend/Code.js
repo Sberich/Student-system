@@ -583,7 +583,8 @@ function fetchAllData(ss) {
     activeSubject: (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || '',
     activeClassroom: DEFAULT_CLASSROOMS[0] || '',
     subjects: DEFAULT_SUBJECTS,
-    classrooms: DEFAULT_CLASSROOMS
+    classrooms: DEFAULT_CLASSROOMS,
+    spreadsheetUrl: (ss && typeof ss.getUrl === 'function') ? ss.getUrl() : ''
   };
   const settingsValues = settingsSheet ? settingsSheet.getDataRange().getValues() : [];
   for (let i = 1; i < settingsValues.length; i++) {

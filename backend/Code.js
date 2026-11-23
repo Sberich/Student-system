@@ -23,96 +23,21 @@ const DEFAULT_SUBJECTS = [
 const ORIGINAL_TEACHER_SHEET_ID = '1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU';
 
 /**
- * ฟังก์ชันทำความสะอาดข้อมูลตัวอย่างที่อาจตกค้างจากการทำสำเนาในชีทแม่แบบและชีทเพื่อนครู
- * (ชีทต้นฉบับของคุณครูจะถูกละเว้นโดยเด็ดขาด 100%)
+ * ฟังก์ชันทำความสะอาดข้อมูลตัวอย่าง (ถูกปิดการทำงานถาวรแล้ว เพื่อความปลอดภัย 100% ไม่ให้ลบข้อมูลผู้ใช้อีกเด็ดขาด)
  */
 function cleanUpLegacyTemplateDataIfNeeded(ss) {
-  if (!ss) return;
-  try {
-    // ป้องกันชีทต้นฉบับของคุณครู ไม่แตะต้องโดยเด็ดขาด 100%
-    if (ss.getId() === ORIGINAL_TEACHER_SHEET_ID) {
-      return;
-    }
-
-    const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
-    if (!settingsSheet) return;
-
-    const data = settingsSheet.getDataRange().getValues();
-    let hasLegacy = false;
-    let licenseSheetId = '';
-
-    for (let i = 1; i < data.length; i++) {
-      const k = String(data[i][0] || '').trim();
-      const v = String(data[i][1] || '').trim();
-      if (k === 'masterLicenseSheetId') {
-        licenseSheetId = v;
-      }
-      if (v.includes('โรงเรียนสาธิตพัฒนาปัญญา') || v.includes('โรงเรียนตัวอย่าง') || v.includes('ส31162') || v.includes('ม.4/11')) {
-        hasLegacy = true;
-      }
-    }
-
-    if (hasLegacy) {
-      settingsSheet.clearContents();
-      settingsSheet.appendRow(['Key', 'Value']);
-      settingsSheet.appendRow(['schoolName', '']);
-      settingsSheet.appendRow(['academicYear', '2568']);
-      settingsSheet.appendRow(['term', '1']);
-      settingsSheet.appendRow(['teacherName', '']);
-      settingsSheet.appendRow(['activeSubject', 'ว101']);
-      settingsSheet.appendRow(['activeClassroom', 'ม.1/1']);
-      settingsSheet.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
-      settingsSheet.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
-      if (licenseSheetId) {
-        settingsSheet.appendRow(['masterLicenseSheetId', licenseSheetId]);
-      }
-      try {
-        settingsSheet.appendRow(['spreadsheetUrl', ss.getUrl()]);
-      } catch (e) {}
-      formatHeaderRow(settingsSheet);
-
-      const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
-      if (studentsSheet) {
-        const sData = studentsSheet.getDataRange().getValues();
-        let hasLegacyStudents = false;
-        for (let i = 1; i < sData.length; i++) {
-          if (String(sData[i][3] || '').includes('ม.4')) {
-            hasLegacyStudents = true;
-            break;
-          }
-        }
-        if (hasLegacyStudents) {
-          studentsSheet.clearContents();
-          studentsSheet.appendRow(['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']);
-          formatHeaderRow(studentsSheet);
-        }
-      }
-
-      const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
-      if (assignmentsSheet) {
-        const aData = assignmentsSheet.getDataRange().getValues();
-        let hasLegacyAssigns = false;
-        for (let i = 1; i < aData.length; i++) {
-          if (String(aData[i][4] || '').includes('ส31162') || String(aData[i][5] || '').includes('ม.4')) {
-            hasLegacyAssigns = true;
-            break;
-          }
-        }
-        if (hasLegacyAssigns) {
-          assignmentsSheet.clearContents();
-          assignmentsSheet.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
-          formatHeaderRow(assignmentsSheet);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('cleanUpLegacyTemplateDataIfNeeded warning:', err);
-  }
+  // Disabled permanently: protect all user data and sample data from ever being cleared automatically.
+  return;
 }
 
 function onOpen() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  cleanUpLegacyTemplateDataIfNeeded(ss);
+  // Ensure required sheets exist without clearing any data
+  ensureSheetsExist(ss);
+  createCustomMenu();
+}
+
+function createCustomMenu() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
@@ -1271,14 +1196,17 @@ function seedSampleData() {
   settingsSheet.clearContents();
   const sampleSettings = [
     ['Key', 'Value'],
-    ['schoolName', 'โรงเรียนตัวอย่างศึกษา'],
+    ['schoolName', 'โรงเรียนสาธิตวิทยาการ'],
     ['academicYear', '2568'],
     ['term', '1'],
     ['teacherName', 'คุณครูทดสอบ'],
-    ['activeSubject', 'ว101'],
-    ['activeClassroom', 'ม.1/1'],
-    ['subjects', JSON.stringify(DEFAULT_SUBJECTS)],
-    ['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)],
+    ['activeSubject', 'ส31101'],
+    ['activeClassroom', 'ม.4/1'],
+    ['subjects', JSON.stringify([
+      { code: 'ส31101', name: 'สังคมศึกษาพื้นฐาน', credit: 1.0, classrooms: ['ม.4/1', 'ม.4/2'] },
+      { code: 'ว101', name: 'วิทยาการคำนวณ', credit: 1.0, classrooms: ['ม.4/1', 'ม.4/2'] }
+    ])],
+    ['classrooms', JSON.stringify(['ม.4/1', 'ม.4/2'])],
     ['spreadsheetUrl', ss.getUrl()]
   ];
   settingsSheet.getRange(1, 1, sampleSettings.length, 2).setValues(sampleSettings);
@@ -1343,6 +1271,52 @@ function seedSampleData() {
   }
   submissionsSheet.getRange(1, 1, sampleSubs.length, 6).setValues(sampleSubs);
   formatHeaderRow(submissionsSheet);
+
+  // 5. Gradebook ทะเบียนคะแนนตัวอย่าง
+  const gradebookSheet = ss.getSheetByName(SHEET_GRADEBOOK);
+  if (gradebookSheet) {
+    gradebookSheet.clearContents();
+    const gbHeaders = [
+      'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
+      'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
+      'สอบกลางภาค', 'รวมกลางภาค',
+      'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
+      'ปลายภาค', 'รวมปลายภาค',
+      'รวมทั้งสิ้น', 'ตัดเกรด', 'ผลการประเมิน', 'หมายเหตุ', 'อัปเดตเมื่อ'
+    ];
+    const gbRows = [gbHeaders];
+    for (let i = 0; i < 35; i++) {
+      const s = sampleStudents[i + 1];
+      const attPre = Math.floor(Math.random() * 2) + 4; // 4-5
+      const taskPre = Math.floor(Math.random() * 6) + 20; // 20-25
+      const totalPre = attPre + taskPre;
+      const mid = Math.floor(Math.random() * 6) + 15; // 15-20
+      const totalMid = totalPre + mid;
+      const attPost = Math.floor(Math.random() * 2) + 4; // 4-5
+      const taskPost = Math.floor(Math.random() * 6) + 20; // 20-25
+      const totalPost = attPost + taskPost;
+      const finalScore = Math.floor(Math.random() * 6) + 15; // 15-20
+      const totalAll = totalMid + totalPost + finalScore;
+      let grade = '4';
+      if (totalAll < 50) grade = '0';
+      else if (totalAll < 55) grade = '1';
+      else if (totalAll < 60) grade = '1.5';
+      else if (totalAll < 65) grade = '2';
+      else if (totalAll < 70) grade = '2.5';
+      else if (totalAll < 75) grade = '3';
+      else if (totalAll < 80) grade = '3.5';
+      gbRows.push([
+        'ส31101', 'ม.4/1', s[0], s[1], s[2],
+        attPre, taskPre, totalPre,
+        mid, totalMid,
+        attPost, taskPost, totalPost,
+        finalScore, totalMid + totalPost + finalScore,
+        totalAll, grade, grade !== '0' ? 'ผ่าน' : 'ไม่ผ่าน', '', now
+      ]);
+    }
+    gradebookSheet.getRange(1, 1, gbRows.length, gbHeaders.length).setValues(gbRows);
+    formatHeaderRow(gradebookSheet);
+  }
 }
 
 function resetScoresMenuAction() {

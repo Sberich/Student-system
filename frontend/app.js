@@ -4898,8 +4898,9 @@ async function pullFromGoogleSheets(isManual = false) {
     return;
   }
 
-  // หากมีข้อมูลที่ค้างอยู่ในเครื่องยังไม่ได้ส่งขึ้น Google Sheets (isDirty) ให้สำรองขึ้นไปก่อน
-  if (appState.isDirty) {
+  // หากมีข้อมูลที่ค้างอยู่ในเครื่องยังไม่ได้ส่งขึ้น Google Sheets (isDirty) และมีข้อมูลนักเรียนในเครื่อง ให้สำรองขึ้นไปก่อน
+  // หากในเครื่องเป็นตารางว่าง (0 คน) จะข้ามการสำรองทันที เพื่อป้องกันไม่ให้ข้อมูลว่างในเครื่องไปเขียนทับชีท
+  if (appState.isDirty && appState.students && appState.students.length > 0) {
     try {
       if (isManual) showToast('⏳ กำลังสำรองข้อมูลล่าสุดในเครื่องขึ้น Google Sheets ก่อนดึง...');
       await pushFullStateToBackend();

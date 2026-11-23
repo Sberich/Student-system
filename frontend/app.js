@@ -432,6 +432,16 @@ function loadLocalState() {
       // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
       purgeInvalidGradebookRecords();
 
+      // ล้างข้อมูลตัวอย่างเดิมที่อาจตกค้างในแคชของเบราว์เซอร์
+      if (appState.settings) {
+        if (appState.settings.schoolName === 'โรงเรียนสาธิตพัฒนาปัญญา' || appState.settings.schoolName === 'โรงเรียนตัวอย่าง') {
+          appState.settings.schoolName = '';
+        }
+        if (appState.settings.teacherName === 'คุณครูผู้สอน') {
+          appState.settings.teacherName = '';
+        }
+      }
+
       hasSavedLocalState = true;
     }
   } catch (e) {
@@ -3911,9 +3921,14 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <div class="cfg-save-actions-row" style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-        <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
-        <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
+      <div class="cfg-save-actions-row" style="display: flex; gap: 0.5rem; margin-top: 1.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
+          <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetLocalAppCache()" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5;" title="ล้างข้อมูลที่ค้างในเครื่องนี้">
+          🧹 ล้างแคชในเครื่องนี้
+        </button>
       </div>
 
       <!-- Cloud Recovery / Pull Data จากฐานข้อมูลจริง -->
@@ -4549,17 +4564,36 @@ async function saveSettings() {
   const currentToken = appState.settings.apiToken || '';
   const inputToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : currentToken;
 
+  const oldGasUrl = (appState.settings.gasUrl || '').trim();
+  const inputGasUrl = document.getElementById('cfg-gas-url') ? document.getElementById('cfg-gas-url').value.trim() : oldGasUrl;
+  const isNewUrl = inputGasUrl && (inputGasUrl !== oldGasUrl);
+
+  const sheetUrlEl = document.getElementById('cfg-sheet-url');
+  if (sheetUrlEl && sheetUrlEl.value.trim()) {
+    appState.settings.spreadsheetUrl = sheetUrlEl.value.trim();
+  }
+
+  // หากมีการเปลี่ยน Web App URL ให้สลับไปเชื่อมต่อชีทใหม่และดึงข้อมูลจากชีทใหม่ทันที (ไม่เขียนทับชีทใหม่ด้วยข้อมูลเก่าในเครื่อง)
+  if (isNewUrl) {
+    appState.settings.gasUrl = inputGasUrl;
+    appState.settings.apiToken = inputToken;
+    appState.isDirty = false;
+    saveLocalState();
+    renderHeaderControls();
+    showToast('🔗 กำลังเชื่อมต่อไปยังชีทใหม่ และดึงข้อมูลจริงลงเครื่อง...');
+    const ok = await pullFromGoogleSheets(true);
+    if (ok) {
+      showToast('✓ เชื่อมต่อชีทใหม่และดึงข้อมูลสำเร็จ');
+    }
+    return;
+  }
+
   appState.settings.schoolName = document.getElementById('cfg-school').value;
   appState.settings.term = document.getElementById('cfg-term').value;
   appState.settings.academicYear = document.getElementById('cfg-year').value;
   appState.settings.teacherName = document.getElementById('cfg-teacher').value;
-  appState.settings.gasUrl = document.getElementById('cfg-gas-url').value.trim() || DEFAULT_GAS_URL;
+  appState.settings.gasUrl = inputGasUrl || DEFAULT_GAS_URL;
   appState.settings.apiToken = inputToken;
-
-  const sheetUrlEl = document.getElementById('cfg-sheet-url');
-  if (sheetUrlEl) {
-    appState.settings.spreadsheetUrl = sheetUrlEl.value.trim();
-  }
 
   const subCards = document.querySelectorAll('.cfg-subject-card');
   const newSubs = [];
@@ -4669,6 +4703,23 @@ window.handleAddExistingRoomToSubject = handleAddExistingRoomToSubject;
 window.handleRemoveSingleRoomFromSubjectModal = handleRemoveSingleRoomFromSubjectModal;
 window.removeRoomFromSubject = removeRoomFromSubject;
 window.handleClearAllRoomsFromSubject = handleClearAllRoomsFromSubject;
+function resetLocalAppCache() {
+  showModernConfirm({
+    title: 'ล้างข้อมูลแคชในเครื่องนี้?',
+    subtitle: 'ระบบจะล้างข้อมูลที่บันทึกค้างไว้ในเครื่องนี้ออกทั้งหมด และรีเซ็ตกลับเป็นค่าเริ่มต้นบริสุทธิ์ (ข้อมูลบน Google Sheet จะไม่ได้รับผลกระทบ)\n\nใช้เมื่อต้องการเริ่มต้นใหม่ หรือสลับชีทโดยไม่ให้ข้อมูลเก่าในเครื่องตามไปด้วย',
+    icon: '🧹',
+    confirmText: 'ล้างแคชเดี๋ยวนี้',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      localStorage.removeItem(STORAGE_KEY);
+      showToast('✓ ล้างข้อมูลในเครื่องเรียบร้อย กำลังรีโหลด...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
+    }
+  });
+}
+window.resetLocalAppCache = resetLocalAppCache;
 window.saveSettings = saveSettings;
 
 // ----------------- Cloud Restore: ดึงข้อมูลจริงจาก Google Sheets -----------------

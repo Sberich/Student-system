@@ -20,7 +20,99 @@ const DEFAULT_SUBJECTS = [
   { id: 'SUB01', code: 'ว101', name: 'รายวิชาตัวอย่าง', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.1/1', 'ม.1/2'] }
 ];
 
+const ORIGINAL_TEACHER_SHEET_ID = '1fP4g1aedTiymV9ZTIer0gWjTWZeewOrk6gJo2qfWjpU';
+
+/**
+ * ฟังก์ชันทำความสะอาดข้อมูลตัวอย่างที่อาจตกค้างจากการทำสำเนาในชีทแม่แบบและชีทเพื่อนครู
+ * (ชีทต้นฉบับของคุณครูจะถูกละเว้นโดยเด็ดขาด 100%)
+ */
+function cleanUpLegacyTemplateDataIfNeeded(ss) {
+  if (!ss) return;
+  try {
+    // ป้องกันชีทต้นฉบับของคุณครู ไม่แตะต้องโดยเด็ดขาด 100%
+    if (ss.getId() === ORIGINAL_TEACHER_SHEET_ID) {
+      return;
+    }
+
+    const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
+    if (!settingsSheet) return;
+
+    const data = settingsSheet.getDataRange().getValues();
+    let hasLegacy = false;
+    let licenseSheetId = '';
+
+    for (let i = 1; i < data.length; i++) {
+      const k = String(data[i][0] || '').trim();
+      const v = String(data[i][1] || '').trim();
+      if (k === 'masterLicenseSheetId') {
+        licenseSheetId = v;
+      }
+      if (v.includes('โรงเรียนสาธิตพัฒนาปัญญา') || v.includes('โรงเรียนตัวอย่าง') || v.includes('ส31162') || v.includes('ม.4/11')) {
+        hasLegacy = true;
+      }
+    }
+
+    if (hasLegacy) {
+      settingsSheet.clearContents();
+      settingsSheet.appendRow(['Key', 'Value']);
+      settingsSheet.appendRow(['schoolName', '']);
+      settingsSheet.appendRow(['academicYear', '2568']);
+      settingsSheet.appendRow(['term', '1']);
+      settingsSheet.appendRow(['teacherName', '']);
+      settingsSheet.appendRow(['activeSubject', 'ว101']);
+      settingsSheet.appendRow(['activeClassroom', 'ม.1/1']);
+      settingsSheet.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
+      settingsSheet.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
+      if (licenseSheetId) {
+        settingsSheet.appendRow(['masterLicenseSheetId', licenseSheetId]);
+      }
+      try {
+        settingsSheet.appendRow(['spreadsheetUrl', ss.getUrl()]);
+      } catch (e) {}
+      formatHeaderRow(settingsSheet);
+
+      const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
+      if (studentsSheet) {
+        const sData = studentsSheet.getDataRange().getValues();
+        let hasLegacyStudents = false;
+        for (let i = 1; i < sData.length; i++) {
+          if (String(sData[i][3] || '').includes('ม.4')) {
+            hasLegacyStudents = true;
+            break;
+          }
+        }
+        if (hasLegacyStudents) {
+          studentsSheet.clearContents();
+          studentsSheet.appendRow(['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']);
+          formatHeaderRow(studentsSheet);
+        }
+      }
+
+      const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
+      if (assignmentsSheet) {
+        const aData = assignmentsSheet.getDataRange().getValues();
+        let hasLegacyAssigns = false;
+        for (let i = 1; i < aData.length; i++) {
+          if (String(aData[i][4] || '').includes('ส31162') || String(aData[i][5] || '').includes('ม.4')) {
+            hasLegacyAssigns = true;
+            break;
+          }
+        }
+        if (hasLegacyAssigns) {
+          assignmentsSheet.clearContents();
+          assignmentsSheet.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
+          formatHeaderRow(assignmentsSheet);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('cleanUpLegacyTemplateDataIfNeeded warning:', err);
+  }
+}
+
 function onOpen() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  cleanUpLegacyTemplateDataIfNeeded(ss);
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📚 ระบบส่งงานนักเรียน')
     .addItem('⚙️ ตั้งค่าชีทเริ่มต้น (Init Sheets)', 'initSheets')
@@ -424,6 +516,7 @@ function doPost(e) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    cleanUpLegacyTemplateDataIfNeeded(ss);
     ensureSheetsExist(ss);
 
     let payload = {};
@@ -537,6 +630,7 @@ function doPost(e) {
  * ดึงข้อมูลรวมทั้งหมด
  */
 function fetchAllData(ss) {
+  cleanUpLegacyTemplateDataIfNeeded(ss);
   const settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
   const studentsSheet = ss.getSheetByName(SHEET_STUDENTS);
   const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);

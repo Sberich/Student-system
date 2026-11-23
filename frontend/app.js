@@ -3930,27 +3930,58 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <div class="cfg-save-actions-row" style="display: flex; gap: 0.5rem; margin-top: 1.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
-          <button class="btn btn-secondary" onclick="triggerManualSync()">⬆️ ส่งข้อมูลขึ้น Google Sheets</button>
+      <div class="cfg-save-actions-row" style="margin-top: 1.5rem; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1.25rem;">
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--text-main);">
+          ⬆️ ส่งข้อมูลจากหน้าเว็บนี้ ขึ้น Google Sheets (Web ➔ Sheets)
+        </h4>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 1rem 0;">
+          เลือกกดบันทึกเมื่อคุณครูแก้ไขข้อมูลบนหน้าเว็บนี้ แล้วต้องการนำขึ้นไปบันทึกใน Google Sheets
+        </p>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; flex: 1;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <button class="btn btn-primary" onclick="saveSettings()" title="ส่งเฉพาะชื่อโรงเรียน ปีการศึกษา ครูผู้สอน และรายวิชาที่แก้ไขในหน้านี้ ขึ้นไปบันทึกในชีท (ปลอดภัย 100% ไม่แตะต้องรายชื่อและคะแนนนักเรียน)">
+                💾 บันทึกการตั้งค่าหน้านี้
+              </button>
+              <span style="font-size: 0.72rem; color: #166534; font-weight: 500;">
+                ✓ ปลอดภัย: บันทึกเฉพาะข้อมูลโรงเรียน/วิชา ไม่กระทบคะแนน
+              </span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <button class="btn btn-secondary" onclick="triggerManualSync()" title="ส่งรายชื่อนักเรียน งาน และคะแนนทั้งหมดที่ตรวจในเว็บตอนนี้ ไปบันทึกลงชีท">
+                ⬆️ สำรองคะแนนทั้งหมดขึ้นชีท
+              </button>
+              <span style="font-size: 0.72rem; color: var(--text-muted);">
+                ใช้เมื่อต้องการบันทึกคะแนนงานที่เพิ่งให้บนเว็บขึ้นชีททันที
+              </span>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-secondary btn-sm" onclick="resetLocalAppCache()" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5;" title="ล้างข้อมูลที่บันทึกค้างไว้ในเครื่องนี้ (ข้อมูลบน Google Sheets ไม่หาย)">
+            🧹 ล้างแคชในเครื่องนี้
+          </button>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="resetLocalAppCache()" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5;" title="ล้างข้อมูลที่ค้างในเครื่องนี้">
-          🧹 ล้างแคชในเครื่องนี้
-        </button>
       </div>
 
       <!-- Cloud Recovery / Pull Data จากฐานข้อมูลจริง -->
-      <div class="cfg-cloud-box" style="margin-top: 1.5rem; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-          <div>
-            <h4 style="font-size: 0.95rem; font-weight: 600; color: #166534;">☁️ คืนค่า & ดึงข้อมูลจริงจาก Google Sheets</h4>
-            <p style="font-size: 0.8rem; color: #15803D; margin-top: 2px;">
-              ใช้เมื่อเปิดบนอุปกรณ์ใหม่ (iPad/มือถือ) หรือเมื่อข้อมูลในหน้าเว็บเครื่องนี้หาย ระบบจะดึงนักเรียน คะแนน และงานทั้งหมดจากชีทกลับมาแสดงทันที
+      <div class="cfg-cloud-box" style="margin-top: 1.25rem; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.25rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+          <div style="flex: 1; min-width: 260px;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.2rem;">📥</span>
+              <h4 style="font-size: 0.98rem; font-weight: 700; color: #166534; margin: 0;">
+                ดึงข้อมูลจริงจาก Google Sheets (Sheets ➔ หน้านี้)
+              </h4>
+            </div>
+            <p style="font-size: 0.8rem; color: #15803D; margin: 0; line-height: 1.45;">
+              ใช้เมื่อคุณครู<strong>แก้ไขข้อมูลใน Google Sheets เสร็จแล้ว</strong> หรือเปิดใช้งานบนอุปกรณ์ใหม่ (iPad/มือถือ) ระบบจะดึงรายชื่อนักเรียน งาน และคะแนนทั้งหมดจากชีทมาแสดงผลบนหน้านี้ทันที
+              <br><span style="font-size: 0.75rem; color: #166534; opacity: 0.9;">🛡️ มีระบบตรวจสอบอัตโนมัติ: หากมีคะแนนที่เพิ่งตรวจในเครื่องยังไม่เซฟ ระบบจะมีหน้าต่างถามก่อนเสมอเพื่อป้องกันคะแนนสูญหาย</span>
             </p>
           </div>
-          <button class="btn btn-success" onclick="pullFromGoogleSheets(true)">
-            📥 ดึงข้อมูลจาก Google Sheets เดี๋ยวนี้
+          <button class="btn btn-success" onclick="pullFromGoogleSheets(true)" title="ดึงรายชื่อนักเรียน งาน และคะแนนล่าสุดจาก Google Sheets มาแสดงผลบนหน้าเว็บนี้ (มีระบบป้องกันข้อมูลในเครื่องสูญหาย)" style="white-space: nowrap; padding: 0.65rem 1.25rem; font-weight: 600;">
+            📥 ดึงข้อมูลจากชีทลงหน้าเว็บเดี๋ยวนี้
           </button>
         </div>
       </div>
@@ -4816,10 +4847,9 @@ async function saveSettings() {
 
   saveLocalState();
   renderHeaderControls();
-  showToast('💾 บันทึกการตั้งค่าแล้ว กำลังซิงค์ข้อมูลกับ Google Sheets...');
+  showToast('💾 กำลังบันทึกการตั้งค่าขึ้น Google Sheets...');
   await pushSettingsToBackend(currentToken, inputToken);
-  // ดึงข้อมูลจริงล่าสุดจากชีทลงมาซิงค์กับหน้าเว็บทันที เพื่อให้ข้อมูลบนหน้าเว็บตรงกับชีท 100%
-  await pullFromGoogleSheets(false);
+  showToast('✓ บันทึกการตั้งค่าลง Google Sheets สำเร็จเรียบร้อย (ไม่แตะต้องคะแนนและรายชื่อนักเรียน)');
 }
 
 function handleModalSubBatchPrefixChange(subIdx, prefix) {
@@ -4900,8 +4930,33 @@ async function pullFromGoogleSheets(isManual = false) {
     return false;
   }
 
-  // เมื่อผู้ใช้กดดึงข้อมูลจากชีทโดยตรง (Manual Pull) ให้ดึงข้อมูลล่าสุดจาก Google Sheets มาใช้งานทันที
-  // ป้องกันไม่ให้ข้อมูลเก่าในเครื่องส่งกลับไปเขียนทับชีท 100%
+  // ป้องกันข้อมูลสูญหาย 100%: หากมีคะแนนหรือการแก้ไขในเครื่องที่ยังไม่ได้ส่งขึ้นชีท ให้ถามก่อนเสมอ!
+  if (isManual && appState.isDirty) {
+    showModernConfirm({
+      title: '⚠️ มีคะแนน/ข้อมูลใหม่ที่ยังไม่ได้ส่งขึ้นชีท!',
+      subtitle: 'คุณครูมีการแก้ไขคะแนนหรือรายชื่อในเครื่องนี้ที่ยังไม่ได้ส่งขึ้น Google Sheets\n\nหากดึงข้อมูลจากชีทตอนนี้ คะแนนที่เพิ่งพิมพ์ในหน้านี้จะถูกแทนที่ด้วยข้อมูลจากชีท คุณครูต้องการให้ระบบทำอย่างไร?',
+      icon: '🛡️',
+      confirmText: '⬆️ ส่งคะแนนขึ้นชีทก่อน แล้วค่อยดึง',
+      confirmClass: 'btn-primary',
+      cancelText: '📥 ดึงจากชีททับเลย (ไม่เอาในเครื่อง)',
+      onConfirm: async () => {
+        showToast('⏳ กำลังสำรองคะแนนขึ้น Google Sheets...');
+        try {
+          await pushFullStateToBackend();
+          showToast('✓ ส่งคะแนนขึ้นชีทแล้ว กำลังดึงข้อมูลล่าสุด...');
+        } catch (e) {
+          console.warn('Backup push before pull failed:', e);
+        }
+        await continuePullFromGoogleSheets(true);
+      },
+      onCancel: async () => {
+        appState.isDirty = false;
+        await continuePullFromGoogleSheets(true);
+      }
+    });
+    return false;
+  }
+
   appState.isDirty = false;
   return await continuePullFromGoogleSheets(isManual);
 }

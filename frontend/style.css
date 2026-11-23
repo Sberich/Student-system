@@ -5314,6 +5314,274 @@ body {
   color: #FFFFFF;
 }
 
+
+/* ==========================================================================
+   ✨ Modern Minimal Tooltip System (Replaces scary black boxes & white borders)
+   ========================================================================== */
+[data-tooltip] {
+  position: relative;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    background: #1E293B;
+    color: #F8FAFC;
+    font-size: 0.74rem;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: normal;
+    width: max-content;
+    max-width: 220px;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2), 0 1px 3px rgba(15, 23, 42, 0.1);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.15s;
+    z-index: 1050;
+    word-break: break-word;
+  }
+
+  [data-tooltip]::after {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border-width: 6px 5px 0 5px;
+    border-style: solid;
+    border-color: #1E293B transparent transparent transparent;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.15s;
+    z-index: 1050;
+  }
+
+  [data-tooltip]:hover::before,
+  [data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  [data-tooltip-pos="bottom"]::before {
+    bottom: auto;
+    top: calc(100% + 7px);
+    transform: translateX(-50%) translateY(-4px);
+  }
+  [data-tooltip-pos="bottom"]::after {
+    bottom: auto;
+    top: calc(100% + 1px);
+    border-width: 0 5px 6px 5px;
+    border-color: transparent transparent #1E293B transparent;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  [data-tooltip-pos="bottom"]:hover::before,
+  [data-tooltip-pos="bottom"]:hover::after {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   ⚙️ Settings Action Cards & Fields Typography
+   ========================================================================== */
+.cfg-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.cfg-field-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-main, #1F2937);
+}
+
+.cfg-field-sub {
+  font-size: 0.74rem;
+  font-weight: normal;
+  color: var(--text-muted, #6B7280);
+}
+
+.cfg-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6B7280);
+  margin-top: 0.3rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.cfg-action-card {
+  margin-top: 1.25rem;
+  border-radius: var(--radius-md, 12px);
+  padding: 1.15rem;
+  border: 1px solid var(--border-light, #E2E8F0);
+  background: var(--bg-subtle, #F8FAFC);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cfg-action-card-upload {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+.cfg-action-card-download {
+  background: #F0FDF4;
+  border: 1.5px solid #86EFAC;
+}
+
+.cfg-action-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem 0;
+  color: var(--text-main, #1F2937);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1.35;
+}
+
+.cfg-action-title.text-emerald {
+  color: #166534;
+}
+
+.cfg-action-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #4B5563);
+  margin: 0;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.cfg-action-desc.text-emerald-desc {
+  color: #15803D;
+}
+
+.cfg-safe-guard-note {
+  font-size: 0.74rem;
+  color: #166534;
+  margin-top: 0.35rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.cfg-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.cfg-action-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cfg-action-btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  min-height: 42px;
+}
+
+.cfg-action-hint {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--text-muted, #6B7280);
+  word-break: break-word;
+}
+
+.text-success-hint {
+  color: #15803D;
+  font-weight: 500;
+}
+
+.cfg-safe-badge {
+  display: inline-block;
+  background: #DCFCE7;
+  color: #166534;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-right: 0.2rem;
+}
+
+.cfg-action-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--border-light, #E2E8F0);
+  flex-wrap: wrap;
+}
+
+.cfg-clean-cache-btn {
+  color: #DC2626 !important;
+  border-color: #FECACA !important;
+  background: #FFF5F5 !important;
+  font-size: 0.78rem !important;
+  padding: 0.35rem 0.65rem !important;
+}
+
+.cfg-cache-note {
+  font-size: 0.72rem;
+  color: var(--text-muted, #9CA3AF);
+  word-break: break-word;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .cfg-action-card-upload {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: #334155;
+}
+
+[data-theme="dark"] .cfg-action-card-download {
+  background: rgba(6, 78, 59, 0.25);
+  border-color: #059669;
+}
+
+[data-theme="dark"] .cfg-action-title.text-emerald {
+  color: #34D399;
+}
+
+[data-theme="dark"] .cfg-action-desc.text-emerald-desc {
+  color: #A7F3D0;
+}
+
+[data-theme="dark"] .cfg-safe-guard-note {
+  color: #6EE7B7;
+}
+
+[data-theme="dark"] .cfg-clean-cache-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #F87171 !important;
+}
+
+[data-theme="dark"] .cfg-safe-badge {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86EFAC;
+}
+
 /* ==========================================================================
    📱 Mobile Minimal & Cozy Settings View (< 640px)
    ========================================================================== */
@@ -5430,41 +5698,61 @@ body {
     overflow-x: visible !important;
   }
 
-  .cfg-save-actions-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.4rem !important;
+  .cfg-field-label {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.2rem !important;
+  }
+
+  .cfg-action-card {
+    padding: 0.95rem 0.85rem !important;
+    gap: 0.75rem !important;
     margin-top: 1rem !important;
   }
 
-  .cfg-save-actions-row .btn {
-    padding: 0.5rem 0.5rem !important;
-    font-size: 0.82rem !important;
-    white-space: nowrap !important;
+  .cfg-action-title {
+    font-size: 0.92rem !important;
+  }
+
+  .cfg-action-desc {
+    font-size: 0.78rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .cfg-action-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.8rem !important;
+  }
+
+  .cfg-action-btn {
+    width: 100% !important;
+    padding: 0.65rem 0.75rem !important;
+    font-size: 0.88rem !important;
+  }
+
+  .cfg-action-footer {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+  }
+
+  .cfg-clean-cache-btn {
+    width: 100% !important;
     text-align: center !important;
     justify-content: center !important;
   }
 
-  .cfg-cloud-box {
-    padding: 0.75rem 0.8rem !important;
-    margin-top: 1rem !important;
-  }
-
-  .cfg-cloud-box h4 {
-    font-size: 0.88rem !important;
-  }
-
-  .cfg-cloud-box p {
-    font-size: 0.74rem !important;
-    margin-top: 1px !important;
-  }
-
-  .cfg-cloud-box .btn {
+  .cfg-cache-note {
+    font-size: 0.72rem !important;
+    text-align: center !important;
     width: 100% !important;
-    padding: 0.45rem 0.75rem !important;
-    font-size: 0.82rem !important;
-    margin-top: 0.4rem !important;
-    justify-content: center !important;
+  }
+
+  .cfg-save-actions-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.8rem !important;
+    margin-top: 1rem !important;
   }
 
   .add-sub-modal-content {

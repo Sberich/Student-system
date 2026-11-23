@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=55">
 </head>
 <body>
 
@@ -76,7 +76,7 @@
       </nav>
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <div class="sync-status-indicator" id="manual-sync-btn" style="cursor: pointer;" title="คลิกเพื่อซิงค์ข้อมูลกับ Google Sheets">
+        <div class="sync-status-indicator" id="manual-sync-btn" style="cursor: pointer;" data-tooltip="คลิกเพื่อส่งข้อมูลขึ้นชีท">
           <span class="status-dot" id="sync-indicator-dot"></span>
           <span id="sync-indicator-label">บันทึกในเครื่องแล้ว</span>
         </div>
@@ -133,7 +133,7 @@
         <div class="gbf-val-box">
           <span class="gbf-val-label">คะแนน:</span>
           <span class="gbf-val-num" id="gbf-val-display">-</span>
-          <button type="button" class="gbf-close-btn" onclick="closeGradebookFloatingKeypad()" title="ปิดแป้นกดคะแนนลอย">✕</button>
+          <button type="button" class="gbf-close-btn" onclick="closeGradebookFloatingKeypad()">✕</button>
         </div>
       </div>
       <div class="gbf-actions" id="gbf-actions">
@@ -147,11 +147,11 @@
 
   <!-- Scripts -->
   <script src="html2canvas.min.js"></script>
-  <script src="app.js?v=54"></script>
+  <script src="app.js?v=55"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=50').then((reg) => {
+        navigator.serviceWorker.register('./sw.js?v=55').then((reg) => {
           console.log('[PWA] Service Worker registered with scope:', reg.scope);
         }).catch((err) => {
           console.warn('[PWA] Service Worker registration failed:', err);

@@ -629,7 +629,7 @@ function renderHeaderControls() {
   container.innerHTML = `
     <div class="context-unified-bar">
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-subject-popover', this, event)" title="เลือกรายวิชา (${appState.settings.subjects.length} วิชา)">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-subject-popover', this, event)">
           <span class="context-bar-icon">📖</span>
           <span class="context-picker-text">${esc(subjectObj.code)}</span>
           <span class="popover-arrow">▾</span>
@@ -640,7 +640,7 @@ function renderHeaderControls() {
       </div>
       <span class="context-sep">•</span>
       <div class="popover-dropdown-wrapper">
-        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-classroom-popover', this, event)" title="เลือกห้องเรียน (${subjectRooms.length} ห้อง)">
+        <button type="button" class="context-popover-btn" onclick="toggleCustomDropdown('header-classroom-popover', this, event)">
           <span class="context-bar-icon">🏫</span>
           <span class="context-picker-text">${esc(appState.activeClassroom)}</span>
           <span class="popover-arrow">▾</span>
@@ -1090,7 +1090,7 @@ function renderOverview(container) {
               <span class="stat-pill-label">👥 นักเรียน</span>
               <span class="stat-pill-val">${totalStudents} <small>คน</small></span>
             </div>
-            <div class="stat-pill-item" onclick="switchTab('assignments')" style="cursor: pointer;" title="แตะเพื่อดู/จัดการภาระงาน">
+            <div class="stat-pill-item" onclick="switchTab('assignments')" style="cursor: pointer;">
               <span class="stat-pill-label">📚 ชิ้นงาน</span>
               <span class="stat-pill-val">${totalAssignments} <small>ชิ้น</small></span>
             </div>
@@ -1166,7 +1166,7 @@ function renderOverview(container) {
                   return `
                     <div class="mini-donut-card ${r.isCurrent ? 'is-active-room' : ''}" 
                          onclick="selectSubjectAndClassroom('${esc(item.subject.code)}', '${esc(r.classroom)}')" 
-                         title="แตะเพื่อเลือกวิชา ${esc(item.subject.code)} ห้อง ${esc(r.classroom)}">
+                        >
                       <div class="mini-donut-header">
                         <span class="mini-donut-room">🏫 ${esc(r.classroom)}</span>
                         <span class="mini-donut-count">${r.studentsCount} คน</span>
@@ -1297,7 +1297,7 @@ function renderGrading(container) {
     <div class="assignment-bar">
       <div class="assign-bar-row-1">
         <div class="popover-dropdown-wrapper assign-popover-wrapper">
-          <button type="button" class="popover-trigger-btn" onclick="toggleCustomDropdown('assign-popover-menu', this, event)" id="assignment-picker-btn" title="แตะเพื่อเลือกภาระงาน">
+          <button type="button" class="popover-trigger-btn" onclick="toggleCustomDropdown('assign-popover-menu', this, event)" id="assignment-picker-btn">
             <span class="popover-trigger-text">📚 ${esc(currentAssignment.title)} (เต็ม ${currentAssignment.fullScore})</span>
             <span class="popover-trigger-arrow">▾</span>
           </button>
@@ -1320,26 +1320,26 @@ function renderGrading(container) {
           </div>
         </div>
         <div class="btn-group">
-          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" title="งานก่อนหน้า">◀</button>
-          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" title="งานถัดไป">▶</button>
-          <button class="btn btn-secondary btn-sm" onclick="switchTab('assignments')" title="จัดการภาระงาน / เพิ่มงานใหม่">📚</button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(-1)" data-tooltip="งานก่อนหน้า">◀</button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateAssignment(1)" data-tooltip="งานถัดไป">▶</button>
+          <button class="btn btn-secondary btn-sm" onclick="switchTab('assignments')" data-tooltip="จัดการภาระงาน">📚</button>
         </div>
       </div>
 
       <div class="assign-bar-row-2">
         <div class="mode-toggle-group">
-          <button class="mode-btn ${appState.gradingMode === 'rapid' ? 'active' : ''}" onclick="setGradingMode('rapid')" title="แตะชื่อนักเรียน = ส่งแล้วและได้คะแนนเต็มทันที">
+          <button class="mode-btn ${appState.gradingMode === 'rapid' ? 'active' : ''}" onclick="setGradingMode('rapid')" data-tooltip="แตะ = ส่งด่วนได้เต็ม">
             ⚡ ตรวจด่วน
           </button>
-          <button class="mode-btn ${appState.gradingMode === 'detailed' ? 'active' : ''}" onclick="setGradingMode('detailed')" title="แตะเลือกนักเรียน แล้วกดให้คะแนนบนแป้นตัวเลข">
+          <button class="mode-btn ${appState.gradingMode === 'detailed' ? 'active' : ''}" onclick="setGradingMode('detailed')" data-tooltip="แตะเลือก แล้วระบุคะแนน">
             📝 ตรวจละเอียด
           </button>
         </div>
         <div class="btn-group">
-          <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()" title="บันทึกคนที่ยังค้างส่งทุกคนให้เป็นส่งแล้วและได้คะแนนเต็ม">
+          <button class="btn btn-success btn-sm btn-mark-all" onclick="markAllRemainingAsSubmitted()" data-tooltip="ส่งครบทุกคน (ได้เต็ม)">
             ⚡ ส่งแล้วทุกคน
           </button>
-          <button class="btn btn-secondary btn-sm btn-clear-sub" onclick="clearAssignmentSubmissions()" title="ล้างสถานะส่งงานของงานนี้ทุกคนกลับเป็นค้างส่ง">
+          <button class="btn btn-secondary btn-sm btn-clear-sub" onclick="clearAssignmentSubmissions()" data-tooltip="รีเซ็ตเป็นค้างส่งทุกคน">
             🔄 ล้างส่ง
           </button>
         </div>
@@ -1390,7 +1390,7 @@ function renderGrading(container) {
                   <div class="score-display ${sub.score !== null && sub.score !== '' ? '' : 'empty'}">
                     ${sub.score !== null && sub.score !== '' ? sub.score : '-'}
                   </div>
-                  <button type="button" class="btn-score-dec" onclick="adjustStudentScore(event, '${esc(st.studentId)}', -1)" title="ลดคะแนน (ส่งช้า)">−</button>
+                  <button type="button" class="btn-score-dec" onclick="adjustStudentScore(event, '${esc(st.studentId)}', -1)" data-tooltip="หักคะแนนส่งช้า (-1)">−</button>
                 </div>
               </div>
             `;
@@ -2027,7 +2027,7 @@ function renderReport(container) {
               <th rowspan="2" style="width: 58px; text-align: center;">รหัส</th>
               <th rowspan="2" style="width: 150px; text-align: left; padding-left: 10px;">ชื่อ-นามสกุล</th>
               ${pageAssignments.map(a => `
-                <th rowspan="2" class="task-header" title="${esc(a.title)}">
+                <th rowspan="2" class="task-header" data-tooltip="${esc(a.title)}">
                   <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-main, #1E293B); line-height: 1.3; margin-bottom: 2px; max-width: 82px; margin-inline: auto; word-break: break-word;">${esc(a.title)}</div>
                   <div style="font-size: 0.66rem; color: #64748B; font-weight: normal;">(เต็ม ${a.fullScore})</div>
                 </th>
@@ -2112,19 +2112,19 @@ function renderReport(container) {
 
         <!-- เมนู Export & Print: แถวเดียว 4 ปุ่มบน Laptop / iPad / Tablet และ 2 แถวบนมือถือ -->
         <div class="report-actions-bar">
-          <button class="btn btn-primary report-btn" onclick="triggerManualSync()" title="ส่งคะแนนรายงานการส่งงานทั้งหมดขึ้น Google Sheets (ชีท Submissions และ Gradebook)">
+          <button class="btn btn-primary report-btn" onclick="triggerManualSync()" data-tooltip="สำรองคะแนนขึ้นชีท">
             💾 บันทึก Sheets
           </button>
-          <button class="btn btn-secondary report-btn" onclick="exportToCSV()" title="ดาวน์โหลดเป็นไฟล์ CSV สำหรับ Excel">
+          <button class="btn btn-secondary report-btn" onclick="exportToCSV()" data-tooltip="ส่งออก Excel (CSV)">
             📥 ส่งออก Excel (CSV)
           </button>
-          <button class="btn btn-secondary report-btn" onclick="exportReportToImage()" title="บันทึกตารางรายงานเป็นรูปภาพ PNG">
+          <button class="btn btn-secondary report-btn" onclick="exportReportToImage()" data-tooltip="บันทึกรูปภาพ PNG">
             🖼️ ส่งออกเป็นรูปภาพ
           </button>
-          <button class="btn btn-secondary report-btn" onclick="handlePrintReport(false)" title="พิมพ์เฉพาะหน้างานที่กำลังเลือกดูอยู่">
+          <button class="btn btn-secondary report-btn" onclick="handlePrintReport(false)" data-tooltip="พิมพ์หน้าปัจจุบัน">
             🖨️ พิมพ์หน้านี้
           </button>
-          <button class="btn btn-primary report-btn" onclick="handlePrintReport(true)" title="พิมพ์รายงานทั้งหมด แยก A4 หน้าละ 10 งาน">
+          <button class="btn btn-primary report-btn" onclick="handlePrintReport(true)" data-tooltip="พิมพ์รายงานทั้งหมด (A4)">
             🖨️ พิมพ์ทุกหน้า (${totalPages} แผ่น A4)
           </button>
         </div>
@@ -2273,7 +2273,7 @@ function renderStudents(container) {
           <button class="btn btn-secondary btn-sm" onclick="openImportModal('${esc(appState.activeClassroom)}')">
             📥 นำเข้า Excel
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${esc(appState.activeClassroom)}')" title="จัดเรียงเลขที่ใหม่ 1, 2, 3... ตามลำดับ">
+          <button class="btn btn-secondary btn-sm" onclick="reindexClassroomStudents('${esc(appState.activeClassroom)}')" data-tooltip="จัดเรียงเลขที่ใหม่ 1, 2, 3...">
             🔢 เรียงเลขที่ใหม่
           </button>
           <button class="btn btn-secondary btn-sm" onclick="exportClassroomTemplate('${esc(appState.activeClassroom)}')">
@@ -2303,13 +2303,13 @@ function renderStudents(container) {
                 </td>
                 <td class="col-roster-actions" style="padding: 0.55rem 0.75rem; text-align: right; white-space: nowrap;">
                   <div class="roster-actions">
-                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openInsertStudentModal('${esc(st.classroom)}', ${st.no + 1})" title="แทรกนักเรียนใหม่ต่อจากคนนี้เป็นเลขที่ ${st.no + 1}">
+                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openInsertStudentModal('${esc(st.classroom)}', ${st.no + 1})" data-tooltip="แทรกนักเรียนต่อจากคนนี้">
                       ➕ <span class="desktop-only-inline">แทรกต่อ</span>
                     </button>
-                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openEditStudentModal('${esc(st.studentId)}')" title="แก้ไขข้อมูลนักเรียน">
+                    <button class="btn btn-sm btn-secondary roster-act-btn" onclick="openEditStudentModal('${esc(st.studentId)}')">
                       ✏️ <span class="desktop-only-inline">แก้ไข</span>
                     </button>
-                    <button class="btn btn-sm btn-danger-soft roster-act-btn" onclick="deleteStudent('${esc(st.studentId)}')" title="ลบนักเรียนคนนี้">
+                    <button class="btn btn-sm btn-danger-soft roster-act-btn" onclick="deleteStudent('${esc(st.studentId)}')">
                       🗑️
                     </button>
                   </div>
@@ -3825,7 +3825,7 @@ function renderSettings(container) {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
                   <span style="font-size: 0.8rem; font-weight: 700; color: var(--primary);">วิชาที่ ${idx + 1}</span>
                   ${appState.settings.subjects.length > 1 ? `
-                    <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.76rem;" onclick="deleteSubject(${idx})" title="ลบวิชานี้ออกจากการตั้งค่า">
+                    <button type="button" class="btn-text-action" style="color: #DC2626; font-size: 0.76rem;" onclick="deleteSubject(${idx})">
                       🗑️ ลบวิชา
                     </button>
                   ` : ''}
@@ -3886,7 +3886,7 @@ function renderSettings(container) {
                     ` : assignedRooms.map(room => `
                       <span class="sub-taught-chip" data-room="${esc(room)}">
                         <span>✓ ${esc(room)}</span>
-                        <span class="chip-del" onclick="removeRoomFromSubject(${idx}, '${esc(room)}')" title="ลบห้อง ${esc(room)} ออกจากวิชานี้">✕</span>
+                        <span class="chip-del" onclick="removeRoomFromSubject(${idx}, '${esc(room)}')">✕</span>
                       </span>
                     `).join('')}
                   </div>
@@ -3898,31 +3898,31 @@ function renderSettings(container) {
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-          <span>🌐 Google Apps Script Web App API URL</span>
-          <span style="font-size: 0.75rem; color: #2563EB; font-weight: normal;">(ต้องลงท้ายด้วย /exec และสิทธิ์ "ทุกคน/Anyone")</span>
+        <label class="form-label cfg-field-label">
+          <span class="cfg-field-title">🌐 Google Apps Script Web App API URL</span>
+          <span class="cfg-field-sub" style="color: #2563EB;">(ต้องลงท้ายด้วย /exec และสิทธิ์ "ทุกคน")</span>
         </label>
         <input type="text" id="cfg-gas-url" class="form-input" value="${esc(appState.settings.gasUrl)}" placeholder="https://script.google.com/macros/s/.../exec" />
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
-          💡 นำมาจาก: Apps Script &gt; การทำให้ใช้งานได้ (Deploy) &gt; จัดการการทำให้ใช้งานได้ &gt; คัดลอก "URL ของเว็บแอป"
+        <div class="cfg-field-hint">
+          💡 นำมาจาก: Apps Script &gt; การทำให้ใช้งานได้ &gt; จัดการการทำให้ใช้งานได้ &gt; คัดลอก "URL ของเว็บแอป"
         </div>
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-          <span>📊 ลิงก์ Google Sheets ของคุณครู (Spreadsheet URL)</span>
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(สำหรับกดเปิดชีทโดยตรง)</span>
+        <label class="form-label cfg-field-label">
+          <span class="cfg-field-title">📊 ลิงก์ Google Sheets ของคุณครู</span>
+          <span class="cfg-field-sub">(สำหรับกดเปิดชีทโดยตรง)</span>
         </label>
         <input type="text" id="cfg-sheet-url" class="form-input" value="${esc(appState.settings.spreadsheetUrl || '')}" placeholder="https://docs.google.com/spreadsheets/d/.../edit" />
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+        <div class="cfg-field-hint">
           💡 คัดลอกจากแถบที่อยู่ URL ของหน้า Google Sheets หรือใส่รหัสชีท (Sheet ID)
         </div>
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
-          <span>🔒 รหัสความปลอดภัย (Security PIN / Token)</span>
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(ไม่บังคับ - ป้องกันบุคคลอื่นเข้าถึงชีท)</span>
+        <label class="form-label cfg-field-label">
+          <span class="cfg-field-title">🔒 รหัสความปลอดภัย (Security PIN)</span>
+          <span class="cfg-field-sub">(ไม่บังคับ - ป้องกันบุคคลอื่นเข้าถึงชีท)</span>
         </label>
         <div style="display: flex; gap: 0.5rem;">
           <input type="password" id="cfg-token" class="form-input" value="${esc(appState.settings.apiToken || '')}" placeholder="ระบุ PIN หรือรหัสผ่านป้องกัน (เว้นว่างไว้หากไม่ใช้)" />
@@ -3930,63 +3930,67 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <div class="cfg-save-actions-row" style="margin-top: 1.5rem; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--text-main);">
-          ⬆️ ส่งข้อมูลจากหน้าเว็บนี้ ขึ้น Google Sheets (Web ➔ Sheets)
-        </h4>
-        <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 1rem 0;">
-          เลือกกดบันทึกเมื่อคุณครูแก้ไขข้อมูลบนหน้าเว็บนี้ แล้วต้องการนำขึ้นไปบันทึกใน Google Sheets
-        </p>
+      <!-- ส่วนที่ 1: ส่งข้อมูลขึ้นชีท (เว็บ ➔ ชีท) -->
+      <div class="cfg-action-card cfg-action-card-upload">
+        <div class="cfg-action-header">
+          <h4 class="cfg-action-title">
+            <span>⬆️</span> ส่งข้อมูลขึ้น Google Sheets (เว็บ ➔ ชีท)
+          </h4>
+          <p class="cfg-action-desc">
+            ใช้เมื่อแก้ไขข้อมูลบนหน้าเว็บนี้ แล้วต้องการนำข้อมูลขึ้นไปบันทึกลง Google Sheets
+          </p>
+        </div>
 
-        <div style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; flex: 1;">
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <button class="btn btn-primary" onclick="saveSettings()" title="ส่งเฉพาะชื่อโรงเรียน ปีการศึกษา ครูผู้สอน และรายวิชาที่แก้ไขในหน้านี้ ขึ้นไปบันทึกในชีท (ปลอดภัย 100% ไม่แตะต้องรายชื่อและคะแนนนักเรียน)">
-                💾 บันทึกการตั้งค่าหน้านี้
-              </button>
-              <span style="font-size: 0.72rem; color: #166534; font-weight: 500;">
-                ✓ ปลอดภัย: บันทึกเฉพาะข้อมูลโรงเรียน/วิชา ไม่กระทบคะแนน
-              </span>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <button class="btn btn-secondary" onclick="triggerManualSync()" title="ส่งรายชื่อนักเรียน งาน และคะแนนทั้งหมดที่ตรวจในเว็บตอนนี้ ไปบันทึกลงชีท">
-                ⬆️ สำรองคะแนนทั้งหมดขึ้นชีท
-              </button>
-              <span style="font-size: 0.72rem; color: var(--text-muted);">
-                ใช้เมื่อต้องการบันทึกคะแนนงานที่เพิ่งให้บนเว็บขึ้นชีททันที
-              </span>
+        <div class="cfg-action-grid">
+          <div class="cfg-action-item">
+            <button class="btn btn-primary cfg-action-btn" onclick="saveSettings()">
+              💾 บันทึกการตั้งค่าหน้านี้
+            </button>
+            <div class="cfg-action-hint text-success-hint">
+              <span class="cfg-safe-badge">✓ ปลอดภัย</span> บันทึกเฉพาะข้อมูลโรงเรียนและวิชา (ไม่แตะต้องคะแนน)
             </div>
           </div>
 
-          <button type="button" class="btn btn-secondary btn-sm" onclick="resetLocalAppCache()" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5;" title="ล้างข้อมูลที่บันทึกค้างไว้ในเครื่องนี้ (ข้อมูลบน Google Sheets ไม่หาย)">
+          <div class="cfg-action-item">
+            <button class="btn btn-secondary cfg-action-btn" onclick="triggerManualSync()">
+              ⬆️ สำรองคะแนนทั้งหมดขึ้นชีท
+            </button>
+            <div class="cfg-action-hint">
+              บันทึกรายชื่อ งาน และคะแนนที่เพิ่งตรวจบนเว็บขึ้นชีททันที
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-action-footer">
+          <button type="button" class="btn btn-secondary btn-sm cfg-clean-cache-btn" onclick="resetLocalAppCache()">
             🧹 ล้างแคชในเครื่องนี้
           </button>
+          <span class="cfg-cache-note">(ล้างข้อมูลค้างในเครื่องนี้ ข้อมูลบนชีทไม่หาย)</span>
         </div>
       </div>
 
-      <!-- Cloud Recovery / Pull Data จากฐานข้อมูลจริง -->
-      <div class="cfg-cloud-box" style="margin-top: 1.25rem; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.25rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-          <div style="flex: 1; min-width: 260px;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span style="font-size: 1.2rem;">📥</span>
-              <h4 style="font-size: 0.98rem; font-weight: 700; color: #166534; margin: 0;">
-                ดึงข้อมูลจริงจาก Google Sheets (Sheets ➔ หน้านี้)
-              </h4>
-            </div>
-            <p style="font-size: 0.8rem; color: #15803D; margin: 0; line-height: 1.45;">
-              ใช้เมื่อคุณครู<strong>แก้ไขข้อมูลใน Google Sheets เสร็จแล้ว</strong> หรือเปิดใช้งานบนอุปกรณ์ใหม่ (iPad/มือถือ) ระบบจะดึงรายชื่อนักเรียน งาน และคะแนนทั้งหมดจากชีทมาแสดงผลบนหน้านี้ทันที
-              <br><span style="font-size: 0.75rem; color: #166534; opacity: 0.9;">🛡️ มีระบบตรวจสอบอัตโนมัติ: หากมีคะแนนที่เพิ่งตรวจในเครื่องยังไม่เซฟ ระบบจะมีหน้าต่างถามก่อนเสมอเพื่อป้องกันคะแนนสูญหาย</span>
-            </p>
+      <!-- ส่วนที่ 2: ดึงข้อมูลจากชีทลงหน้าเว็บ (ชีท ➔ เว็บ) -->
+      <div class="cfg-action-card cfg-action-card-download">
+        <div class="cfg-action-header">
+          <h4 class="cfg-action-title text-emerald">
+            <span>📥</span> ดึงข้อมูลจาก Google Sheets (ชีท ➔ หน้านี้)
+          </h4>
+          <p class="cfg-action-desc text-emerald-desc">
+            ใช้เมื่อคุณครูแก้ไขข้อมูลในชีท หรือเปิดบนอุปกรณ์ใหม่ เพื่อดึงข้อมูลล่าสุดมาแสดงผล
+          </p>
+          <div class="cfg-safe-guard-note">
+            🛡️ มีระบบตรวจจับอัตโนมัติ: หากมีคะแนนค้างในเครื่องจะแจ้งเตือนก่อนเสมอ
           </div>
-          <button class="btn btn-success" onclick="pullFromGoogleSheets(true)" title="ดึงรายชื่อนักเรียน งาน และคะแนนล่าสุดจาก Google Sheets มาแสดงผลบนหน้าเว็บนี้ (มีระบบป้องกันข้อมูลในเครื่องสูญหาย)" style="white-space: nowrap; padding: 0.65rem 1.25rem; font-weight: 600;">
+        </div>
+
+        <div class="cfg-action-grid" style="margin-top: 0.65rem;">
+          <button class="btn btn-success cfg-action-btn cfg-pull-btn" onclick="pullFromGoogleSheets(true)">
             📥 ดึงข้อมูลจากชีทลงหน้าเว็บเดี๋ยวนี้
           </button>
         </div>
       </div>
 
-      <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-light); padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+      <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-light); padding-top: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
         <a href="javascript:void(0)" onclick="openSpreadsheetInGoogleDrive()" style="color: var(--primary); text-decoration: none; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
           📊 เปิดดูชีทจริงใน Google Drive ↗
         </a>
@@ -4405,7 +4409,7 @@ function openManageSubjectRoomsModal(subIdx) {
             ` : currentRooms.map(r => `
               <span class="sub-taught-chip" data-room="${esc(r)}">
                 <span>✓ ${esc(r)}</span>
-                <span class="chip-del" onclick="handleRemoveSingleRoomFromSubjectModal(${subIdx}, '${esc(r)}')" title="ลบห้อง ${esc(r)}">✕</span>
+                <span class="chip-del" onclick="handleRemoveSingleRoomFromSubjectModal(${subIdx}, '${esc(r)}')">✕</span>
               </span>
             `).join('')}
           </div>
@@ -5952,7 +5956,7 @@ function renderGradebook(container) {
           <!-- ข้อมูลนักเรียน (Sticky) -->
           <td class="gb-sticky-no">${esc(s.no || idx + 1)}</td>
           <td class="gb-sticky-id">${esc(s.studentId)}</td>
-          <td class="gb-sticky-name" title="${esc(s.fullName)}">${esc(s.fullName)}</td>
+          <td class="gb-sticky-name" data-tooltip="${esc(s.fullName)}">${esc(s.fullName)}</td>
 
           <!-- ก่อนกลางภาค -->
           <td>
@@ -5963,7 +5967,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPre', this.value)" 
-              title="เวลาเรียนก่อนกลาง (เต็ม 10)">
+              data-tooltip="เวลาเรียน (เต็ม 10)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
@@ -5973,7 +5977,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPre', this.value)" 
-              title="คะแนนเก็บงานก่อนกลาง">
+              data-tooltip="งานเก็บก่อนกลางภาค">
           </td>
           <td class="td-calc gb-sum-pre">${rec.sumPre}</td>
 
@@ -5986,7 +5990,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midRaw', this.value)" 
-              title="สอบกลางภาค (คะแนนจริงที่หารแล้ว)">
+              data-tooltip="สอบกลางภาค">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
@@ -5996,7 +6000,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midHelp', this.value)" 
-              title="คะแนนช่วย / สอบแก้ตัว">
+              data-tooltip="คะแนนช่วย / แก้ตัว">
           </td>
           <td class="td-calc gb-mid-score" style="color: #92400E; font-weight: 700;">${rec.midScore}</td>
 
@@ -6009,7 +6013,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPost', this.value)" 
-              title="เวลาเรียนหลังกลาง (เต็ม 10)">
+              data-tooltip="เวลาเรียน (เต็ม 10)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
@@ -6019,7 +6023,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPost', this.value)" 
-              title="คะแนนเก็บงานหลังกลาง">
+              data-tooltip="งานเก็บหลังกลางภาค">
           </td>
           <td class="td-calc gb-sum-post">${rec.sumPost}</td>
 
@@ -6035,7 +6039,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalRaw', this.value)" 
-              title="สอบปลายภาค (ข้อเขียนดิบ)">
+              data-tooltip="สอบปลายภาค (ข้อเขียน)">
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
@@ -6045,7 +6049,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalHelp', this.value)" 
-              title="คะแนนช่วย / สอบแก้ตัว">
+              data-tooltip="คะแนนช่วย / แก้ตัว">
           </td>
           <td class="td-calc gb-final-score" style="color: #6B21A8; font-weight: 700;">${rec.finalScore}</td>
 
@@ -6065,7 +6069,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'note')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)"
-              title="หากติด ร หรือ มส ให้พิมพ์ 'ร' หรือ 'มส' ในช่องนี้ (หากปกติให้เว้นว่างไว้)">
+              data-tooltip="ระบุ ร หรือ มส">
           </td>
         </tr>
       `;
@@ -6097,13 +6101,13 @@ function renderGradebook(container) {
         </div>
 
         <div class="gb-action-btn-group">
-          <button type="button" class="btn btn-secondary btn-sm ${gbfEnabled ? 'active' : ''}" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" title="เปิด/ปิด แป้นพิมพ์คะแนนลอยบนไอแพดและแท็บเล็ต (ปิดแป้นพิมพ์ระบบไม่ให้เด้งบังจอ)">
+          <button type="button" class="btn btn-secondary btn-sm ${gbfEnabled ? 'active' : ''}" onclick="toggleGradebookFloatingMode()" id="gb-toggle-keypad-btn" data-tooltip="เปิด/ปิด แป้นพิมพ์ลอย">
             ${gbfEnabled ? '📱 แป้นลอย (ON)' : '⌨️ แป้นระบบ (OFF)'}
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="syncWorkScoresFromCheckWork()" title="ดึงคะแนนรวมจากภาระงานที่เช็คมาใส่ช่องงานเก็บก่อนกลางภาคอัตโนมัติ">
+          <button class="btn btn-secondary btn-sm" onclick="syncWorkScoresFromCheckWork()" data-tooltip="ดึงคะแนนจากภาระงานอัตโนมัติ">
             <span>🔄</span> ดึงคะแนนเช็คงาน
           </button>
-          <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()" title="บันทึกทะเบียนคะแนนและผลการเรียนห้อง ${esc(appState.activeClassroom)} ลง Google Sheets (ชีท Gradebook)">
+          <button class="btn btn-primary btn-sm" onclick="saveGradebookToSheet()" data-tooltip="บันทึกคะแนนห้องนี้ลงชีท">
             <span>💾</span> บันทึก ${esc(appState.activeClassroom)}
           </button>
 
@@ -6134,13 +6138,13 @@ function renderGradebook(container) {
               <th colspan="3" class="th-sec-final">
                 <div class="final-header-with-div">
                   <span>สอบปลายภาค</span>
-                  <span class="final-div-badge" title="กำหนดตัวหารคะแนนข้อเขียนปลายภาค เช่น หาร 2 หรือ หาร 3">
+                  <span class="final-div-badge" data-tooltip="ตัวหารคะแนนปลายภาค (เช่น 2 หรือ 3)">
                     <span>(÷</span>
                     <input type="number" step="0.5" min="1" max="20" class="gb-div-header-input"
                       value="${appState.finalDivisor || 2}"
                       onchange="updateGlobalFinalDivisor(this.value)"
                       onfocus="this.select()"
-                      title="กรอกตัวหาร เช่น 2 หรือ 3 ระบบจะนำไปหารคะแนนข้อเขียนให้อัตโนมัติ">
+                     >
                     <span>)</span>
                   </span>
                 </div>
@@ -6182,7 +6186,7 @@ function renderGradebook(container) {
 
               <!-- เกรด & ร/มส -->
               <th>เกรด</th>
-              <th class="gb-th-note" title="หากติด ร หรือ มส ให้พิมพ์ในช่องนี้">ร / มส</th>
+              <th class="gb-th-note" data-tooltip="ระบุ ร หรือ มส">ร / มส</th>
             </tr>
           </thead>
           <tbody>
@@ -6463,8 +6467,8 @@ function renderFloatingKeypadButtons(colName) {
         <button type="button" class="gbf-btn gbf-btn-r" onclick="gbfSetNote('ร')">ติด ร</button>
         <button type="button" class="gbf-btn gbf-btn-ms" onclick="gbfSetNote('มส')">ติด มส</button>
         <button type="button" class="gbf-btn gbf-btn-clear" onclick="gbfSetNote('')">ล้าง (ปกติ)</button>
-        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)" title="คนก่อนหน้า">⬆️ ก่อน</button>
-        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()" title="บันทึกและลงคนถัดไป">ตกลง ⬇️</button>
+        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)">⬆️ ก่อน</button>
+        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()">ตกลง ⬇️</button>
       </div>
     `;
     return;
@@ -6487,8 +6491,8 @@ function renderFloatingKeypadButtons(colName) {
           <button type="button" class="gbf-btn gbf-preset-btn" onclick="gbfSetScore(${p})">${p}</button>
         `).join('')}
       </div>
-      <button type="button" class="gbf-btn gbf-btn-del" onclick="gbfBackspace()" title="ลบตัวเลขหลัง">⌫</button>
-      <button type="button" class="gbf-btn gbf-btn-clear" onclick="gbfClear()" title="ล้างค่า">ล้าง</button>
+      <button type="button" class="gbf-btn gbf-btn-del" onclick="gbfBackspace()">⌫</button>
+      <button type="button" class="gbf-btn gbf-btn-clear" onclick="gbfClear()">ล้าง</button>
     </div>
     <div class="gbf-row-digits">
       <div class="gbf-digits-strip">
@@ -6497,8 +6501,8 @@ function renderFloatingKeypadButtons(colName) {
         `).join('')}
       </div>
       <div class="gbf-nav-strip">
-        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)" title="คนก่อนหน้า">⬆️ ก่อน</button>
-        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()" title="บันทึกและเลื่อนลงคนถัดไป">ตกลง ⬇️</button>
+        <button type="button" class="gbf-btn gbf-btn-prev" onclick="gbfNavigate(-1)">⬆️ ก่อน</button>
+        <button type="button" class="gbf-btn gbf-btn-ok" onclick="gbfConfirmAndNext()">ตกลง ⬇️</button>
       </div>
     </div>
   `;

@@ -459,9 +459,14 @@ function verifyToken_(token) {
 }
 
 /**
- * จัดการ CORS และ Output แบบ JSON
+ * จัดการ CORS และ Output แบบ JSON (รองรับ JSONP callback เพื่อทะลุข้อจำกัด CORS 100%)
  */
-function createJsonResponse(data) {
+function createJsonResponse(data, callback) {
+  if (callback && String(callback).trim() !== '') {
+    const cleanCb = String(callback).replace(/[^a-zA-Z0-9_]/g, '');
+    return ContentService.createTextOutput(cleanCb + '(' + JSON.stringify(data) + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -470,6 +475,7 @@ function createJsonResponse(data) {
  * Handle HTTP GET Requests
  */
 function doGet(e) {
+  const callback = (e && e.parameter && e.parameter.callback) || '';
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getInitialData';
     const token = e && e.parameter && e.parameter.token;
@@ -480,26 +486,26 @@ function doGet(e) {
     if (action !== 'ping') {
       const licenseCheck = verifyLicenseAuthorization(ss);
       if (!licenseCheck.authorized) {
-        return createJsonResponse({ success: false, error: licenseCheck.error });
+        return createJsonResponse({ success: false, error: licenseCheck.error }, callback);
       }
     }
 
     if (action !== 'ping' && !verifyToken_(token)) {
-      return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' });
+      return createJsonResponse({ success: false, error: 'Unauthorized: รหัสความปลอดภัย (API Token) ไม่ถูกต้อง' }, callback);
     }
 
     if (action === 'getInitialData') {
       const data = fetchAllData(ss);
-      return createJsonResponse({ success: true, data: data });
+      return createJsonResponse({ success: true, data: data }, callback);
     }
 
     if (action === 'ping') {
-      return createJsonResponse({ success: true, message: 'API is running', timestamp: new Date().toISOString() });
+      return createJsonResponse({ success: true, message: 'API is running', timestamp: new Date().toISOString() }, callback);
     }
 
-    return createJsonResponse({ success: false, message: 'Unknown action: ' + action });
+    return createJsonResponse({ success: false, message: 'Unknown action: ' + action }, callback);
   } catch (err) {
-    return createJsonResponse({ success: false, error: err.toString() });
+    return createJsonResponse({ success: false, error: err.toString() }, callback);
   }
 }
 

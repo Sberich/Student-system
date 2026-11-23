@@ -3448,7 +3448,7 @@ async function pushImportToBackend(mode, targetClass, studentsList) {
   if (!appState.settings.gasUrl) return;
   updateSyncIndicator('syncing');
   try {
-    const res = await fetch(appState.settings.gasUrl, {
+    const res = await gasFetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -4636,10 +4636,10 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
 
         <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem;">
           <div style="font-size: 0.82rem; font-weight: 700; color: #1D4ED8; margin-bottom: 0.25rem;">
-            💡 ข้อมูลส่งลง Google Sheets แล้ว แต่ทำไมหน้าเว็บยังแจ้งเตือนว่าออฟไลน์?
+            💡 ข้อมูลส่งลง Google Sheets แล้ว หรือเปิดแท็บใหม่ได้ แต่หน้าเว็บยังแจ้งเตือนบล็อก?
           </div>
           <div style="font-size: 0.78rem; color: #1E40AF; line-height: 1.5;">
-            คำสั่งส่งข้อมูล (POST) เดินทางไปถึงเซิร์ฟเวอร์ Google และเขียนลงชีทสำเร็จแล้ว แต่ในจังหวะที่ Google ส่งสัญญาณตอบกลับมายังหน้าเว็บ ถูกบล็อกด้วยระบบความปลอดภัยของ Google เนื่องจากสิทธิ์ตอน Deploy ไม่ได้เลือก <strong>"ทุกคน" (Anyone)</strong> หรือมีบัญชี Google ล็อกอินซ้อนกันหลายบัญชีในเบราว์เซอร์
+            สาเหตุเกิดจาก <strong>Google Multi-Account Collision</strong> (เบราว์เซอร์ล็อกอินบัญชี Google ซ้อนกันหลายบัญชี) ทำให้ Google พยายามขอสิทธิ์ซ้ำซ้อนและถูกนโยบายความปลอดภัย CORS ของเบราว์เซอร์สกัดกั้น หรือการตั้งค่า Deploy ไม่ได้เลือก <strong>"ทุกคน" (Anyone)</strong>
           </div>
         </div>
 
@@ -4673,9 +4673,14 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
         </div>
 
         <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="testOpenGasInNewTab()">
-            🔗 ทดสอบเปิด Web App ในแท็บใหม่
-          </button>
+          <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testOpenGasInNewTab('ping')">
+              🔗 ทดสอบ Ping API
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testOpenGasInNewTab('getInitialData')">
+              📥 ทดสอบดึงข้อมูลจริง
+            </button>
+          </div>
           <button type="button" class="btn btn-primary" onclick="closeModal('${modalId}')">
             เข้าใจแล้ว ฉันจะไปตรวจสอบ
           </button>
@@ -4687,10 +4692,12 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function testOpenGasInNewTab() {
+function testOpenGasInNewTab(action = 'ping') {
   const url = (appState.settings && appState.settings.gasUrl) ? appState.settings.gasUrl.trim() : '';
   if (url) {
-    const testUrl = url.includes('?') ? `${url}&action=ping` : `${url}?action=ping`;
+    const separator = url.includes('?') ? '&' : '?';
+    const tokenParam = (action !== 'ping' && appState.settings.apiToken) ? `&token=${encodeURIComponent(appState.settings.apiToken)}` : '';
+    const testUrl = `${url}${separator}action=${action}${tokenParam}`;
     window.open(testUrl, '_blank', 'noopener,noreferrer');
   } else {
     showToast('ยังไม่ได้ระบุ Web App URL');
@@ -4922,6 +4929,58 @@ async function pullFromGoogleSheets(isManual = false) {
   return await continuePullFromGoogleSheets(isManual);
 }
 
+/**
+ * ฟังก์ชันกลางสำหรับเรียก Google Apps Script Web App
+ * บังคับใช้ mode: 'cors', credentials: 'omit', redirect: 'follow'
+ * เพื่อป้องกันปัญหา Google Multi-Account Cookie Confusion ที่ทำให้เกิด TypeError: Failed to fetch
+ */
+async function gasFetch(url, options = {}) {
+  const defaults = {
+    mode: 'cors',
+    credentials: 'omit',
+    redirect: 'follow',
+    cache: 'no-store'
+  };
+  return await fetch(url, { ...defaults, ...options });
+}
+
+/**
+ * Fallback แบบ JSONP ผ่านแท็ก <script>
+ * ทำงานได้ 100% แม้เบราว์เซอร์จะบล็อก CORS หรือมีบัญชี Google ซ้อนกันหลายบัญชี
+ */
+function fetchGasJsonp(url, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'gas_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const script = document.createElement('script');
+    let timer = null;
+
+    function cleanup() {
+      if (timer) clearTimeout(timer);
+      try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('การเชื่อมต่อแบบ JSONP หมดเวลา (Timeout 15s)'));
+    }, timeoutMs);
+
+    window[cbName] = function(data) {
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = function() {
+      cleanup();
+      reject(new Error('ไม่สามารถโหลดสคริปต์ผ่าน JSONP ได้ (Script Load Error)'));
+    };
+
+    const separator = url.includes('?') ? '&' : '?';
+    script.src = `${url}${separator}callback=${cbName}&_t=${Date.now()}`;
+    document.head.appendChild(script);
+  });
+}
+
 async function continuePullFromGoogleSheets(isManual) {
 
   if (isManual) {
@@ -4931,34 +4990,42 @@ async function continuePullFromGoogleSheets(isManual) {
 
   try {
     const tokenParam = appState.settings.apiToken ? `&token=${encodeURIComponent(appState.settings.apiToken)}` : '';
-    const fetchUrl = `${appState.settings.gasUrl}?action=getInitialData${tokenParam}`;
+    const baseGasUrl = appState.settings.gasUrl.trim();
+    const separator = baseGasUrl.includes('?') ? '&' : '?';
+    const fetchUrl = `${baseGasUrl}${separator}action=getInitialData${tokenParam}`;
 
-    let res;
+    let json = null;
+
+    // 1. ลองดึงข้อมูลด้วย gasFetch (credentials: 'omit', redirect: 'follow')
     try {
-      res = await fetch(fetchUrl);
-    } catch (netErr) {
-      console.error('[Sync Error] Network fetch failed:', netErr);
-      throw new Error(`เบราว์เซอร์ถูกบล็อกการเชื่อมต่อ (${netErr.name || 'CORS Error'}: ${netErr.message || 'Failed to fetch'})`);
-    }
-
-    if (!res.ok) {
-      throw new Error(`Google Apps Script ส่งรหัสข้อผิดพลาด HTTP ${res.status}: ${res.statusText}`);
-    }
-
-    const rawText = await res.text();
-    let json;
-    try {
-      json = JSON.parse(rawText);
-    } catch (parseErr) {
-      console.error('[Sync Error] Non-JSON response received:', rawText.slice(0, 300));
-      if (rawText.includes('ไม่พบเพจ') || rawText.includes('Page Not Found') || rawText.includes('404')) {
-        throw new Error('Google แจ้งเตือน "ไม่พบเพจ (HTTP 404)": URL ไม่ถูกต้อง หรือนโยบายอีเมลโรงเรียน/องค์กรบล็อกการเปิดเผยเว็บแอปภายนอก');
+      const res = await gasFetch(fetchUrl, { method: 'GET' });
+      if (!res.ok) {
+        throw new Error(`Google Apps Script ส่งรหัสข้อผิดพลาด HTTP ${res.status}: ${res.statusText}`);
       }
-      throw new Error(`Google ส่งผลลัพธ์เป็นหน้าเว็บ HTML แทนที่จะเป็นข้อมูล JSON: "${rawText.slice(0, 80).replace(/\s+/g, ' ')}..."`);
+      const rawText = await res.text();
+      try {
+        json = JSON.parse(rawText);
+      } catch (parseErr) {
+        if (rawText.includes('ไม่พบเพจ') || rawText.includes('Page Not Found') || rawText.includes('404')) {
+          throw new Error('Google แจ้งเตือน "ไม่พบเพจ (HTTP 404)": URL ไม่ถูกต้อง หรือนโยบายอีเมลโรงเรียน/องค์กรบล็อกการเปิดเผยเว็บแอปภายนอก');
+        }
+        throw new Error(`Google ส่งผลลัพธ์เป็นหน้าเว็บ HTML แทนที่จะเป็นข้อมูล JSON: "${rawText.slice(0, 80).replace(/\s+/g, ' ')}..."`);
+      }
+    } catch (fetchErr) {
+      console.warn('[Sync Warning] gasFetch failed, attempting JSONP fallback...', fetchErr);
+      // 2. หาก fetch ล้มเหลวจาก CORS / Multi-Account bug ให้ Fallback ไปใช้ JSONP อัตโนมัติทันที!
+      try {
+        showToast('🔄 กำลังสลับไปใช้ช่องทางสำรอง (JSONP) เพื่อทะลุการบล็อก CORS...');
+        json = await fetchGasJsonp(fetchUrl);
+        console.log('[Sync Success] JSONP fallback succeeded!');
+      } catch (jsonpErr) {
+        console.error('[Sync Error] Both gasFetch and JSONP failed:', fetchErr, jsonpErr);
+        throw new Error(`เบราว์เซอร์ถูกบล็อกการเชื่อมต่อ (${fetchErr.name || 'CORS Error'}: ${fetchErr.message || 'Failed to fetch'})`);
+      }
     }
 
-    if (!json.success) {
-      throw new Error(json.error || json.message || 'Google Apps Script ปฏิเสธคำขอ');
+    if (!json || !json.success) {
+      throw new Error((json && (json.error || json.message)) || 'Google Apps Script ปฏิเสธคำขอ');
     }
 
     if (json.data) {
@@ -5055,7 +5122,7 @@ async function pushSettingsToBackend(currentToken = '', newToken = '') {
   try {
     let res;
     try {
-      res = await fetch(appState.settings.gasUrl, {
+      res = await gasFetch(appState.settings.gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -5145,7 +5212,7 @@ async function pushFullStateToBackend() {
       return validRooms.includes(r.classroom) && studentExists;
     });
 
-    const res = await fetch(appState.settings.gasUrl, {
+    const res = await gasFetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -5202,7 +5269,7 @@ async function pushSubmissionsToBackend() {
       }
     });
 
-    const res = await fetch(appState.settings.gasUrl, {
+    const res = await gasFetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -6117,7 +6184,7 @@ async function saveGradebookToSheet() {
   const recordsToSave = students.map(s => getOrCreateGradeRecord(s));
 
   try {
-    const res = await fetch(appState.settings.gasUrl, {
+    const res = await gasFetch(appState.settings.gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({

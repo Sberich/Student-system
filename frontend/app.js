@@ -1,7 +1,6 @@
 /**
  * Smart Grade (สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง)
- * รองรับ ม.4 (11 ห้อง: ม.4/1 - ม.4/11), ม.5 (2 ห้อง: ม.5/1, ม.5/2) รวม 13 ห้องเรียน
- * รองรับการสอน 5 รายวิชา, ระบบตัดเกรด SGS, และ PWA Mobile-First
+ * รองรับการจัดการห้องเรียนและรายวิชาแบบไดนามิกอิสระ, ระบบตัดเกรด SGS, และ PWA Mobile-First
  */
 
 const DEFAULT_GAS_URL = '';
@@ -10,15 +9,11 @@ const SPREADSHEET_URL = '';
 const STORAGE_KEY = 'educator_app_state_v2';
 
 const DEFAULT_CLASSROOMS = [
-  'ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6',
-  'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'
+  'ม.1/1', 'ม.1/2'
 ];
 
 const DEFAULT_SUBJECTS = [
-  { code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', ratio: '80/20', finalDivisor: 2, classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { code: 'ส31102', name: 'สังคมศึกษา (ม.4)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/2', 'ม.4/3'] },
-  { code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] },
-  { code: 'ส31238', name: 'ต่อต้านการทุจริต', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] }
+  { code: 'ว101', name: 'รายวิชาตัวอย่าง', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.1/1', 'ม.1/2'] }
 ];
 
 /**
@@ -39,7 +34,7 @@ function esc(str) {
  * หากวิชานั้นยังไม่ได้ระบุห้อง หรือรายชื่อห้องว่าง ให้ใช้รายการห้องเรียนทั้งหมดเป็นค่าเริ่มต้น (Fallback)
  */
 function getClassroomsForSubject(subjectCode = null) {
-  const code = subjectCode || (appState && appState.activeSubject) || 'ส31162';
+  const code = subjectCode || (appState && appState.activeSubject) || (appState && appState.settings && appState.settings.subjects && appState.settings.subjects[0]?.code) || '';
   const subjects = (appState && appState.settings && Array.isArray(appState.settings.subjects)) 
     ? appState.settings.subjects 
     : DEFAULT_SUBJECTS;
@@ -56,8 +51,8 @@ window.getClassroomsForSubject = getClassroomsForSubject;
 
 let appState = {
   currentTab: 'overview',
-  activeClassroom: 'ม.4/1',
-  activeSubject: 'ส31162',
+  activeClassroom: 'ม.1/1',
+  activeSubject: 'ว101',
   selectedAssignmentId: '',
   selectedStudentId: '',
   filterStatus: 'all', // 'all', 'submitted', 'pending'
@@ -69,14 +64,21 @@ let appState = {
   settings: {
     gasUrl: DEFAULT_GAS_URL,
     spreadsheetUrl: SPREADSHEET_URL,
-    schoolName: 'โรงเรียนสาธิตพัฒนาปัญญา',
-    academicYear: '2569',
-    term: '2',
-    teacherName: 'คุณครูผู้สอน',
+    schoolName: '',
+    academicYear: '2568',
+    term: '1',
+    teacherName: '',
     apiToken: '',
     subjects: DEFAULT_SUBJECTS,
     classrooms: DEFAULT_CLASSROOMS
   },
+  students: [],
+  assignments: [],
+  submissions: {}, // key: `${assignmentId}_${studentId}`
+  gradebookRatio: '70/30', // '70/30' or '80/20'
+  finalDivisor: 2, // ตัวหารข้อเขียนปลายภาค (ค่าเริ่มต้นคือ 2)
+  gradebook: {} // key: `${subject}_${classroom}_${studentId}`
+};
   students: [],
   assignments: [],
   submissions: {}, // key: `${assignmentId}_${studentId}`
@@ -167,8 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!hasSavedLocalState) {
     appState.settings.subjects = DEFAULT_SUBJECTS;
     appState.settings.classrooms = DEFAULT_CLASSROOMS;
-    appState.activeClassroom = 'ม.4/1';
-    appState.activeSubject = (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || 'ส31162';
+    appState.activeClassroom = (DEFAULT_CLASSROOMS && DEFAULT_CLASSROOMS[0]) || '';
+    appState.activeSubject = (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || '';
     appState.students = [];
     appState.assignments = [];
     appState.submissions = {};
@@ -431,7 +433,7 @@ function loadLocalState() {
       // ตรวจสอบว่าห้องเรียนที่เลือก สอดคล้องกับวิชาที่เลือกอยู่หรือไม่
       const validRooms = getClassroomsForSubject(appState.activeSubject);
       if (!validRooms.includes(appState.activeClassroom)) {
-        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
       }
 
       // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
@@ -455,7 +457,7 @@ function loadLocalState() {
     ? appState.settings.subjects
     : DEFAULT_SUBJECTS;
   if (!allSubs.some(s => s.code === appState.activeSubject)) {
-    appState.activeSubject = (allSubs[0] && allSubs[0].code) || 'ส31162';
+    appState.activeSubject = (allSubs[0] && allSubs[0].code) || '';
   }
 }
 
@@ -485,50 +487,53 @@ function saveLocalState() {
 
 // ----------------- Default Sample Data -----------------
 function seedDefaultState() {
-  appState.settings.subjects = DEFAULT_SUBJECTS;
-  appState.settings.classrooms = DEFAULT_CLASSROOMS;
-  appState.activeClassroom = 'ม.4/1';
-  appState.activeSubject = 'ส31162';
+  const sampleSubjects = [
+    { code: 'ว101', name: 'รายวิชาตัวอย่าง', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.1/1', 'ม.1/2'] }
+  ];
+  const sampleClassrooms = ['ม.1/1', 'ม.1/2'];
+  appState.settings.subjects = sampleSubjects;
+  appState.settings.classrooms = sampleClassrooms;
+  appState.activeClassroom = 'ม.1/1';
+  appState.activeSubject = 'ว101';
 
-  // ตัวอย่าง ม.4/1 (35 คน) และ ม.4/2 (35 คน)
+  // ตัวอย่าง ม.1/1 (5 คน) และ ม.1/2 (5 คน) สำหรับทดลองใช้งาน
   appState.students = [];
-  const firstNames = ['กิตติภพ', 'กัญจน์', 'ขจรศักดิ์', 'ชนนิกานต์', 'ญาณิศา', 'ณัฐดนัย', 'ธัญญลักษณ์', 'ธีรภัทร', 'นภัสสร', 'บวรนันท์', 'ปรียาพร', 'ภัทรกร', 'วรรณวิสาข์', 'ศุภวิชญ์', 'สลิลลา', 'อัครพงศ์', 'กานต์พิชชา', 'จักรภพ', 'จิดาภา', 'ชัยวัฒน์', 'ณิชาภา', 'ธนกร', 'ปานรพี', 'ภูริพัฒน์', 'วรินทร', 'ศิรดา', 'สหรัฐ', 'อนันต์', 'เปมิกา', 'มิ่งขวัญ', 'ศุภโชค', 'สุกัญญา', 'อภิชญา', 'ภาณุพงศ์', 'ธนดล'];
-  const lastNames = ['กัลยาณมิตร', 'ปรีชาชาญ', 'สุขประเสริฐ', 'รัตนากร', 'วิจิตรศิลป์', 'สมบูรณ์ทรัพย์', 'บุญชู', 'ชาญวิทย์', 'สุทธิธรรม', 'มั่นคง', 'อริยทรัพย์', 'ศรีสวัสดิ์', 'มิ่งขวัญ', 'เกียรติไพบูลย์', 'ทองทาบ', 'เจริญผล', 'ภิรมย์รักษ์', 'ชัยชูเกียรติ', 'ประเสริฐยิ่ง', 'ภักดีชน', 'เกษมสุข', 'พงษ์ศิริ', 'ศศิประภา', 'จันทร์กระจ่าง', 'ดิลกคุณ', 'สิริโชค', 'มั่งคั่ง', 'กมลรัตน์', 'โชคประเสริฐ', 'วัฒนากูล', 'เตชะกุล', 'เลิศประเสริฐ', 'สุขเกษม', 'บริรักษ์', 'ทวีโชค'];
+  const firstNames = ['กิตติภพ', 'กัญจน์', 'ขจรศักดิ์', 'ชนนิกานต์', 'ญาณิศา'];
+  const lastNames = ['กัลยาณมิตร', 'ปรีชาชาญ', 'สุขประเสริฐ', 'รัตนากร', 'วิจิตรศิลป์'];
 
-  for (let i = 0; i < 35; i++) {
+  for (let i = 0; i < 5; i++) {
     const prefix = i % 2 === 0 ? 'ด.ช. ' : 'ด.ญ. ';
     appState.students.push({
       no: i + 1,
-      studentId: String(41001 + i),
+      studentId: String(11001 + i),
       fullName: prefix + firstNames[i] + ' ' + lastNames[i],
-      classroom: 'ม.4/1',
+      classroom: 'ม.1/1',
       status: 'ปกติ'
     });
   }
 
-  for (let i = 0; i < 35; i++) {
+  for (let i = 0; i < 5; i++) {
     const prefix = i % 2 === 0 ? 'ด.ช. ' : 'ด.ญ. ';
     appState.students.push({
       no: i + 1,
-      studentId: String(42001 + i),
-      fullName: prefix + firstNames[34 - i] + ' ' + lastNames[i],
-      classroom: 'ม.4/2',
+      studentId: String(12001 + i),
+      fullName: prefix + firstNames[4 - i] + ' ' + lastNames[i],
+      classroom: 'ม.1/2',
       status: 'ปกติ'
     });
   }
 
-  const demoSubj = (appState.settings.subjects && appState.settings.subjects[0]) ? appState.settings.subjects[0].code : 'ส31162';
+  const demoSubj = 'ว101';
   appState.activeSubject = demoSubj;
 
-  // ตัวอย่างงานสำหรับ ม.4/1
+  // ตัวอย่างงานสำหรับ ม.1/1
   appState.assignments = [
-    { id: 'A01', title: '01 สมุดบันทึกสรุปบทเรียน', fullScore: 10, dueDate: '2026-11-10', subject: demoSubj, classroom: 'ม.4/1' },
-    { id: 'A02', title: '02 ใบงานวิเคราะห์กรณีศึกษา', fullScore: 10, dueDate: '2026-11-17', subject: demoSubj, classroom: 'ม.4/1' },
-    { id: 'A03', title: '03 แบบฝึกหัดทบทวนความรู้', fullScore: 10, dueDate: '2026-11-24', subject: demoSubj, classroom: 'ม.4/1' }
+    { id: 'A01', title: '01 สมุดบันทึกสรุปบทเรียน', fullScore: 10, dueDate: '2026-11-10', subject: demoSubj, classroom: 'ม.1/1' },
+    { id: 'A02', title: '02 ใบงานวิเคราะห์กรณีศึกษา', fullScore: 10, dueDate: '2026-11-17', subject: demoSubj, classroom: 'ม.1/1' }
   ];
 
   appState.selectedAssignmentId = 'A01';
-  appState.selectedStudentId = '41001';
+  appState.selectedStudentId = '11001';
 
   // จำลองข้อมูลส่งงาน
   appState.submissions = {};
@@ -4066,12 +4071,12 @@ function openAddSubjectModal() {
             </label>
             <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;" id="new-sub-level-pills">
               ${commonLevels.map((lvl) => `
-                <button type="button" class="pill-btn ${lvl === 'ม.4' ? 'active' : ''}" style="font-size: 0.8rem; padding: 0.25rem 0.6rem;" onclick="selectNewSubLevel('${esc(lvl)}', this)">
+                <button type="button" class="pill-btn ${lvl === 'ม.1' ? 'active' : ''}" style="font-size: 0.8rem; padding: 0.25rem 0.6rem;" onclick="selectNewSubLevel('${esc(lvl)}', this)">
                   ${esc(lvl)}
                 </button>
               `).join('')}
             </div>
-            <input type="hidden" id="new-sub-selected-level" value="ม.4" />
+            <input type="hidden" id="new-sub-selected-level" value="ม.1" />
           </div>
 
           <!-- รูปแบบการระบุห้องเรียนที่สอน -->
@@ -4084,26 +4089,26 @@ function openAddSubjectModal() {
             <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 0.75rem;">
               <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.84rem; background: var(--bg-surface); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
                 <input type="radio" name="new-sub-room-mode" value="batch" checked onchange="switchNewSubRoomMode('batch')" />
-                <span><b>สร้างเป็นช่วงห้อง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ห้อง 1 ถึง 12)</span></span>
+                <span><b>สร้างเป็นช่วงห้อง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ห้อง 1 ถึง 10)</span></span>
               </label>
               <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.84rem; background: var(--bg-surface); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
                 <input type="radio" name="new-sub-room-mode" value="custom" onchange="switchNewSubRoomMode('custom')" />
-                <span><b>ระบุห้องเอง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ม.4/11 หรือ ม.2/1)</span></span>
+                <span><b>ระบุห้องเอง</b> <span style="font-size: 0.78rem; color: var(--text-secondary);">(เช่น ม.1/1 หรือ ม.2/1)</span></span>
               </label>
             </div>
 
             <!-- กล่องโหมดช่วงห้อง (Batch) -->
             <div id="new-sub-batch-box" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-              <span style="font-size: 0.85rem; font-weight: 600; color: var(--primary);" id="new-sub-prefix-label">ม.4</span>
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--primary);" id="new-sub-prefix-label">ม.1</span>
               <span style="font-size: 0.82rem; color: var(--text-secondary);">ห้อง 1 ถึง</span>
-              <input type="number" id="new-sub-count" class="form-input" value="11" min="1" max="50" style="width: 75px; text-align: center; padding: 0.35rem 0.5rem;" oninput="updateNewSubSummary()" />
+              <input type="number" id="new-sub-count" class="form-input" value="2" min="1" max="50" style="width: 75px; text-align: center; padding: 0.35rem 0.5rem;" oninput="updateNewSubSummary()" />
               <span style="font-size: 0.82rem; color: var(--text-secondary);">ห้อง</span>
             </div>
 
             <!-- กล่องโหมดพิมพ์ระบุห้องเอง (Custom) -->
             <div id="new-sub-custom-box" style="display: none;">
-              <input type="text" id="new-sub-custom-input" class="form-input" placeholder="พิมพ์ชื่อห้อง เช่น ม.4/11 หรือ ม.2/1, ม.2/3, ม.2/5" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" oninput="updateNewSubSummary()" />
-              <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 3px;">(หากมีหลายห้อง ให้คั่นด้วยเครื่องหมายจุลภาค , เช่น ม.5/1, ม.5/2)</span>
+              <input type="text" id="new-sub-custom-input" class="form-input" placeholder="พิมพ์ชื่อห้อง เช่น ม.1/1 หรือ ม.2/1, ม.2/3, ม.2/5" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" oninput="updateNewSubSummary()" />
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 3px;">(หากมีหลายห้อง ให้คั่นด้วยเครื่องหมายจุลภาค , เช่น ม.1/1, ม.1/2)</span>
             </div>
 
             <!-- ตัวอย่างห้องที่จะบันทึกให้เห็นทันที -->
@@ -4370,7 +4375,7 @@ function openManageSubjectRoomsModal(subIdx) {
               `).join('')}
             </select>
             <span style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง 1 ถึง</span>
-            <input type="number" id="modal-sub-batch-count" class="form-input" value="11" min="1" max="50" style="width: 70px; text-align: center; padding: 0.35rem 0.45rem; font-size: 0.82rem;" />
+            <input type="number" id="modal-sub-batch-count" class="form-input" value="2" min="1" max="50" style="width: 70px; text-align: center; padding: 0.35rem 0.45rem; font-size: 0.82rem;" />
             <span style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง</span>
             <button type="button" class="btn btn-primary btn-sm" onclick="handleAddBatchRoomsToSubject(${subIdx})" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; white-space: nowrap;">
               + เพิ่มชุดห้อง
@@ -4380,7 +4385,7 @@ function openManageSubjectRoomsModal(subIdx) {
 
         <!-- ส่วนที่ 2: เพิ่มห้องเดี่ยว หรือพิมพ์ชื่อห้องเฉพาะ -->
         <div style="display: flex; gap: 0.4rem; margin-bottom: 0.85rem;">
-          <input type="text" id="modal-sub-single-room" class="form-input" placeholder="หรือพิมพ์ชื่อห้อง เช่น ม.4/11 หรือ ม.4/EP" style="padding: 0.4rem 0.65rem; font-size: 0.82rem;" />
+          <input type="text" id="modal-sub-single-room" class="form-input" placeholder="หรือพิมพ์ชื่อห้อง เช่น ม.1/1 หรือ ม.1/EP" style="padding: 0.4rem 0.65rem; font-size: 0.82rem;" />
           <button type="button" class="btn btn-secondary btn-sm" onclick="handleAddSingleRoomToSubject(${subIdx})" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; white-space: nowrap;">
             + เพิ่มห้องเดี่ยว
           </button>
@@ -4616,7 +4621,7 @@ async function saveSettings() {
   // ตรวจสอบว่า activeClassroom ปัจจุบัน สอดคล้องกับวิชาที่กำลังเลือกอยู่หรือไม่
   const currentValid = getClassroomsForSubject(appState.activeSubject);
   if (!currentValid.includes(appState.activeClassroom)) {
-    appState.activeClassroom = currentValid[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+    appState.activeClassroom = currentValid[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
   }
 
   saveLocalState();
@@ -4732,10 +4737,10 @@ async function continuePullFromGoogleSheets(isManual) {
     if (json.success && json.data) {
       const data = json.data;
       
-      if (data.students && data.students.length > 0) {
+      if (Array.isArray(data.students)) {
         appState.students = data.students;
       }
-      if (data.assignments && data.assignments.length > 0) {
+      if (Array.isArray(data.assignments)) {
         appState.assignments = data.assignments;
       }
       if (data.submissions) {
@@ -4760,16 +4765,16 @@ async function continuePullFromGoogleSheets(isManual) {
       }
       if (data.settings) {
         if (data.settings.spreadsheetUrl) appState.settings.spreadsheetUrl = data.settings.spreadsheetUrl;
-        if (data.settings.schoolName) appState.settings.schoolName = data.settings.schoolName;
-        if (data.settings.teacherName) appState.settings.teacherName = data.settings.teacherName;
-        if (data.settings.academicYear) appState.settings.academicYear = data.settings.academicYear;
-        if (data.settings.term) appState.settings.term = data.settings.term;
+        if (data.settings.schoolName !== undefined) appState.settings.schoolName = data.settings.schoolName;
+        if (data.settings.teacherName !== undefined) appState.settings.teacherName = data.settings.teacherName;
+        if (data.settings.academicYear !== undefined) appState.settings.academicYear = data.settings.academicYear;
+        if (data.settings.term !== undefined) appState.settings.term = data.settings.term;
       }
 
       // ตรวจสอบความถูกต้องของ activeClassroom กับวิชาที่เลือก
       const validRooms = getClassroomsForSubject(appState.activeSubject);
       if (!validRooms.includes(appState.activeClassroom)) {
-        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+        appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
       }
 
       // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
@@ -4836,6 +4841,7 @@ async function pushSettingsToBackend(currentToken = '', newToken = '') {
           activeClassroom: appState.activeClassroom,
           subjects: appState.settings.subjects,
           classrooms: appState.settings.classrooms,
+          spreadsheetUrl: appState.settings.spreadsheetUrl || '',
           apiToken: appState.settings.apiToken || ''
         }
       }),
@@ -5190,9 +5196,9 @@ function calculateGradeRecord(rec, ratio) {
 }
 
 function getOrCreateGradeRecord(student) {
-  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || 'ส31162';
+  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || '';
   const subj = appState.activeSubject || defaultSubj;
-  const room = student.classroom || appState.activeClassroom || 'ม.4/1';
+  const room = student.classroom || appState.activeClassroom || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
   const sid = String(student.studentId || '');
   const key = subj + '_' + room + '_' + sid;
 
@@ -5401,9 +5407,9 @@ function navigateToGradebookCell(targetRowIdx, colName) {
  * ปรับปรุงคะแนนรายช่องแบบ Real-time
  */
 function updateGradebookCell(studentId, field, value) {
-  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || 'ส31162';
+  const defaultSubj = (appState.settings && appState.settings.subjects && appState.settings.subjects[0] && appState.settings.subjects[0].code) || '';
   const subj = appState.activeSubject || defaultSubj;
-  const room = appState.activeClassroom || 'ม.4/1';
+  const room = appState.activeClassroom || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
   const sid = String(studentId);
   const key = subj + '_' + room + '_' + sid;
 

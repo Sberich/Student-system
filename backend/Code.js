@@ -10,19 +10,14 @@ const SHEET_ASSIGNMENTS = 'Assignments';
 const SHEET_SUBMISSIONS = 'Submissions';
 const SHEET_GRADEBOOK = 'Gradebook';
 
-// ห้องเรียนทั้งหมด 13 ห้อง (ม.4 จำนวน 11 ห้อง, ม.5 จำนวน 2 ห้อง)
+// ห้องเรียนเริ่มต้นแบบทั่วไปสำหรับระบบแม่แบบ (ผู้ใช้สามารถแก้ไข/เพิ่ม/ลบได้อิสระ)
 const DEFAULT_CLASSROOMS = [
-  'ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6',
-  'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11',
-  'ม.5/1', 'ม.5/2'
+  'ม.1/1', 'ม.1/2'
 ];
 
-// รายวิชาเริ่มต้นของระบบ
+// รายวิชาเริ่มต้นแบบทั่วไปสำหรับระบบแม่แบบ
 const DEFAULT_SUBJECTS = [
-  { id: 'SUB01', code: 'ส31162', name: 'ประวัติศาสตร์ไทย (ม.4)', ratio: '80/20', finalDivisor: 2, classrooms: ['ม.4/1', 'ม.4/2', 'ม.4/3', 'ม.4/4', 'ม.4/5', 'ม.4/6', 'ม.4/7', 'ม.4/8', 'ม.4/9', 'ม.4/10', 'ม.4/11'] },
-  { id: 'SUB02', code: 'ส31102', name: 'สังคมศึกษา (ม.4)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/2', 'ม.4/3'] },
-  { id: 'SUB03', code: 'ส30212', name: 'กฎหมายที่ประชาชนควรรู้ (ม.ปลาย)', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] },
-  { id: 'SUB04', code: 'ส31238', name: 'ต่อต้านการทุจริต', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.4/11'] }
+  { id: 'SUB01', code: 'ว101', name: 'รายวิชาตัวอย่าง', ratio: '70/30', finalDivisor: 2, classrooms: ['ม.1/1', 'ม.1/2'] }
 ];
 
 function onOpen() {
@@ -211,24 +206,69 @@ function prepareCleanTemplateMenuAction() {
   // 2. จัดโครงสร้างตารางเปล่าให้สมบูรณ์
   ensureSheetsExist(targetSs);
 
-  // 3. ผูก masterLicenseSheetId เข้ากับชีทแม่แบบเปล่า
+  // 3. รีเซ็ตแท็บ Settings ของชีทแม่แบบเปล่าให้เป็นค่าเริ่มต้นที่สะอาด 100%
   const cleanSettings = targetSs.getSheetByName(SHEET_SETTINGS);
-  if (cleanSettings && licenseSheetId) {
-    let found = false;
-    const data = cleanSettings.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === 'masterLicenseSheetId') {
-        cleanSettings.getRange(i + 1, 2).setValue(licenseSheetId);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
+  if (cleanSettings) {
+    cleanSettings.clearContents();
+    cleanSettings.appendRow(['Key', 'Value']);
+    cleanSettings.appendRow(['schoolName', '']);
+    cleanSettings.appendRow(['academicYear', '2568']);
+    cleanSettings.appendRow(['term', '1']);
+    cleanSettings.appendRow(['teacherName', '']);
+    cleanSettings.appendRow(['activeSubject', 'ว101']);
+    cleanSettings.appendRow(['activeClassroom', 'ม.1/1']);
+    cleanSettings.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
+    cleanSettings.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
+    if (licenseSheetId) {
       cleanSettings.appendRow(['masterLicenseSheetId', licenseSheetId]);
     }
+    try {
+      cleanSettings.appendRow(['spreadsheetUrl', targetSs.getUrl()]);
+    } catch (e) {}
+    formatHeaderRow(cleanSettings);
   }
 
-  // 4. ตั้งค่าแชร์ให้เป็น "ทุกคนที่มีลิงก์มีสิทธิ์ดู (Viewer)" อัตโนมัติ
+  // 4. ล้างข้อมูลนักเรียนเดิมในชีทแม่แบบเปล่า (ให้เหลือเฉพาะหัวตาราง)
+  const cleanStudents = targetSs.getSheetByName(SHEET_STUDENTS);
+  if (cleanStudents) {
+    cleanStudents.clearContents();
+    cleanStudents.appendRow(['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ']);
+    formatHeaderRow(cleanStudents);
+  }
+
+  // 5. ล้างภาระงานเดิมในชีทแม่แบบเปล่า
+  const cleanAssignments = targetSs.getSheetByName(SHEET_ASSIGNMENTS);
+  if (cleanAssignments) {
+    cleanAssignments.clearContents();
+    cleanAssignments.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
+    formatHeaderRow(cleanAssignments);
+  }
+
+  // 6. ล้างการส่งงานเดิมในชีทแม่แบบเปล่า
+  const cleanSubmissions = targetSs.getSheetByName(SHEET_SUBMISSIONS);
+  if (cleanSubmissions) {
+    cleanSubmissions.clearContents();
+    cleanSubmissions.appendRow(['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด']);
+    formatHeaderRow(cleanSubmissions);
+  }
+
+  // 7. ล้างทะเบียนคะแนน Gradebook ในชีทแม่แบบเปล่า
+  const cleanGradebook = targetSs.getSheetByName(SHEET_GRADEBOOK);
+  if (cleanGradebook) {
+    cleanGradebook.clearContents();
+    cleanGradebook.appendRow([
+      'รหัสวิชา', 'ห้องเรียน', 'เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล',
+      'มา_ก่อนกลาง', 'งาน_ก่อนกลาง', 'รวมก่อนกลาง',
+      'กลางภาค_ข้อเขียน', 'กลางภาค_หาร', 'กลางภาค_ช่วย', 'สรุปกลางภาค',
+      'มา_หลังกลาง', 'งาน_หลังกลาง', 'รวมหลังกลาง',
+      'รวมระหว่างภาค',
+      'ปลายภาค_ข้อเขียน', 'ปลายภาค_หาร', 'ปลายภาค_ช่วย', 'สรุปปลายภาค',
+      'คะแนนรวม100', 'เกรด', 'สถานะ_SGS', 'หมายเหตุ', 'อัปเดตเมื่อ'
+    ]);
+    formatHeaderRow(cleanGradebook);
+  }
+
+  // 8. ตั้งค่าแชร์ให้เป็น "ทุกคนที่มีลิงก์มีสิทธิ์ดู (Viewer)" อัตโนมัติ
   try {
     DriveApp.getFileById(cleanSheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (e) {
@@ -237,10 +277,10 @@ function prepareCleanTemplateMenuAction() {
 
   const copyUrl = 'https://docs.google.com/spreadsheets/d/' + cleanSheetId + '/copy';
   ui.alert(
-    '🎉 เตรียมชีทแม่แบบเปล่า (Clean Template) เสร็จสมบูรณ์แล้ว!',
-    'ระบบได้จัดเตรียมโครงสร้างชีท "SmartGrade_Template_Clean" ที่สะอาด ไร้ข้อมูลนักเรียนของคุณครู พร้อมโค้ดที่ผ่านการเข้ารหัส (Obfuscated) เรียบร้อยแล้วครับ\n\n' +
+    '🎉 ล้างและเตรียมชีทแม่แบบเปล่า (Clean Template) เสร็จสมบูรณ์แล้ว!',
+    'ระบบได้ล้างข้อมูลโรงเรียน, ชื่อคุณครู, รายชื่อนักเรียน และภาระงานออกจากชีท "SmartGrade_Template_Clean" ทั้งหมดเรียบร้อยแล้ว\n\n' +
     '📌 ลิงก์สำหรับส่งต่อให้เพื่อนครู (กดแล้วเป็นปุ่มทำสำเนาทันที):\n' + copyUrl + '\n\n' +
-    '💡 ระบบได้เปิดสิทธิ์ "ทุกคนที่มีลิงก์มีสิทธิ์ดู (Viewer)" ให้เรียบร้อยแล้ว เพื่อนครูสามารถกดทำสำเนาได้ทันทีโดยไม่ติดหน้าขอสิทธิ์ครับ',
+    '💡 เพื่อนครูที่ทำสำเนาไป จะได้ชีทที่สะอาด 100% ไม่มีข้อมูลของโรงเรียนหรือห้อง ม.4 ติดไปด้วยแน่นอนครับ',
     ui.ButtonSet.OK
   );
 }
@@ -504,16 +544,16 @@ function fetchAllData(ss) {
 
   // 1. Settings
   const settings = {
-    schoolName: 'โรงเรียนตัวอย่าง',
-    academicYear: '2569',
-    term: '2',
-    teacherName: 'คุณครูผู้สอน',
-    activeSubject: DEFAULT_SUBJECTS[0].code,
-    activeClassroom: 'ม.4/1',
+    schoolName: '',
+    academicYear: '2568',
+    term: '1',
+    teacherName: '',
+    activeSubject: (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || '',
+    activeClassroom: DEFAULT_CLASSROOMS[0] || '',
     subjects: DEFAULT_SUBJECTS,
     classrooms: DEFAULT_CLASSROOMS
   };
-  const settingsValues = settingsSheet.getDataRange().getValues();
+  const settingsValues = settingsSheet ? settingsSheet.getDataRange().getValues() : [];
   for (let i = 1; i < settingsValues.length; i++) {
     const key = settingsValues[i][0];
     const val = settingsValues[i][1];
@@ -528,7 +568,7 @@ function fetchAllData(ss) {
 
   // 2. Students
   const students = [];
-  const studentRows = studentsSheet.getDataRange().getValues();
+  const studentRows = studentsSheet ? studentsSheet.getDataRange().getValues() : [];
   for (let i = 1; i < studentRows.length; i++) {
     const row = studentRows[i];
     if (row[1]) { // studentId
@@ -536,7 +576,7 @@ function fetchAllData(ss) {
         no: Number(row[0]) || i,
         studentId: String(row[1]),
         fullName: String(row[2]),
-        classroom: String(row[3] || 'ม.4/1'),
+        classroom: String(row[3] || ''),
         status: String(row[4] || 'ปกติ')
       });
     }
@@ -940,8 +980,8 @@ function handleCreateAssignment(ss, payload) {
   const title = payload.title || 'งานที่มอบหมายใหม่';
   const fullScore = Number(payload.fullScore) || 5;
   const dueDate = payload.dueDate || '';
-  const subject = payload.subject || DEFAULT_SUBJECTS[0].code;
-  const classroom = payload.classroom || 'ม.4/1';
+  const subject = payload.subject || (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || '';
+  const classroom = payload.classroom || (DEFAULT_CLASSROOMS[0]) || '';
 
   sheet.appendRow([id, title, fullScore, dueDate, subject, classroom, new Date()]);
 
@@ -979,7 +1019,7 @@ function handleSaveAssignmentsList(ss, assignmentsList) {
       Number(a.fullScore) || 5,
       String(a.dueDate || ''),
       String(a.subject || ''),
-      String(a.classroom || 'ม.4/1'),
+      String(a.classroom || ''),
       a.createdAt || new Date()
     ]);
     sheet.getRange(2, 1, rows.length, 7).setValues(rows);
@@ -988,6 +1028,32 @@ function handleSaveAssignmentsList(ss, assignmentsList) {
 
 function handleUpdateSettings(ss, settingsObj) {
   const sheet = ss.getSheetByName(SHEET_SETTINGS);
+  if (!sheet) return;
+
+  // อ่านค่าเดิมเพื่อรักษา masterLicenseSheetId ไว้เสมอ
+  let preservedMasterLicenseId = '';
+  try {
+    const existingData = sheet.getDataRange().getValues();
+    for (let i = 1; i < existingData.length; i++) {
+      if (existingData[i][0] === 'masterLicenseSheetId') {
+        preservedMasterLicenseId = String(existingData[i][1] || '').trim();
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read existing masterLicenseSheetId:', e);
+  }
+
+  if (!settingsObj.masterLicenseSheetId && preservedMasterLicenseId) {
+    settingsObj.masterLicenseSheetId = preservedMasterLicenseId;
+  }
+
+  if (!settingsObj.spreadsheetUrl) {
+    try {
+      settingsObj.spreadsheetUrl = ss.getUrl();
+    } catch (e) {}
+  }
+
   sheet.clearContents();
   sheet.appendRow(['Key', 'Value']);
   Object.keys(settingsObj).forEach(k => {
@@ -1031,12 +1097,15 @@ function ensureSheetsExist(ss) {
       sh.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
       sh.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
       sh.appendRow(['schoolName', '']);
-      sh.appendRow(['academicYear', '2567']);
-      sh.appendRow(['term', '2']);
+      sh.appendRow(['academicYear', '2568']);
+      sh.appendRow(['term', '1']);
       sh.appendRow(['teacherName', '']);
+      try {
+        sh.appendRow(['spreadsheetUrl', ss.getUrl()]);
+      } catch (e) {}
     }
     if (item.name === SHEET_STUDENTS && (isNew || sh.getLastRow() <= 1)) {
-      sh.appendRow([1, '40001', 'นายรักเรียน ขยันยิ่ง', 'ม.4/1', 'ปกติ']);
+      // ตารางนักเรียนเริ่มต้นเป็นตารางเปล่าพร้อมหัวตาราง ไม่ใส่ข้อมูลตัวอย่าง
     }
   });
 
@@ -1077,14 +1146,15 @@ function seedSampleData() {
   settingsSheet.clearContents();
   const sampleSettings = [
     ['Key', 'Value'],
-    ['schoolName', 'โรงเรียนสาธิตพัฒนาปัญญา'],
-    ['academicYear', '2569'],
-    ['term', '2'],
-    ['teacherName', 'คุณครูผู้สอน'],
-    ['activeSubject', 'ส31101'],
-    ['activeClassroom', 'ม.4/1'],
+    ['schoolName', 'โรงเรียนตัวอย่างศึกษา'],
+    ['academicYear', '2568'],
+    ['term', '1'],
+    ['teacherName', 'คุณครูทดสอบ'],
+    ['activeSubject', 'ว101'],
+    ['activeClassroom', 'ม.1/1'],
     ['subjects', JSON.stringify(DEFAULT_SUBJECTS)],
-    ['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]
+    ['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)],
+    ['spreadsheetUrl', ss.getUrl()]
   ];
   settingsSheet.getRange(1, 1, sampleSettings.length, 2).setValues(sampleSettings);
   formatHeaderRow(settingsSheet);

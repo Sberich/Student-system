@@ -678,23 +678,35 @@ function fetchAllData(ss) {
   const studentRows = studentsSheet ? studentsSheet.getDataRange().getValues() : [];
   for (let i = 1; i < studentRows.length; i++) {
     const row = studentRows[i];
-    if (row[1]) { // studentId
+    const rawNo = row[0];
+    const rawId = row[1];
+    const rawName = row[2];
+    const rawRoom = row[3];
+    const rawStatus = row[4];
+
+    // ถ้าระบุ รหัสนักเรียน หรือ ชื่อ-นามสกุล หรือ เลขที่ อย่างใดอย่างหนึ่ง ถือว่าเป็นแถวนักเรียน
+    if (rawId || rawName) {
+      const studentId = rawId ? String(rawId).trim() : `ST${String(rawNo || i).padStart(2, '0')}`;
+      const fullName = rawName ? String(rawName).trim() : (rawId ? String(rawId).trim() : `นักเรียนคนที่ ${i}`);
+      const classroom = rawRoom ? String(rawRoom).trim() : (settings.activeClassroom || DEFAULT_CLASSROOMS[0] || 'ม.1/1');
       students.push({
-        no: Number(row[0]) || i,
-        studentId: String(row[1]),
-        fullName: String(row[2]),
-        classroom: String(row[3] || ''),
-        status: String(row[4] || 'ปกติ')
+        no: Number(rawNo) || i,
+        studentId: studentId,
+        fullName: fullName,
+        classroom: classroom,
+        status: String(rawStatus || 'ปกติ').trim()
       });
     }
   }
 
   // 3. Assignments
   const assignments = [];
-  const assignRows = assignmentsSheet.getDataRange().getValues();
+  const assignRows = assignmentsSheet ? assignmentsSheet.getDataRange().getValues() : [];
   for (let i = 1; i < assignRows.length; i++) {
     const row = assignRows[i];
-    if (row[0]) {
+    const rawId = row[0];
+    const rawTitle = row[1];
+    if (rawId || rawTitle) {
       let dueDateFormatted = '';
       if (row[3] instanceof Date) {
         dueDateFormatted = Utilities.formatDate(row[3], 'Asia/Bangkok', 'yyyy-MM-dd');
@@ -703,15 +715,21 @@ function fetchAllData(ss) {
       }
 
       assignments.push({
-        id: String(row[0]),
-        title: String(row[1]),
+        id: rawId ? String(rawId).trim() : `ASG_${String(i).padStart(2, '0')}`,
+        title: rawTitle ? String(rawTitle).trim() : `งานที่ ${i}`,
         fullScore: Number(row[2]) || 5,
         dueDate: dueDateFormatted,
-        subject: String(row[4] || ''),
-        classroom: String(row[5] || DEFAULT_CLASSROOMS[0] || 'ม.1/1')
+        subject: String(row[4] || settings.activeSubject || DEFAULT_SUBJECTS[0].code),
+        classroom: String(row[5] || settings.activeClassroom || DEFAULT_CLASSROOMS[0] || 'ม.1/1')
       });
     }
   }
+
+  // รวบรวมห้องเรียนทั้งหมดที่พบจากนักเรียนและงานเข้าสู่ settings.classrooms โดยอัตโนมัติ
+  const discoveredRooms = new Set(Array.isArray(settings.classrooms) ? settings.classrooms : DEFAULT_CLASSROOMS);
+  students.forEach(s => { if (s.classroom) discoveredRooms.add(s.classroom); });
+  assignments.forEach(a => { if (a.classroom) discoveredRooms.add(a.classroom); });
+  settings.classrooms = Array.from(discoveredRooms);
 
   // 4. Submissions
   const submissions = {};

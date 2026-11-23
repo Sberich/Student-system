@@ -5065,10 +5065,35 @@ async function continuePullFromGoogleSheets(isManual) {
         if (data.settings.term !== undefined) appState.settings.term = data.settings.term;
       }
 
+      // รวมห้องเรียนทั้งหมดที่พบจากนักเรียนและงานเข้าสู่ appState.settings.classrooms
+      const discoveredRooms = new Set(Array.isArray(appState.settings.classrooms) ? appState.settings.classrooms : DEFAULT_CLASSROOMS);
+      if (Array.isArray(appState.students)) {
+        appState.students.forEach(s => {
+          if (s.classroom && String(s.classroom).trim()) discoveredRooms.add(String(s.classroom).trim());
+        });
+      }
+      if (Array.isArray(appState.assignments)) {
+        appState.assignments.forEach(a => {
+          if (a.classroom && String(a.classroom).trim()) discoveredRooms.add(String(a.classroom).trim());
+        });
+      }
+      if (discoveredRooms.size > 0) {
+        appState.settings.classrooms = sortClassroomNames(Array.from(discoveredRooms));
+      }
+
       // ตรวจสอบความถูกต้องของ activeClassroom กับวิชาที่เลือก
       const validRooms = getClassroomsForSubject(appState.activeSubject);
       if (!validRooms.includes(appState.activeClassroom)) {
         appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || '';
+      }
+
+      // หากห้องเรียนปัจจุบันไม่มีนักเรียน แต่ห้องอื่นในระบบมีนักเรียน ให้สลับไปห้องที่มีนักเรียนทันที
+      const currentClassStudents = appState.students.filter(s => s.classroom === appState.activeClassroom);
+      if (currentClassStudents.length === 0 && appState.students.length > 0) {
+        const roomWithStudents = appState.students.find(s => s.classroom && s.classroom.trim())?.classroom;
+        if (roomWithStudents) {
+          appState.activeClassroom = roomWithStudents;
+        }
       }
 
       // ล้างข้อมูลผีและข้อมูลห้องที่ถูกลบออกจากเครื่องทันที
@@ -5082,7 +5107,12 @@ async function continuePullFromGoogleSheets(isManual) {
       updateSyncIndicator('online');
 
       if (isManual) {
-        showToast(`✓ ดึงข้อมูลสำเร็จ: พบนักเรียน ${appState.students.length} คน, ${appState.assignments.length} งาน`);
+        if (appState.students.length === 0) {
+          showToast(`✓ ดึงข้อมูลสำเร็จ: แต่ใน Google Sheets ยังไม่มีรายชื่อนักเรียน (0 คน, 0 งาน)`, 6000);
+        } else {
+          const roomList = [...new Set(appState.students.map(s => s.classroom))].filter(Boolean);
+          showToast(`✓ ดึงข้อมูลสำเร็จ: พบนักเรียน ${appState.students.length} คน (${roomList.join(', ')}), ${appState.assignments.length} งาน`);
+        }
       }
       return true;
     } else {

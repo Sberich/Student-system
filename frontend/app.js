@@ -4645,13 +4645,17 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
 
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
           <div style="font-size: 0.85rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem;">
-            🔍 สาเหตุหลักและวิธีแก้ไข 4 ข้อ:
+            🔍 สาเหตุหลักและวิธีแก้ไข:
           </div>
           <ol style="font-size: 0.82rem; color: #334155; line-height: 1.6; padding-left: 1.2rem; margin: 0;">
             <li style="margin-bottom: 0.5rem;">
               <strong>สิทธิ์การเข้าถึง (Who has access) - สำคัญที่สุด ⭐:</strong><br/>
-              ในหน้า Apps Script ตอนกด <em>Deploy (การทำให้ใช้งานได้)</em> ต้องเลือก <strong>"ผู้มีสิทธิ์เข้าถึง (Who has access)"</strong> เป็น <span style="color: #2563EB; font-weight: 700;">"ทุกคน" (Anyone)</span> เท่านั้น<br/>
-              <span style="color: #64748B;">* หากเลือก "ฉันเท่านั้น" หรือ "ทุกคนในองค์กร" Google จะบล็อกการตอบกลับทันที</span>
+              ในหน้า Apps Script ตอนกด <em>Deploy (การทำให้ใช้งานได้)</em> ต้องเลือก <strong>"ผู้มีสิทธิ์เข้าถึง (Who has access)"</strong> เป็น <span style="color: #2563EB; font-weight: 700;">"ทุกคน" (Anyone)</span> เท่านั้น
+            </li>
+            <li style="margin-bottom: 0.5rem;">
+              <strong>ข้อจำกัดของอีเมลองค์กร/โรงเรียน (@thatphanom.ac.th) 🏫:</strong><br/>
+              หากผู้ดูแลระบบ Google Workspace ของสถานศึกษาตั้งค่านโยบายห้ามแชร์ไฟล์หรือเว็บแอปสู่ภายนอก Google จะบล็อกและขึ้นว่า <strong>"ไม่พบเพจ (404)"</strong> โดยอัตโนมัติ<br/>
+              <span style="color: #15803D; font-weight: 600;">👉 วิธีแก้ง่ายที่สุด:</span> ทำสำเนาชีทไปไว้ใน <strong>บัญชี Gmail ทั่วไป (@gmail.com)</strong> แล้วเปิดใช้งาน Apps Script จาก Gmail ทั่วไป จะผ่านฉลุย 100% ทันทีครับ
             </li>
             <li style="margin-bottom: 0.5rem;">
               <strong>การให้สิทธิ์ (Authorize access):</strong><br/>
@@ -4659,7 +4663,7 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
             </li>
             <li style="margin-bottom: 0.5rem;">
               <strong>กรณีมีบัญชี Google ล็อกอินหลายบัญชีในเบราว์เซอร์:</strong><br/>
-              หากเบราว์เซอร์มีการล็อกอินทั้งเมลส่วนตัวและเมลโรงเรียน ให้ลองเปิดหน้าเว็บใน <strong>โหมดไม่ระบุตัวตน (Incognito)</strong> หรือสร้างโปรไฟล์เบราว์เซอร์แยก เพื่อป้องกัน Google สับสนบัญชี
+              หากเบราว์เซอร์มีการล็อกอินทั้งเมลส่วนตัวและเมลโรงเรียน ให้ลองเปิดหน้าเว็บใน <strong>โหมดไม่ระบุตัวตน (Incognito / InPrivate)</strong>
             </li>
             <li>
               <strong>รูปแบบลิงก์ Web App:</strong><br/>
@@ -4668,7 +4672,10 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
           </ol>
         </div>
 
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="testOpenGasInNewTab()">
+            🔗 ทดสอบเปิด Web App ในแท็บใหม่
+          </button>
           <button type="button" class="btn btn-primary" onclick="closeModal('${modalId}')">
             เข้าใจแล้ว ฉันจะไปตรวจสอบ
           </button>
@@ -4680,6 +4687,17 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+function testOpenGasInNewTab() {
+  const url = (appState.settings && appState.settings.gasUrl) ? appState.settings.gasUrl.trim() : '';
+  if (url) {
+    const testUrl = url.includes('?') ? `${url}&action=ping` : `${url}?action=ping`;
+    window.open(testUrl, '_blank', 'noopener,noreferrer');
+  } else {
+    showToast('ยังไม่ได้ระบุ Web App URL');
+  }
+}
+
+window.testOpenGasInNewTab = testOpenGasInNewTab;
 window.showGasTroubleshootModal = showGasTroubleshootModal;
 
 async function saveSettings() {
@@ -4722,8 +4740,6 @@ async function saveSettings() {
     const ok = await pullFromGoogleSheets(true);
     if (ok) {
       showToast('✓ เชื่อมต่อชีทใหม่และดึงข้อมูลสำเร็จ');
-    } else {
-      showGasTroubleshootModal('เชื่อมต่อชีทใหม่ไม่สำเร็จ', 'ไม่สามารถเชื่อมต่อไปยัง Web App URL ที่ระบุได้ กรุณาตรวจสอบการตั้งค่า Deploy ใน Google Apps Script');
     }
     return;
   }
@@ -4915,10 +4931,37 @@ async function continuePullFromGoogleSheets(isManual) {
 
   try {
     const tokenParam = appState.settings.apiToken ? `&token=${encodeURIComponent(appState.settings.apiToken)}` : '';
-    const res = await fetch(`${appState.settings.gasUrl}?action=getInitialData${tokenParam}`);
-    const json = await res.json();
+    const fetchUrl = `${appState.settings.gasUrl}?action=getInitialData${tokenParam}`;
 
-    if (json.success && json.data) {
+    let res;
+    try {
+      res = await fetch(fetchUrl);
+    } catch (netErr) {
+      console.error('[Sync Error] Network fetch failed:', netErr);
+      throw new Error(`เบราว์เซอร์ถูกบล็อกการเชื่อมต่อ (${netErr.name || 'CORS Error'}: ${netErr.message || 'Failed to fetch'})`);
+    }
+
+    if (!res.ok) {
+      throw new Error(`Google Apps Script ส่งรหัสข้อผิดพลาด HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const rawText = await res.text();
+    let json;
+    try {
+      json = JSON.parse(rawText);
+    } catch (parseErr) {
+      console.error('[Sync Error] Non-JSON response received:', rawText.slice(0, 300));
+      if (rawText.includes('ไม่พบเพจ') || rawText.includes('Page Not Found') || rawText.includes('404')) {
+        throw new Error('Google แจ้งเตือน "ไม่พบเพจ (HTTP 404)": URL ไม่ถูกต้อง หรือนโยบายอีเมลโรงเรียน/องค์กรบล็อกการเปิดเผยเว็บแอปภายนอก');
+      }
+      throw new Error(`Google ส่งผลลัพธ์เป็นหน้าเว็บ HTML แทนที่จะเป็นข้อมูล JSON: "${rawText.slice(0, 80).replace(/\s+/g, ' ')}..."`);
+    }
+
+    if (!json.success) {
+      throw new Error(json.error || json.message || 'Google Apps Script ปฏิเสธคำขอ');
+    }
+
+    if (json.data) {
       const data = json.data;
       
       if (Array.isArray(data.students)) {
@@ -4982,8 +5025,8 @@ async function continuePullFromGoogleSheets(isManual) {
     console.error('Error pulling from Google Sheets:', err);
     updateSyncIndicator('offline');
     if (isManual) {
-      showToast(`⚠️ ${err.message || 'ไม่สามารถดึงข้อมูลได้ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'}`);
-      showGasTroubleshootModal('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้', 'เบราว์เซอร์ไม่สามารถเชื่อมต่อไปยัง Google Apps Script ได้ (มักเกิดจากในหน้า Deploy ไม่ได้เลือก "ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)" หรือใส่ URL ไม่ถูกต้อง)');
+      showToast(`⚠️ ${err.message || 'ไม่สามารถดึงข้อมูลได้'}`);
+      showGasTroubleshootModal('เชื่อมต่อ Google Sheets ไม่สำเร็จ', err.message || '');
     }
     return false;
   }

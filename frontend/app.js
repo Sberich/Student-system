@@ -4634,19 +4634,32 @@ function showGasTroubleshootModal(title = 'ไม่สามารถเชื�
           </div>
         ` : ''}
 
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: #1D4ED8; margin-bottom: 0.25rem;">
+            💡 ข้อมูลส่งลง Google Sheets แล้ว แต่ทำไมหน้าเว็บยังแจ้งเตือนว่าออฟไลน์?
+          </div>
+          <div style="font-size: 0.78rem; color: #1E40AF; line-height: 1.5;">
+            คำสั่งส่งข้อมูล (POST) เดินทางไปถึงเซิร์ฟเวอร์ Google และเขียนลงชีทสำเร็จแล้ว แต่ในจังหวะที่ Google ส่งสัญญาณตอบกลับมายังหน้าเว็บ ถูกบล็อกด้วยระบบความปลอดภัยของ Google เนื่องจากสิทธิ์ตอน Deploy ไม่ได้เลือก <strong>"ทุกคน" (Anyone)</strong> หรือมีบัญชี Google ล็อกอินซ้อนกันหลายบัญชีในเบราว์เซอร์
+          </div>
+        </div>
+
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
           <div style="font-size: 0.85rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem;">
-            🔍 สาเหตุหลักและวิธีแก้ไข 3 ข้อ:
+            🔍 สาเหตุหลักและวิธีแก้ไข 4 ข้อ:
           </div>
           <ol style="font-size: 0.82rem; color: #334155; line-height: 1.6; padding-left: 1.2rem; margin: 0;">
             <li style="margin-bottom: 0.5rem;">
               <strong>สิทธิ์การเข้าถึง (Who has access) - สำคัญที่สุด ⭐:</strong><br/>
               ในหน้า Apps Script ตอนกด <em>Deploy (การทำให้ใช้งานได้)</em> ต้องเลือก <strong>"ผู้มีสิทธิ์เข้าถึง (Who has access)"</strong> เป็น <span style="color: #2563EB; font-weight: 700;">"ทุกคน" (Anyone)</span> เท่านั้น<br/>
-              <span style="color: #64748B;">* หากเลือก "ฉันเท่านั้น" หรือ "ทุกคนในองค์กร" Google จะบล็อกการเชื่อมต่อทันที</span>
+              <span style="color: #64748B;">* หากเลือก "ฉันเท่านั้น" หรือ "ทุกคนในองค์กร" Google จะบล็อกการตอบกลับทันที</span>
             </li>
             <li style="margin-bottom: 0.5rem;">
               <strong>การให้สิทธิ์ (Authorize access):</strong><br/>
               หาก Deploy ครั้งแรก ต้องกด <em>"ให้สิทธิ์การเข้าถึง"</em> &gt; เลือกอีเมล &gt; <em>ขั้นสูง (Advanced)</em> &gt; <em>ไปยัง ... (ไม่ปลอดภัย)</em> &gt; <em>อนุญาต (Allow)</em> ให้ครบ
+            </li>
+            <li style="margin-bottom: 0.5rem;">
+              <strong>กรณีมีบัญชี Google ล็อกอินหลายบัญชีในเบราว์เซอร์:</strong><br/>
+              หากเบราว์เซอร์มีการล็อกอินทั้งเมลส่วนตัวและเมลโรงเรียน ให้ลองเปิดหน้าเว็บใน <strong>โหมดไม่ระบุตัวตน (Incognito)</strong> หรือสร้างโปรไฟล์เบราว์เซอร์แยก เพื่อป้องกัน Google สับสนบัญชี
             </li>
             <li>
               <strong>รูปแบบลิงก์ Web App:</strong><br/>

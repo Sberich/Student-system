@@ -259,7 +259,7 @@ body {
   border-bottom: 1px solid var(--border-light);
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 2000;
   padding: 0.65rem 1.25rem;
 }
 
@@ -1274,7 +1274,7 @@ body {
   inset: 0;
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: 9000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1371,7 +1371,7 @@ body {
   position: fixed;
   bottom: calc(1.5rem + var(--safe-bottom));
   right: 1.5rem;
-  z-index: 200;
+  z-index: 20000;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -2239,7 +2239,7 @@ body {
     border-radius: var(--radius-md);
     overflow: visible !important;
     position: relative;
-    z-index: 50;
+    z-index: 20;
   }
 
   .assign-bar-row-1 {
@@ -4039,7 +4039,7 @@ body {
 
 .assign-popover-wrapper {
   position: relative;
-  z-index: 55;
+  z-index: 20;
 }
 
 .assign-popover-wrapper .popover-dropdown-menu {

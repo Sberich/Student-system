@@ -79,13 +79,6 @@ let appState = {
   finalDivisor: 2, // ตัวหารข้อเขียนปลายภาค (ค่าเริ่มต้นคือ 2)
   gradebook: {} // key: `${subject}_${classroom}_${studentId}`
 };
-  students: [],
-  assignments: [],
-  submissions: {}, // key: `${assignmentId}_${studentId}`
-  gradebookRatio: '70/30', // '70/30' or '80/20'
-  finalDivisor: 2, // ตัวหารข้อเขียนปลายภาค (ค่าเริ่มต้นคือ 2)
-  gradebook: {} // key: `${subject}_${classroom}_${studentId}`
-};
 
 // Undo stack สำหรับการตรวจงานล่าสุด
 let lastGradingAction = null;

@@ -3,7 +3,7 @@
  * ให้บริการ Network-First สำหรับ App Shell เพื่อให้รับการอัปเดตล่าสุดเสมอ
  */
 
-const CACHE_NAME = 'smart-grade-v55';
+const CACHE_NAME = 'smart-grade-v56';
 const APP_SHELL = [
   './',
   './index.html',

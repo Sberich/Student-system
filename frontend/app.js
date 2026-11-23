@@ -3780,23 +3780,27 @@ function renderSettings(container) {
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">ชื่อโรงเรียน</label>
-        <input type="text" id="cfg-school" class="form-input" value="${esc(appState.settings.schoolName)}" />
-      </div>
+      <!-- ข้อมูลโรงเรียนและครูผู้สอน (จัดเรียงบรรทัดเดียวกัน สวยงาม กระทัดรัด) -->
+      <div class="cfg-school-header-block">
+        <div class="cfg-inline-field">
+          <label class="cfg-inline-label" for="cfg-school">ชื่อโรงเรียน</label>
+          <input type="text" id="cfg-school" class="form-input cfg-inline-input" value="${esc(appState.settings.schoolName)}" placeholder="ระบุชื่อโรงเรียน" />
+        </div>
 
-      <div class="cfg-school-info-grid" style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 0.75rem;">
-        <div class="form-group">
-          <label class="form-label">ภาคเรียนที่</label>
-          <input type="text" id="cfg-term" class="form-input" value="${esc(appState.settings.term)}" />
+        <div class="cfg-inline-row">
+          <div class="cfg-inline-field cfg-inline-half">
+            <label class="cfg-inline-label" for="cfg-term">ภาคเรียนที่</label>
+            <input type="text" id="cfg-term" class="form-input cfg-inline-input" style="text-align: center; max-width: 65px;" value="${esc(appState.settings.term)}" placeholder="1 หรือ 2" />
+          </div>
+          <div class="cfg-inline-field cfg-inline-half">
+            <label class="cfg-inline-label" for="cfg-year">ปีการศึกษา</label>
+            <input type="text" id="cfg-year" class="form-input cfg-inline-input" style="text-align: center; max-width: 95px;" value="${esc(appState.settings.academicYear)}" placeholder="เช่น 2569" />
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">ปีการศึกษา</label>
-          <input type="text" id="cfg-year" class="form-input" value="${esc(appState.settings.academicYear)}" />
-        </div>
-        <div class="form-group cfg-teacher-group">
-          <label class="form-label">ชื่อครูผู้สอน</label>
-          <input type="text" id="cfg-teacher" class="form-input" value="${esc(appState.settings.teacherName)}" />
+
+        <div class="cfg-inline-field">
+          <label class="cfg-inline-label" for="cfg-teacher">ชื่อครูผู้สอน</label>
+          <input type="text" id="cfg-teacher" class="form-input cfg-inline-input" value="${esc(appState.settings.teacherName)}" placeholder="ระบุชื่อคุณครูผู้สอน" />
         </div>
       </div>
 
@@ -3934,10 +3938,10 @@ function renderSettings(container) {
       <div class="cfg-action-card cfg-action-card-upload">
         <div class="cfg-action-header">
           <h4 class="cfg-action-title">
-            <span>⬆️</span> ส่งข้อมูลขึ้น Google Sheets (เว็บ ➔ ชีท)
+            <span>⬆️</span> ส่งข้อมูลขึ้น Sheets (เว็บ ➔ ชีท)
           </h4>
           <p class="cfg-action-desc">
-            ใช้เมื่อแก้ไขข้อมูลบนหน้าเว็บนี้ แล้วต้องการนำข้อมูลขึ้นไปบันทึกลง Google Sheets
+            ใช้เมื่อแก้ไขข้อมูลบนเว็บ แล้วต้องการนำขึ้นบันทึกลง Sheets
           </p>
         </div>
 
@@ -3973,7 +3977,7 @@ function renderSettings(container) {
       <div class="cfg-action-card cfg-action-card-download">
         <div class="cfg-action-header">
           <h4 class="cfg-action-title text-emerald">
-            <span>📥</span> ดึงข้อมูลจาก Google Sheets (ชีท ➔ หน้านี้)
+            <span>📥</span> ดึงข้อมูลจาก Sheets (ชีท ➔ หน้านี้)
           </h4>
           <p class="cfg-action-desc text-emerald-desc">
             ใช้เมื่อคุณครูแก้ไขข้อมูลในชีท หรือเปิดบนอุปกรณ์ใหม่ เพื่อดึงข้อมูลล่าสุดมาแสดงผล
@@ -5956,7 +5960,7 @@ function renderGradebook(container) {
           <!-- ข้อมูลนักเรียน (Sticky) -->
           <td class="gb-sticky-no">${esc(s.no || idx + 1)}</td>
           <td class="gb-sticky-id">${esc(s.studentId)}</td>
-          <td class="gb-sticky-name" data-tooltip="${esc(s.fullName)}">${esc(s.fullName)}</td>
+          <td class="gb-sticky-name">${esc(s.fullName)}</td>
 
           <!-- ก่อนกลางภาค -->
           <td>
@@ -5967,7 +5971,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPre', this.value)" 
-              data-tooltip="เวลาเรียน (เต็ม 10)">
+              >
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
@@ -5977,7 +5981,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPre')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPre', this.value)" 
-              data-tooltip="งานเก็บก่อนกลางภาค">
+              >
           </td>
           <td class="td-calc gb-sum-pre">${rec.sumPre}</td>
 
@@ -5990,7 +5994,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midRaw', this.value)" 
-              data-tooltip="สอบกลางภาค">
+              >
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
@@ -6000,7 +6004,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'midHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'midHelp', this.value)" 
-              data-tooltip="คะแนนช่วย / แก้ตัว">
+              >
           </td>
           <td class="td-calc gb-mid-score" style="color: #92400E; font-weight: 700;">${rec.midScore}</td>
 
@@ -6013,7 +6017,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'attPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'attPost', this.value)" 
-              data-tooltip="เวลาเรียน (เต็ม 10)">
+              >
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input" 
@@ -6023,7 +6027,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'workPost')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'workPost', this.value)" 
-              data-tooltip="งานเก็บหลังกลางภาค">
+              >
           </td>
           <td class="td-calc gb-sum-post">${rec.sumPost}</td>
 
@@ -6039,7 +6043,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalRaw')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalRaw', this.value)" 
-              data-tooltip="สอบปลายภาค (ข้อเขียน)">
+              >
           </td>
           <td>
             <input type="number" step="0.5" min="0" max="30" class="gb-score-input mini" 
@@ -6049,7 +6053,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'finalHelp')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'finalHelp', this.value)" 
-              data-tooltip="คะแนนช่วย / แก้ตัว">
+              >
           </td>
           <td class="td-calc gb-final-score" style="color: #6B21A8; font-weight: 700;">${rec.finalScore}</td>
 
@@ -6069,7 +6073,7 @@ function renderGradebook(container) {
               onfocus="this.select()"
               onkeydown="handleGradebookKeyDown(event, ${idx}, 'note')"
               onchange="updateGradebookCell('${esc(s.studentId)}', 'note', this.value)"
-              data-tooltip="ระบุ ร หรือ มส">
+              >
           </td>
         </tr>
       `;
@@ -6186,7 +6190,7 @@ function renderGradebook(container) {
 
               <!-- เกรด & ร/มส -->
               <th>เกรด</th>
-              <th class="gb-th-note" data-tooltip="ระบุ ร หรือ มส">ร / มส</th>
+              <th class="gb-th-note" >ร / มส</th>
             </tr>
           </thead>
           <tbody>

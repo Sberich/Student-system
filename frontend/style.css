@@ -5318,8 +5318,21 @@ body {
 /* ==========================================================================
    ✨ Modern Minimal Tooltip System (Replaces scary black boxes & white borders)
    ========================================================================== */
-[data-tooltip] {
+[data-tooltip]:not(td):not(th):not(.gb-sticky-no):not(.gb-sticky-id):not(.gb-sticky-name) {
   position: relative;
+}
+
+/* Ensure Gradebook sticky columns ALWAYS remain sticky and never overridden */
+.gb-sticky-no,
+.gb-sticky-id,
+.gb-sticky-name {
+  position: sticky !important;
+}
+
+.gb-table thead tr:first-child .th-sec-student {
+  position: sticky !important;
+  left: 0;
+  z-index: 5;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -5422,6 +5435,54 @@ body {
   word-break: break-word;
 }
 
+
+/* ==========================================================================
+   🏫 School Info Inline Header Styles (Row by Row)
+   ========================================================================== */
+.cfg-school-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cfg-inline-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.cfg-inline-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 82px;
+}
+
+.cfg-inline-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.65rem !important;
+  font-size: 0.88rem !important;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.cfg-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.cfg-inline-half {
+  flex: 1;
+  min-width: 0;
+}
+
 .cfg-action-card {
   margin-top: 1.25rem;
   border-radius: var(--radius-md, 12px);
@@ -5444,7 +5505,7 @@ body {
 }
 
 .cfg-action-title {
-  font-size: 0.96rem;
+  font-size: 0.95rem;
   font-weight: 700;
   margin: 0 0 0.3rem 0;
   color: var(--text-main, #1F2937);
@@ -5452,6 +5513,9 @@ body {
   align-items: center;
   gap: 0.4rem;
   line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cfg-action-title.text-emerald {
@@ -5711,7 +5775,24 @@ body {
   }
 
   .cfg-action-title {
-    font-size: 0.92rem !important;
+    font-size: 0.88rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .cfg-inline-label {
+    font-size: 0.84rem !important;
+    min-width: 76px !important;
+  }
+
+  .cfg-inline-input {
+    font-size: 0.84rem !important;
+    padding: 0.38rem 0.55rem !important;
+  }
+
+  .cfg-inline-row {
+    gap: 0.5rem !important;
   }
 
   .cfg-action-desc {

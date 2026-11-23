@@ -695,7 +695,7 @@ function fetchAllData(ss) {
         fullScore: Number(row[2]) || 5,
         dueDate: dueDateFormatted,
         subject: String(row[4] || ''),
-        classroom: String(row[5] || 'ม.4/1')
+        classroom: String(row[5] || DEFAULT_CLASSROOMS[0] || 'ม.1/1')
       });
     }
   }
@@ -998,7 +998,7 @@ function handleSaveSingleSubmission(ss, item) {
 function handleImportStudents(ss, payload) {
   const sheet = ss.getSheetByName(SHEET_STUDENTS);
   const mode = payload.mode || 'replace_classroom';
-  const targetClass = payload.classroom || 'ม.4/1';
+  const targetClass = payload.classroom || DEFAULT_CLASSROOMS[0] || 'ม.1/1';
   const incomingStudents = payload.students || [];
 
   if (incomingStudents.length === 0) return 0;
@@ -1012,7 +1012,7 @@ function handleImportStudents(ss, payload) {
         no: Number(row[0]),
         studentId: String(row[1]),
         fullName: String(row[2]),
-        classroom: String(row[3] || 'ม.4/1'),
+        classroom: String(row[3] || DEFAULT_CLASSROOMS[0] || 'ม.1/1'),
         status: String(row[4] || 'ปกติ')
       });
     }

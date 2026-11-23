@@ -674,7 +674,7 @@ function changeActiveSubject(subCode) {
   // ตรวจสอบว่าห้องเรียนปัจจุบันอยู่ในวิชาใหม่หรือไม่ หากไม่อยู่ ให้สลับไปยังห้องแรกของวิชานี้อัตโนมัติ
   const validRooms = getClassroomsForSubject(subCode);
   if (!validRooms.includes(appState.activeClassroom)) {
-    appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || 'ม.4/1';
+    appState.activeClassroom = validRooms[0] || (appState.settings.classrooms && appState.settings.classrooms[0]) || (DEFAULT_CLASSROOMS && DEFAULT_CLASSROOMS[0]) || '';
   }
 
   // ปรับงานและนักเรียนที่เลือกให้ตรงกับห้องใหม่
@@ -3052,7 +3052,7 @@ function handleCleanEmptyRooms() {
         }
       });
       if (emptyRooms.includes(appState.activeClassroom)) {
-        appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
+        appState.activeClassroom = appState.settings.classrooms[0] || (DEFAULT_CLASSROOMS && DEFAULT_CLASSROOMS[0]) || '';
       }
       appState.isDirty = true;
       saveLocalState();
@@ -3171,7 +3171,7 @@ function deleteClassroom(className) {
       });
 
       if (appState.activeClassroom === className) {
-        appState.activeClassroom = appState.settings.classrooms[0] || 'ม.4/1';
+        appState.activeClassroom = appState.settings.classrooms[0] || (DEFAULT_CLASSROOMS && DEFAULT_CLASSROOMS[0]) || '';
       }
 
       appState.isDirty = true;
@@ -3368,7 +3368,7 @@ function updateImportPreview() {
 
   // อัปเดตห้องถ้าข้อมูลไม่ได้ระบุห้องมา
   importPreviewData.forEach(st => {
-    if (!st.classroom || st.classroom === 'ม.4/1') st.classroom = targetClass;
+    if (!st.classroom) st.classroom = targetClass;
   });
 
   if (confirmBtn) {
@@ -3898,16 +3898,25 @@ function renderSettings(container) {
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <label class="form-label">Google Apps Script Web App API URL</label>
-        <input type="text" id="cfg-gas-url" class="form-input" value="${esc(appState.settings.gasUrl)}" />
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+          <span>🌐 Google Apps Script Web App API URL</span>
+          <span style="font-size: 0.75rem; color: #2563EB; font-weight: normal;">(ต้องลงท้ายด้วย /exec และสิทธิ์ "ทุกคน/Anyone")</span>
+        </label>
+        <input type="text" id="cfg-gas-url" class="form-input" value="${esc(appState.settings.gasUrl)}" placeholder="https://script.google.com/macros/s/.../exec" />
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+          💡 นำมาจาก: Apps Script &gt; การทำให้ใช้งานได้ (Deploy) &gt; จัดการการทำให้ใช้งานได้ &gt; คัดลอก "URL ของเว็บแอป"
+        </div>
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
           <span>📊 ลิงก์ Google Sheets ของคุณครู (Spreadsheet URL)</span>
           <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(สำหรับกดเปิดชีทโดยตรง)</span>
         </label>
-        <input type="text" id="cfg-sheet-url" class="form-input" value="${esc(appState.settings.spreadsheetUrl || '')}" placeholder="https://docs.google.com/spreadsheets/d/..." />
+        <input type="text" id="cfg-sheet-url" class="form-input" value="${esc(appState.settings.spreadsheetUrl || '')}" placeholder="https://docs.google.com/spreadsheets/d/.../edit" />
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+          💡 คัดลอกจากแถบที่อยู่ URL ของหน้า Google Sheets หรือใส่รหัสชีท (Sheet ID)
+        </div>
       </div>
 
       <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
@@ -4560,18 +4569,134 @@ function handleClearAllRoomsFromSubject(subIdx) {
   });
 }
 
+function normalizeGasUrl(raw) {
+  if (!raw) return '';
+  let url = String(raw).trim();
+
+  // กรณีผู้ใช้วางแค่ Deployment ID (เช่น ขึ้นต้นด้วย AKfycb...)
+  if (/^AKfycb[A-Za-z0-9_-]+$/.test(url)) {
+    return `https://script.google.com/macros/s/${url}/exec`;
+  }
+
+  // กรณีใส่ URL ของ script.google.com
+  if (url.includes('script.google.com/macros/s/')) {
+    const parts = url.split('?');
+    let base = parts[0].replace(/\/+$/, '');
+    if (base.endsWith('/dev')) {
+      base = base.replace(/\/dev$/, '/exec');
+    } else if (base.endsWith('/edit')) {
+      base = base.replace(/\/edit$/, '/exec');
+    } else if (!base.endsWith('/exec')) {
+      base = base + '/exec';
+    }
+    return base;
+  }
+
+  return url;
+}
+
+function normalizeSpreadsheetUrl(raw) {
+  if (!raw) return '';
+  let url = String(raw).trim();
+
+  // กรณีใส่มาแค่ Sheet ID (ความยาว 30-65 ตัวอักษร ไม่มี slash หรือ http)
+  if (/^[a-zA-Z0-9_-]{30,65}$/.test(url) && !url.startsWith('http')) {
+    return `https://docs.google.com/spreadsheets/d/${url}/edit`;
+  }
+
+  // กรณีใส่ลิงก์ Google Sheets มาแบบมี path ต่อท้าย
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{25,})/);
+  if (match && match[1]) {
+    return `https://docs.google.com/spreadsheets/d/${match[1]}/edit`;
+  }
+
+  return url;
+}
+
+function showGasTroubleshootModal(title = 'ไม่สามารถเชื่อมต่อกับ Google Sheets ได้', detailMessage = '') {
+  const modalId = 'gas-troubleshoot-modal';
+  closeModal(modalId);
+
+  const modalHtml = `
+    <div class="modal-overlay" id="${modalId}" style="z-index: 10600; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="modal-card" style="max-width: 520px; width: 100%; padding: 1.5rem; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <span style="font-size: 2rem;">⚠️</span>
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #DC2626; margin: 0;">${esc(title)}</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">เบราว์เซอร์แจ้งเตือน CORS / Network Blocked จาก Google Apps Script</p>
+          </div>
+        </div>
+
+        ${detailMessage ? `
+          <div style="font-size: 0.82rem; color: #991B1B; background: #FEF2F2; padding: 0.5rem 0.75rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #FEE2E2;">
+            ${esc(detailMessage)}
+          </div>
+        ` : ''}
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem;">
+            🔍 สาเหตุหลักและวิธีแก้ไข 3 ข้อ:
+          </div>
+          <ol style="font-size: 0.82rem; color: #334155; line-height: 1.6; padding-left: 1.2rem; margin: 0;">
+            <li style="margin-bottom: 0.5rem;">
+              <strong>สิทธิ์การเข้าถึง (Who has access) - สำคัญที่สุด ⭐:</strong><br/>
+              ในหน้า Apps Script ตอนกด <em>Deploy (การทำให้ใช้งานได้)</em> ต้องเลือก <strong>"ผู้มีสิทธิ์เข้าถึง (Who has access)"</strong> เป็น <span style="color: #2563EB; font-weight: 700;">"ทุกคน" (Anyone)</span> เท่านั้น<br/>
+              <span style="color: #64748B;">* หากเลือก "ฉันเท่านั้น" หรือ "ทุกคนในองค์กร" Google จะบล็อกการเชื่อมต่อทันที</span>
+            </li>
+            <li style="margin-bottom: 0.5rem;">
+              <strong>การให้สิทธิ์ (Authorize access):</strong><br/>
+              หาก Deploy ครั้งแรก ต้องกด <em>"ให้สิทธิ์การเข้าถึง"</em> &gt; เลือกอีเมล &gt; <em>ขั้นสูง (Advanced)</em> &gt; <em>ไปยัง ... (ไม่ปลอดภัย)</em> &gt; <em>อนุญาต (Allow)</em> ให้ครบ
+            </li>
+            <li>
+              <strong>รูปแบบลิงก์ Web App:</strong><br/>
+              ต้องลงท้ายด้วย <code style="background: #E2E8F0; padding: 2px 4px; border-radius: 4px;">/exec</code> (ไม่ใช่ /edit หรือ /dev)
+            </li>
+          </ol>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-primary" onclick="closeModal('${modalId}')">
+            เข้าใจแล้ว ฉันจะไปตรวจสอบ
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+window.showGasTroubleshootModal = showGasTroubleshootModal;
+
 async function saveSettings() {
   const currentToken = appState.settings.apiToken || '';
   const inputToken = document.getElementById('cfg-token') ? document.getElementById('cfg-token').value.trim() : currentToken;
 
   const oldGasUrl = (appState.settings.gasUrl || '').trim();
-  const inputGasUrl = document.getElementById('cfg-gas-url') ? document.getElementById('cfg-gas-url').value.trim() : oldGasUrl;
-  const isNewUrl = inputGasUrl && (inputGasUrl !== oldGasUrl);
+  let rawGasUrl = document.getElementById('cfg-gas-url') ? document.getElementById('cfg-gas-url').value.trim() : oldGasUrl;
+  let rawSheetUrl = document.getElementById('cfg-sheet-url') ? document.getElementById('cfg-sheet-url').value.trim() : (appState.settings.spreadsheetUrl || '');
 
-  const sheetUrlEl = document.getElementById('cfg-sheet-url');
-  if (sheetUrlEl && sheetUrlEl.value.trim()) {
-    appState.settings.spreadsheetUrl = sheetUrlEl.value.trim();
+  // ตรวจจับกรณีวางสลับช่องกัน
+  if (rawGasUrl.includes('docs.google.com/spreadsheets') || (rawSheetUrl.includes('script.google.com') && !rawGasUrl.includes('script.google.com'))) {
+    const temp = rawGasUrl;
+    rawGasUrl = rawSheetUrl;
+    rawSheetUrl = temp;
+    showToast('🔄 สลับช่อง Web App และ Spreadsheet URL ให้อัตโนมัติ');
   }
+
+  const inputGasUrl = normalizeGasUrl(rawGasUrl);
+  const inputSheetUrl = normalizeSpreadsheetUrl(rawSheetUrl);
+
+  // อัปเดตกลับไปที่ช่อง Input บนหน้าจอทันที
+  if (document.getElementById('cfg-gas-url')) document.getElementById('cfg-gas-url').value = inputGasUrl;
+  if (document.getElementById('cfg-sheet-url')) document.getElementById('cfg-sheet-url').value = inputSheetUrl;
+
+  if (inputSheetUrl) {
+    appState.settings.spreadsheetUrl = inputSheetUrl;
+  }
+
+  const isNewUrl = inputGasUrl && (inputGasUrl !== oldGasUrl);
 
   // หากมีการเปลี่ยน Web App URL ให้สลับไปเชื่อมต่อชีทใหม่และดึงข้อมูลจากชีทใหม่ทันที (ไม่เขียนทับชีทใหม่ด้วยข้อมูลเก่าในเครื่อง)
   if (isNewUrl) {
@@ -4584,6 +4709,8 @@ async function saveSettings() {
     const ok = await pullFromGoogleSheets(true);
     if (ok) {
       showToast('✓ เชื่อมต่อชีทใหม่และดึงข้อมูลสำเร็จ');
+    } else {
+      showGasTroubleshootModal('เชื่อมต่อชีทใหม่ไม่สำเร็จ', 'ไม่สามารถเชื่อมต่อไปยัง Web App URL ที่ระบุได้ กรุณาตรวจสอบการตั้งค่า Deploy ใน Google Apps Script');
     }
     return;
   }
@@ -4843,6 +4970,7 @@ async function continuePullFromGoogleSheets(isManual) {
     updateSyncIndicator('offline');
     if (isManual) {
       showToast(`⚠️ ${err.message || 'ไม่สามารถดึงข้อมูลได้ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'}`);
+      showGasTroubleshootModal('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้', 'เบราว์เซอร์ไม่สามารถเชื่อมต่อไปยัง Google Apps Script ได้ (มักเกิดจากในหน้า Deploy ไม่ได้เลือก "ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)" หรือใส่ URL ไม่ถูกต้อง)');
     }
     return false;
   }
@@ -4903,6 +5031,7 @@ async function pushSettingsToBackend(currentToken = '', newToken = '') {
     console.error('Error saving settings to GAS:', err);
     updateSyncIndicator('offline');
     showToast('⚠️ ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ (บันทึกในเครื่องแล้ว)');
+    showGasTroubleshootModal('ไม่สามารถเชื่อมต่อกับ Google Sheets ได้', 'เบราว์เซอร์ไม่สามารถส่งข้อมูลไปยัง Google Apps Script ได้ (มักเกิดจากในหน้า Deploy ไม่ได้เลือก "ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)" หรือใส่ URL ไม่ถูกต้อง)');
   }
 }
 
@@ -5530,8 +5659,8 @@ function getGradeBadgeClass(grade) {
  */
 function updateGradebookStatsBarDOM() {
   const students = getFilteredStudents();
-  const subj = appState.activeSubject || 'ส31101';
-  const room = appState.activeClassroom || 'ม.4/1';
+  const subj = appState.activeSubject || (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || 'ว101';
+  const room = appState.activeClassroom || (DEFAULT_CLASSROOMS && DEFAULT_CLASSROOMS[0]) || 'ม.1/1';
 
   let countAll = students.length;
   let dist = { '4': 0, '3.5': 0, '3': 0, '2.5': 0, '2': 0, '1.5': 0, '1': 0, '0': 0, 'ร': 0, 'มส': 0 };

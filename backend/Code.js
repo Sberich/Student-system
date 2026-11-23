@@ -63,9 +63,6 @@ function cleanUpLegacyTemplateDataIfNeeded(ss) {
       settingsSheet.appendRow(['activeClassroom', 'ม.1/1']);
       settingsSheet.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
       settingsSheet.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
-      if (licenseSheetId) {
-        settingsSheet.appendRow(['masterLicenseSheetId', licenseSheetId]);
-      }
       try {
         settingsSheet.appendRow(['spreadsheetUrl', ss.getUrl()]);
       } catch (e) {}
@@ -311,9 +308,6 @@ function prepareCleanTemplateMenuAction() {
     cleanSettings.appendRow(['activeClassroom', 'ม.1/1']);
     cleanSettings.appendRow(['subjects', JSON.stringify(DEFAULT_SUBJECTS)]);
     cleanSettings.appendRow(['classrooms', JSON.stringify(DEFAULT_CLASSROOMS)]);
-    if (licenseSheetId) {
-      cleanSettings.appendRow(['masterLicenseSheetId', licenseSheetId]);
-    }
     try {
       cleanSettings.appendRow(['spreadsheetUrl', targetSs.getUrl()]);
     } catch (e) {}
@@ -381,6 +375,12 @@ function prepareCleanTemplateMenuAction() {
  * 🔒 ตรวจสอบสิทธิ์การใช้งานของเจ้าของชีทปัจจุบันกับชีทคุมสิทธิ์กลาง
  */
 function verifyLicenseAuthorization(ss) {
+  // หากเป็นชีทที่เพื่อนครูคัดลอกไป หรือไม่ใช่ชีทต้นฉบับ ให้ใช้งานได้ทันที 100%
+  // ไม่ล็อกตัวเอง ไม่สร้างความสับสน และพร้อมใช้งานได้อิสระ
+  if (ss && ss.getId() !== ORIGINAL_TEACHER_SHEET_ID) {
+    return { authorized: true };
+  }
+
   let licenseSheetId = '';
   const scriptProp = PropertiesService.getScriptProperties();
   licenseSheetId = scriptProp.getProperty('MASTER_LICENSE_SHEET_ID');

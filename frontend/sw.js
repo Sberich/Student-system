@@ -1,14 +1,14 @@
 /**
  * Service Worker สำหรับ Smart Grade (สมาร์ทเกรด)
- * ให้บริการ Cache-First สำหรับ App Shell เพื่อการทำงานแบบ Offline
+ * ให้บริการ Network-First สำหรับ App Shell เพื่อให้รับการอัปเดตล่าสุดเสมอ
  */
 
-const CACHE_NAME = 'smart-grade-v45';
+const CACHE_NAME = 'smart-grade-v49';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=45',
-  './app.js?v=45',
+  './style.css?v=49',
+  './app.js?v=49',
   './html2canvas.min.js',
   './manifest.json',
   './apple-touch-icon.png',
@@ -44,20 +44,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network First สำหรับ HTML และ JS เพื่อให้ผู้ใช้ได้รับโค้ดเวอร์ชันล่าสุดเสมอเมื่อออนไลน์
+  if (event.request.mode === 'navigate' || event.request.url.includes('app.js') || event.request.url.includes('index.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // อัปเดตแคชเบื้องหลัง (Stale-While-Revalidate)
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {});
         return cachedResponse;
       }
-
       return fetch(event.request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
@@ -67,10 +74,6 @@ self.addEventListener('fetch', (event) => {
           cache.put(event.request, responseToCache);
         });
         return networkResponse;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html') || caches.match('./') || caches.match('/');
-        }
       });
     })
   );

@@ -5053,41 +5053,61 @@ async function pushSettingsToBackend(currentToken = '', newToken = '') {
   updateSyncIndicator('syncing');
 
   try {
-    const res = await fetch(appState.settings.gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'updateSettings',
-        token: currentToken || appState.settings.apiToken || '',
-        newToken: newToken !== undefined ? newToken : (appState.settings.apiToken || ''),
-        settings: {
-          schoolName: appState.settings.schoolName,
-          academicYear: appState.settings.academicYear,
-          term: appState.settings.term,
-          teacherName: appState.settings.teacherName,
-          activeSubject: appState.activeSubject,
-          activeClassroom: appState.activeClassroom,
-          subjects: appState.settings.subjects,
-          classrooms: appState.settings.classrooms,
-          spreadsheetUrl: appState.settings.spreadsheetUrl || '',
-          apiToken: appState.settings.apiToken || ''
-        }
-      }),
-    });
+    let res;
+    try {
+      res = await fetch(appState.settings.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'updateSettings',
+          token: currentToken || appState.settings.apiToken || '',
+          newToken: newToken !== undefined ? newToken : (appState.settings.apiToken || ''),
+          settings: {
+            schoolName: appState.settings.schoolName,
+            academicYear: appState.settings.academicYear,
+            term: appState.settings.term,
+            teacherName: appState.settings.teacherName,
+            activeSubject: appState.activeSubject,
+            activeClassroom: appState.activeClassroom,
+            subjects: appState.settings.subjects,
+            classrooms: appState.settings.classrooms,
+            spreadsheetUrl: appState.settings.spreadsheetUrl || '',
+            apiToken: appState.settings.apiToken || ''
+          }
+        }),
+      });
+    } catch (netErr) {
+      throw new Error(`เบราว์เซอร์ถูกบล็อกการเชื่อมต่อ (${netErr.name || 'CORS Error'}: ${netErr.message || 'Failed to fetch'})`);
+    }
 
-    const resData = await res.json();
+    if (!res.ok) {
+      throw new Error(`Google Apps Script ส่งรหัสข้อผิดพลาด HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const rawText = await res.text();
+    let resData;
+    try {
+      resData = JSON.parse(rawText);
+    } catch (parseErr) {
+      if (rawText.includes('ไม่พบเพจ') || rawText.includes('Page Not Found') || rawText.includes('404')) {
+        throw new Error('Google แจ้งเตือน "ไม่พบเพจ (HTTP 404)": URL ไม่ถูกต้อง หรือนโยบายอีเมลโรงเรียน/องค์กรบล็อกการเปิดเผยเว็บแอปภายนอก');
+      }
+      throw new Error(`Google ส่งผลลัพธ์เป็นหน้า HTML แทนที่จะเป็น JSON: "${rawText.slice(0, 80).replace(/\s+/g, ' ')}..."`);
+    }
+
     if (resData.success) {
       updateSyncIndicator('online');
       showToast('✓ บันทึกการตั้งค่าลง Google Sheets สำเร็จแล้ว');
     } else {
       updateSyncIndicator('offline');
       showToast('⚠️ ไม่สามารถบันทึกการตั้งค่าได้: ' + (resData.error || ''));
+      showGasTroubleshootModal('Google Apps Script ปฏิเสธการบันทึก', resData.error || '');
     }
   } catch (err) {
     console.error('Error saving settings to GAS:', err);
     updateSyncIndicator('offline');
-    showToast('⚠️ ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ (บันทึกในเครื่องแล้ว)');
-    showGasTroubleshootModal('ไม่สามารถเชื่อมต่อกับ Google Sheets ได้', 'เบราว์เซอร์ไม่สามารถส่งข้อมูลไปยัง Google Apps Script ได้ (มักเกิดจากในหน้า Deploy ไม่ได้เลือก "ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)" หรือใส่ URL ไม่ถูกต้อง)');
+    showToast(`⚠️ ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ (${err.message || 'บันทึกในเครื่องแล้ว'})`);
+    showGasTroubleshootModal('ไม่สามารถเชื่อมต่อกับ Google Sheets ได้', err.message || '');
   }
 }
 

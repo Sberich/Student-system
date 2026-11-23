@@ -1081,34 +1081,40 @@ function handleUpdateSettings(ss, settingsObj) {
   const sheet = ss.getSheetByName(SHEET_SETTINGS);
   if (!sheet) return;
 
-  // อ่านค่าเดิมเพื่อรักษา masterLicenseSheetId ไว้เสมอ
-  let preservedMasterLicenseId = '';
+  // อ่านค่าการตั้งค่าเดิมในชีททั้งหมด เพื่อป้องกันไม่ให้ค่าในชีทถูกเขียนทับด้วยค่าว่างหรือค่าเริ่มต้นเก่า
+  const mergedSettings = {};
   try {
     const existingData = sheet.getDataRange().getValues();
     for (let i = 1; i < existingData.length; i++) {
-      if (existingData[i][0] === 'masterLicenseSheetId') {
-        preservedMasterLicenseId = String(existingData[i][1] || '').trim();
-        break;
-      }
+      const k = String(existingData[i][0] || '').trim();
+      const v = existingData[i][1];
+      if (k) mergedSettings[k] = v;
     }
   } catch (e) {
-    console.warn('Could not read existing masterLicenseSheetId:', e);
+    console.warn('Could not read existing settings:', e);
   }
 
-  if (!settingsObj.masterLicenseSheetId && preservedMasterLicenseId) {
-    settingsObj.masterLicenseSheetId = preservedMasterLicenseId;
-  }
+  // ผสานค่าที่ส่งเข้ามา เฉพาะค่าที่มีข้อมูลจริง ไม่แทนที่ด้วยค่าว่าง
+  Object.keys(settingsObj || {}).forEach(k => {
+    const newVal = settingsObj[k];
+    if (newVal !== undefined && newVal !== null) {
+      if (typeof newVal === 'string' && newVal.trim() === '' && mergedSettings[k]) {
+        return;
+      }
+      mergedSettings[k] = newVal;
+    }
+  });
 
-  if (!settingsObj.spreadsheetUrl) {
+  if (!mergedSettings.spreadsheetUrl) {
     try {
-      settingsObj.spreadsheetUrl = ss.getUrl();
+      mergedSettings.spreadsheetUrl = ss.getUrl();
     } catch (e) {}
   }
 
   sheet.clearContents();
   sheet.appendRow(['Key', 'Value']);
-  Object.keys(settingsObj).forEach(k => {
-    let val = settingsObj[k];
+  Object.keys(mergedSettings).forEach(k => {
+    let val = mergedSettings[k];
     if (typeof val === 'object') val = JSON.stringify(val);
     sheet.appendRow([k, val]);
   });

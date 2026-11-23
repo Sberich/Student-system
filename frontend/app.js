@@ -4816,8 +4816,10 @@ async function saveSettings() {
 
   saveLocalState();
   renderHeaderControls();
-  showToast('💾 บันทึกในเครื่องแล้ว กำลังส่งการตั้งค่าขึ้น Google Sheets...');
+  showToast('💾 บันทึกการตั้งค่าแล้ว กำลังซิงค์ข้อมูลกับ Google Sheets...');
   await pushSettingsToBackend(currentToken, inputToken);
+  // ดึงข้อมูลจริงล่าสุดจากชีทลงมาซิงค์กับหน้าเว็บทันที เพื่อให้ข้อมูลบนหน้าเว็บตรงกับชีท 100%
+  await pullFromGoogleSheets(false);
 }
 
 function handleModalSubBatchPrefixChange(subIdx, prefix) {
@@ -4895,38 +4897,12 @@ async function pullFromGoogleSheets(isManual = false) {
         icon: '⚙️'
       });
     }
-    return;
+    return false;
   }
 
-  // หากมีข้อมูลที่ค้างอยู่ในเครื่องยังไม่ได้ส่งขึ้น Google Sheets (isDirty) และมีข้อมูลนักเรียนในเครื่อง ให้สำรองขึ้นไปก่อน
-  // หากในเครื่องเป็นตารางว่าง (0 คน) จะข้ามการสำรองทันที เพื่อป้องกันไม่ให้ข้อมูลว่างในเครื่องไปเขียนทับชีท
-  if (appState.isDirty && appState.students && appState.students.length > 0) {
-    try {
-      if (isManual) showToast('⏳ กำลังสำรองข้อมูลล่าสุดในเครื่องขึ้น Google Sheets ก่อนดึง...');
-      await pushFullStateToBackend();
-      appState.isDirty = false;
-      saveLocalState();
-    } catch (e) {
-      console.warn('Could not flush dirty state before pull:', e);
-      if (isManual) {
-        showModernConfirm({
-          title: 'ยืนยันดึงข้อมูลจาก Google Sheets?',
-          subtitle: '⚠️ มีข้อมูลคะแนนใหม่ในเครื่องที่ยังส่งขึ้นชีทไม่สำเร็จ หากดึงข้อมูลตอนนี้ ข้อมูลในเครื่องอาจถูกแทนที่ ยืนยันจะดึงข้อมูลหรือไม่?',
-          icon: '☁️',
-          confirmText: '📥 ยืนยันดึงข้อมูล',
-          confirmClass: 'btn-primary',
-          onConfirm: () => {
-            continuePullFromGoogleSheets(true);
-          },
-          onCancel: () => {
-            updateSyncIndicator('offline');
-          }
-        });
-        return false;
-      }
-    }
-  }
-
+  // เมื่อผู้ใช้กดดึงข้อมูลจากชีทโดยตรง (Manual Pull) ให้ดึงข้อมูลล่าสุดจาก Google Sheets มาใช้งานทันที
+  // ป้องกันไม่ให้ข้อมูลเก่าในเครื่องส่งกลับไปเขียนทับชีท 100%
+  appState.isDirty = false;
   return await continuePullFromGoogleSheets(isManual);
 }
 

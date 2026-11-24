@@ -2,7 +2,7 @@
    Smart Grade Theme System
    สมาร์ทเกรด — ตรวจง่าย ตัดไว พร้อมส่ง
    รองรับ Desktop, iPad, มือถือ (Slim Header & Bottom Navigation)
-   รองรับ 4 ธีมสี (Classic Blue, Fresh Emerald, Royal Indigo, Midnight Dark)
+   รองรับ 4 ธีมสี (Classic Blue, Vintage, Pink Vortex, Midnight Dark)
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap');
@@ -64,17 +64,139 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* 🌿 Fresh Emerald Theme */
+/* 🕰️ Vintage Theme (Color Hunt: #123F36, #2A6B5C, #C49A45, #E8DCC4) */
 [data-theme="emerald"] {
   --theme-name: 'emerald';
-  --primary: #059669;
-  --primary-hover: #047857;
-  --primary-subtle: #ECFDF5;
-  --primary-border: #A7F3D0;
-  --border-focus: #059669;
-  --logo-grad-start: #059669;
-  --logo-grad-end: #0F766E;
-  --logo-accent-dot: #6EE7B7;
+
+  /* พื้นหลังโทนครีมกระดาษอุ่น สบายตา ลดแสงจ้า */
+  --bg-app: #F3ECE0;
+  --bg-surface: #FCF9F2;
+  --bg-subtle: #EFE6D4;
+  --bg-muted: #E8DCC4;
+
+  /* ตัวอักษรสีเขียวเข้มป่าสน อ่านชัดเจน คมชัดสบายตา */
+  --text-main: #123F36;
+  --text-secondary: #3E5C55;
+  --text-muted: #6C827C;
+  --text-inverse: #FCF9F2;
+
+  /* เส้นขอบโทนครีมอุ่น & โฟกัสเขียววินเทจ */
+  --border-light: #DFD2B9;
+  --border-focus: #2A6B5C;
+
+  /* สีหลักเขียววินเทจ (#2A6B5C) + โฮเวอร์เขียวเข้ม (#123F36) + ขอบทองเหลือง (#C49A45) */
+  --primary: #2A6B5C;
+  --primary-hover: #123F36;
+  --primary-subtle: #E5ECE9;
+  --primary-border: #C49A45;
+
+  /* โลโก้ Smart Grade โทนเขียวป่าสน-ทองเหลืองวินเทจ */
+  --logo-grad-start: #2A6B5C;
+  --logo-grad-end: #123F36;
+  --logo-accent-dot: #C49A45;
+
+  /* สีสถานะปรับให้กลมกลืนแต่แยกแยะได้ชัดเจน */
+  --status-submitted-bg: #E3EFE9;
+  --status-submitted-text: #123F36;
+  --status-submitted-border: #A7C7BB;
+  --status-submitted-dot: #2A6B5C;
+
+  --status-pending-bg: #F9EBE7;
+  --status-pending-text: #9A3412;
+  --status-pending-border: #E5B8AC;
+  --status-pending-dot: #C2410C;
+
+  --status-excused-bg: #EDE6D8;
+  --status-excused-text: #4A5A56;
+  --status-excused-border: #D2C5AC;
+}
+
+[data-theme="emerald"] .btn-primary {
+  background: #2A6B5C;
+  border-color: #2A6B5C;
+  color: #FCF9F2;
+}
+
+[data-theme="emerald"] .btn-primary:hover {
+  background: #123F36;
+  border-color: #123F36;
+}
+
+[data-theme="emerald"] .nav-tab-btn.active {
+  background: #FCF9F2;
+  color: #123F36;
+  border: 1px solid rgba(196, 154, 69, 0.55);
+}
+
+[data-theme="emerald"] .scope-pill-btn.active {
+  background: #2A6B5C;
+  color: #FCF9F2;
+}
+
+[data-theme="emerald"] .custom-select-trigger:focus,
+[data-theme="emerald"] .form-input:focus {
+  border-color: #2A6B5C;
+  box-shadow: 0 0 0 3px rgba(42, 107, 92, 0.18);
+}
+
+[data-theme="emerald"] .context-popover-btn:hover,
+[data-theme="emerald"] .context-popover-btn.popover-open,
+[data-theme="emerald"] .context-picker-btn:hover,
+[data-theme="emerald"] .context-picker-btn:active {
+  background: rgba(42, 107, 92, 0.14);
+  color: #123F36;
+}
+
+[data-theme="emerald"] .popover-dropdown-menu {
+  background: rgba(252, 249, 242, 0.98);
+  border-color: #DFD2B9;
+}
+
+[data-theme="emerald"] .popover-menu-item:hover {
+  background: #EFE6D4;
+}
+
+[data-theme="emerald"] .popover-menu-item.active {
+  background: #E5ECE9;
+  border-color: rgba(196, 154, 69, 0.65);
+  color: #123F36;
+}
+
+[data-theme="emerald"] .student-row.selected {
+  background: #E5ECE9;
+  outline: 2px solid #2A6B5C;
+}
+
+[data-theme="emerald"] .roster-row:nth-child(even) {
+  background-color: #F6F0E4;
+}
+
+[data-theme="emerald"] .roster-row:hover {
+  background-color: #EAE0CB !important;
+}
+
+[data-theme="emerald"] .gb-table thead tr:last-child th {
+  background-color: #EFE6D4;
+}
+
+[data-theme="emerald"] .gb-sticky-no,
+[data-theme="emerald"] .gb-sticky-id,
+[data-theme="emerald"] .gb-sticky-name {
+  background-color: #FCF9F2;
+}
+
+[data-theme="emerald"] .gb-table tbody tr:nth-child(even) td,
+[data-theme="emerald"] .gb-table tbody tr:nth-child(even) .gb-sticky-no,
+[data-theme="emerald"] .gb-table tbody tr:nth-child(even) .gb-sticky-id,
+[data-theme="emerald"] .gb-table tbody tr:nth-child(even) .gb-sticky-name {
+  background-color: #F6F0E4;
+}
+
+[data-theme="emerald"] .gb-table tbody tr:hover td,
+[data-theme="emerald"] .gb-table tbody tr:hover .gb-sticky-no,
+[data-theme="emerald"] .gb-table tbody tr:hover .gb-sticky-id,
+[data-theme="emerald"] .gb-table tbody tr:hover .gb-sticky-name {
+  background-color: #EAE0CB;
 }
 
 /* 🌸 Pink Vortex Theme (เปลี่ยนจากม่วงครามเดิม ตาม Color in Palette: #ff748a, #fff2e5, #b7ded7, #6f97b1, #4d5784) */
@@ -3211,6 +3333,12 @@ body {
     box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.25) !important;
   }
 
+  [data-theme="emerald"] .bottom-nav-bar {
+    background: rgba(252, 249, 242, 0.92) !important;
+    border-color: rgba(196, 154, 69, 0.45) !important;
+    box-shadow: 0 14px 34px -4px rgba(18, 63, 54, 0.14), 0 4px 12px rgba(18, 63, 54, 0.06) !important;
+  }
+
   .bottom-nav-btn {
     flex: 0 0 auto !important;
     display: flex !important;
@@ -4910,9 +5038,9 @@ body {
 }
 
 [data-theme="emerald"] .mini-donut-card.is-active-room {
-  border-color: #059669 !important;
-  background: rgba(5, 150, 105, 0.08) !important;
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.25), var(--shadow-md) !important;
+  border-color: #2A6B5C !important;
+  background: rgba(42, 107, 92, 0.1) !important;
+  box-shadow: 0 0 0 2px #C49A45, var(--shadow-md) !important;
 }
 
 [data-theme="dark"] .mini-donut-card.is-active-room {

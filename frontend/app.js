@@ -103,7 +103,7 @@ function setAppTheme(themeName, showToastMsg = true) {
   if (toggleBtn) {
     const icons = {
       'blue': '🔷',
-      'emerald': '🌿',
+      'emerald': '🕰️',
       'purple': '🌸',
       'dark': '🌙'
     };
@@ -115,7 +115,7 @@ function setAppTheme(themeName, showToastMsg = true) {
   if (showToastMsg) {
     const names = {
       'blue': '🔷 ธีมฟ้าคราม (Classic)',
-      'emerald': '🌿 ธีมเขียวมินต์ (Fresh)',
+      'emerald': '🕰️ ธีมวินเทจ (Vintage)',
       'purple': '🌸 ธีมพิงก์วอร์เทกซ์ (Pink Vortex)',
       'dark': '🌙 โหมดมืด (Dark Mode)'
     };
@@ -139,7 +139,7 @@ function updateLogoGradient(theme) {
   if (!grad) return;
   const colors = {
     'blue': { start: '#2563EB', end: '#1D4ED8', dot: '#93C5FD' },
-    'emerald': { start: '#059669', end: '#0F766E', dot: '#6EE7B7' },
+    'emerald': { start: '#2A6B5C', end: '#123F36', dot: '#C49A45' },
     'purple': { start: '#FF748A', end: '#4D5784', dot: '#B7DED7' },
     'dark': { start: '#475569', end: '#0F172A', dot: '#38BDF8' }
   };
@@ -3769,7 +3769,7 @@ function renderSettings(container) {
             <span>🔷 ฟ้าคราม <span style="font-size: 0.72rem; opacity: 0.85;">(Classic)</span></span>
           </button>
           <button type="button" class="btn ${currentTheme === 'emerald' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('emerald')" style="font-size: 0.8rem;">
-            <span>🌿 เขียวมินต์ <span style="font-size: 0.72rem; opacity: 0.85;">(Fresh)</span></span>
+            <span>🕰️ วินเทจ <span style="font-size: 0.72rem; opacity: 0.85;">(Vintage)</span></span>
           </button>
           <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.8rem;">
             <span>🌸 พิงก์วอร์เทกซ์ <span style="font-size: 0.72rem; opacity: 0.85;">(Pink Vortex)</span></span>

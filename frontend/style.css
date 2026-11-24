@@ -3681,9 +3681,58 @@ body {
 
 .new-assign-form-grid {
   display: grid;
-  grid-template-columns: 2.2fr 1fr 1.3fr auto;
+  grid-template-columns: 2fr 1.15fr 0.75fr 1.15fr auto;
   gap: 0.65rem;
   align-items: end;
+}
+
+@media (max-width: 920px) and (min-width: 641px) {
+  .new-assign-form-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .form-group-title {
+    grid-column: 1 / -1;
+  }
+  .form-group-btn {
+    grid-column: 1 / -1;
+  }
+}
+
+.assign-period-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.35;
+}
+
+.assign-period-pill.period-pre {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.assign-period-pill.period-post {
+  background: #FFF7ED;
+  color: #C2410C;
+  border: 1px solid #FED7AA;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .assign-period-pill.period-pre {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7DD3FC;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .assign-period-pill.period-post {
+  background: rgba(251, 146, 60, 0.18);
+  color: #FDBA74;
+  border-color: rgba(251, 146, 60, 0.38);
 }
 
 .assign-table-wrapper {
@@ -3745,6 +3794,9 @@ body {
     gap: 0.5rem;
   }
   .form-group-title {
+    grid-column: 1 / -1;
+  }
+  .form-group-period {
     grid-column: 1 / -1;
   }
   .form-group-score {

@@ -930,6 +930,56 @@ function getFilteredAssignments() {
   );
 }
 
+/**
+ * ระบุช่วงคะแนนของภาระงาน ('pre' = ก่อนกลางภาค, 'post' = หลังกลางภาค)
+ * งานเดิมที่ไม่ระบุค่าจะถือเป็น 'pre' อัตโนมัติเพื่อไม่กระทบคะแนนเดิม
+ */
+function getAssignmentPeriod(assign) {
+  if (!assign) return 'pre';
+  if (assign.period === 'post' || assign.period === 'หลังกลางภาค') return 'post';
+  const map = appState.settings && appState.settings.assignmentPeriods;
+  if (map && typeof map === 'object' && map[assign.id] === 'post') return 'post';
+  return 'pre';
+}
+
+function syncAssignmentPeriodSettings() {
+  if (!appState.settings) appState.settings = {};
+  const map = {};
+  (appState.assignments || []).forEach(a => {
+    if (a && a.id && getAssignmentPeriod(a) === 'post') {
+      map[a.id] = 'post';
+    }
+  });
+  appState.settings.assignmentPeriods = map;
+}
+
+/**
+ * คำนวณผลรวมคะแนนงานของนักเรียน 1 คน แยกเป็น ก่อนกลางภาค (pre) และ หลังกลางภาค (post)
+ */
+function computeStudentAssignmentWorkScores(subj, room, studentId) {
+  const sid = String(studentId || '');
+  const assignments = (appState.assignments || []).filter(a => a.subject === subj && a.classroom === room);
+  let workPre = 0;
+  let workPost = 0;
+  let preCount = 0;
+  let postCount = 0;
+
+  assignments.forEach(a => {
+    const period = getAssignmentPeriod(a);
+    if (period === 'post') postCount++;
+    else preCount++;
+
+    const sub = appState.submissions && appState.submissions[a.id + '_' + sid];
+    if (sub && sub.score !== null && sub.score !== undefined && sub.score !== '') {
+      const sc = Number(sub.score) || 0;
+      if (period === 'post') workPost += sc;
+      else workPre += sc;
+    }
+  });
+
+  return { workPre, workPost, preCount, postCount };
+}
+
 function getActiveSubjectObj() {
   return appState.settings.subjects.find(s => s.code === appState.activeSubject) || { code: appState.activeSubject, name: '' };
 }
@@ -1353,11 +1403,13 @@ function renderGrading(container) {
         <div class="popover-dropdown-wrapper assign-popover-wrapper">
           <button type="button" class="popover-trigger-btn" onclick="toggleCustomDropdown('assign-popover-menu', this, event)" id="assignment-picker-btn">
             <span class="popover-trigger-text">📚 ${esc(currentAssignment.title)} (เต็ม ${currentAssignment.fullScore})</span>
+            <span class="assign-period-pill ${getAssignmentPeriod(currentAssignment) === 'post' ? 'period-post' : 'period-pre'}" style="font-size: 0.68rem; padding: 1px 6px;">${getAssignmentPeriod(currentAssignment) === 'post' ? 'หลังกลาง' : 'ก่อนกลาง'}</span>
             <span class="popover-trigger-arrow">▾</span>
           </button>
           <div class="popover-dropdown-menu" id="assign-popover-menu" style="display: none;">
             ${currentAssignments.map((a, idx) => {
               const isActive = a.id === currentAssignment.id;
+              const isPost = getAssignmentPeriod(a) === 'post';
               return `
                 <div class="popover-menu-item ${isActive ? 'active' : ''}" onclick="selectAssignmentFromPopover('${esc(a.id)}')">
                   <div class="popover-item-main">
@@ -1365,6 +1417,7 @@ function renderGrading(container) {
                     <span class="popover-item-title">${esc(a.title)}</span>
                   </div>
                   <div class="popover-item-side">
+                    <span class="assign-period-pill ${isPost ? 'period-post' : 'period-pre'}" style="font-size: 0.66rem; padding: 1px 6px;">${isPost ? 'หลังกลาง' : 'ก่อนกลาง'}</span>
                     <span class="popover-item-tag">เต็ม ${a.fullScore}</span>
                     ${isActive ? '<span class="popover-item-check">✓</span>' : ''}
                   </div>
@@ -3544,13 +3597,17 @@ function exportClassroomTemplate(className) {
 function renderAssignments(container) {
   const currentAssignments = getFilteredAssignments();
   const subjectObj = getActiveSubjectObj();
+  const preCount = currentAssignments.filter(a => getAssignmentPeriod(a) !== 'post').length;
+  const postCount = currentAssignments.filter(a => getAssignmentPeriod(a) === 'post').length;
 
   container.innerHTML = `
     <div class="card">
       <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; align-items: center;">
         <div>
           <h2 class="card-title">รายการภาระงาน: วิชา ${esc(subjectObj.name)} (${esc(subjectObj.code)})</h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">ห้อง ${esc(appState.activeClassroom)} (มี ${currentAssignments.length} งาน)</p>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">
+            ห้อง ${esc(appState.activeClassroom)} (ทั้งหมด ${currentAssignments.length} งาน • ก่อนกลาง ${preCount} • หลังกลาง ${postCount})
+          </p>
         </div>
       </div>
 
@@ -3564,6 +3621,13 @@ function renderAssignments(container) {
           <div class="form-group-title">
             <label class="form-label">ชื่องาน / รายละเอียด</label>
             <input type="text" id="new-assign-title" class="form-input" placeholder="เช่น 06 แบบฝึกหัดการเมืองการปกครอง" />
+          </div>
+          <div class="form-group-period">
+            <label class="form-label">ช่วงคะแนน (ตัดเกรด)</label>
+            <select id="new-assign-period" class="form-input">
+              <option value="pre">🌤️ ก่อนกลางภาค</option>
+              <option value="post">🌅 หลังกลางภาค</option>
+            </select>
           </div>
           <div class="form-group-score">
             <label class="form-label">คะแนนเต็ม</label>
@@ -3588,26 +3652,33 @@ function renderAssignments(container) {
             <tr>
               <th style="width: 70px;">รหัส</th>
               <th>ชื่อภาระงาน</th>
-              <th style="width: 110px;">คะแนนเต็ม</th>
-              <th style="width: 130px;">กำหนดส่ง</th>
-              <th style="width: 100px;">วิชา</th>
+              <th style="width: 115px;">ช่วงคะแนน</th>
+              <th style="width: 100px;">คะแนนเต็ม</th>
+              <th style="width: 120px;">กำหนดส่ง</th>
               <th style="width: 140px; text-align: right;">การกระทำ</th>
             </tr>
           </thead>
           <tbody>
-            ${currentAssignments.map(a => `
+            ${currentAssignments.map(a => {
+              const isPost = getAssignmentPeriod(a) === 'post';
+              return `
               <tr>
                 <td class="assign-id-cell">${esc(a.id)}</td>
                 <td class="assign-title-cell">${esc(a.title)}</td>
+                <td>
+                  <span class="assign-period-pill ${isPost ? 'period-post' : 'period-pre'}">
+                    ${isPost ? '🌅 หลังกลาง' : '🌤️ ก่อนกลาง'}
+                  </span>
+                </td>
                 <td class="assign-score-cell">${a.fullScore} คะแนน</td>
                 <td class="assign-date-cell">${esc(a.dueDate || '-')}</td>
-                <td class="assign-subj-cell">${esc(a.subject || appState.activeSubject)}</td>
                 <td style="text-align: right; white-space: nowrap;">
                   <button class="btn btn-sm btn-secondary" style="margin-right: 4px;" onclick="openEditAssignmentModal('${esc(a.id)}')">✏️ แก้ไข</button>
                   <button class="btn btn-sm btn-danger-soft" onclick="deleteAssignment('${esc(a.id)}')">🗑️ ลบ</button>
                 </td>
               </tr>
-            `).join('')}
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -3616,7 +3687,9 @@ function renderAssignments(container) {
       <div class="assign-mobile-cards">
         ${currentAssignments.length === 0 ? `
           <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">ยังไม่มีภาระงานในห้องนี้</div>
-        ` : currentAssignments.map(a => `
+        ` : currentAssignments.map(a => {
+          const isPost = getAssignmentPeriod(a) === 'post';
+          return `
           <div class="assign-m-card">
             <div class="assign-m-card-top">
               <span class="assign-m-badge">${esc(a.id)}</span>
@@ -3624,7 +3697,12 @@ function renderAssignments(container) {
               <span class="assign-m-score">${a.fullScore} คะแนน</span>
             </div>
             <div class="assign-m-card-bottom">
-              <span class="assign-m-meta">📅 กำหนดส่ง: <b>${esc(a.dueDate || '-')}</b></span>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span class="assign-period-pill ${isPost ? 'period-post' : 'period-pre'}">
+                  ${isPost ? '🌅 หลังกลาง' : '🌤️ ก่อนกลาง'}
+                </span>
+                <span class="assign-m-meta">📅 ${esc(a.dueDate || '-')}</span>
+              </div>
               <div style="display: flex; gap: 4px;">
                 <button class="btn btn-sm btn-secondary" onclick="openEditAssignmentModal('${esc(a.id)}')">
                   ✏️ แก้ไข
@@ -3635,7 +3713,8 @@ function renderAssignments(container) {
               </div>
             </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -3645,6 +3724,8 @@ function handleAddAssignment() {
   const title = document.getElementById('new-assign-title').value.trim();
   const fullScore = parseInt(document.getElementById('new-assign-score').value) || 5;
   const dueDate = document.getElementById('new-assign-date').value;
+  const periodEl = document.getElementById('new-assign-period');
+  const period = (periodEl && periodEl.value === 'post') ? 'post' : 'pre';
 
   if (!title) {
     showToast('⚠️ กรุณากรอกชื่องาน');
@@ -3680,13 +3761,15 @@ function handleAddAssignment() {
     fullScore: fullScore,
     dueDate: dueDate,
     subject: appState.activeSubject,
-    classroom: appState.activeClassroom
+    classroom: appState.activeClassroom,
+    period: period
   });
+  syncAssignmentPeriodSettings();
 
   appState.isDirty = true;
   saveLocalState();
   scheduleAutoSync('full');
-  showToast(`เพิ่มงาน "${title}" สำเร็จ`);
+  showToast(`เพิ่มงาน "${title}" (${period === 'post' ? 'หลังกลางภาค' : 'ก่อนกลางภาค'}) สำเร็จ`);
   renderAssignments(document.getElementById('app-view-container'));
 }
 
@@ -3711,6 +3794,7 @@ function deleteAssignment(assignId) {
       Object.keys(appState.submissions).forEach(k => {
         if (k.startsWith(`${assignId}_`)) delete appState.submissions[k];
       });
+      syncAssignmentPeriodSettings();
 
       appState.isDirty = true;
       saveLocalState();
@@ -3724,6 +3808,7 @@ function deleteAssignment(assignId) {
 function openEditAssignmentModal(assignmentId) {
   const assign = (appState.assignments || []).find(a => a.id === assignmentId);
   if (!assign) return;
+  const curPeriod = getAssignmentPeriod(assign);
 
   const modalId = 'edit-assignment-modal';
   closeModal(modalId);
@@ -3748,6 +3833,14 @@ function openEditAssignmentModal(assignmentId) {
           <div>
             <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">ชื่องาน / รายละเอียด</label>
             <input type="text" id="edit-assign-title" class="form-input" value="${esc(assign.title)}" />
+          </div>
+
+          <div>
+            <label class="form-label" style="font-size: 0.82rem; font-weight: 600; margin-bottom: 4px;">ช่วงคะแนน (เชื่อมหน้าตัดเกรด)</label>
+            <select id="edit-assign-period" class="form-input">
+              <option value="pre" ${curPeriod === 'pre' ? 'selected' : ''}>🌤️ คะแนนเก็บก่อนกลางภาค</option>
+              <option value="post" ${curPeriod === 'post' ? 'selected' : ''}>🌅 คะแนนเก็บหลังกลางภาค</option>
+            </select>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
@@ -3780,6 +3873,7 @@ function handleSaveEditAssignment(assignmentId) {
   const newTitle = document.getElementById('edit-assign-title')?.value.trim();
   const newScore = parseInt(document.getElementById('edit-assign-score')?.value, 10) || 5;
   const newDate = document.getElementById('edit-assign-date')?.value || '';
+  const newPeriod = (document.getElementById('edit-assign-period')?.value === 'post') ? 'post' : 'pre';
 
   if (!newTitle) {
     showToast('⚠️ กรุณาระบุชื่องาน');
@@ -3789,12 +3883,14 @@ function handleSaveEditAssignment(assignmentId) {
   assign.title = newTitle;
   assign.fullScore = newScore;
   assign.dueDate = newDate;
+  assign.period = newPeriod;
+  syncAssignmentPeriodSettings();
 
   appState.isDirty = true;
   saveLocalState();
   closeModal('edit-assignment-modal');
   renderAssignments(document.getElementById('app-view-container'));
-  showToast(`✓ แก้ไขภาระงาน ${assignmentId} เรียบร้อยแล้ว`);
+  showToast(`✓ แก้ไขภาระงาน ${assignmentId} (${newPeriod === 'post' ? 'หลังกลางภาค' : 'ก่อนกลางภาค'}) เรียบร้อยแล้ว`);
 
   pushFullStateToBackend().catch(err => {
     console.error('Error syncing after assignment edit:', err);
@@ -5154,6 +5250,21 @@ async function continuePullFromGoogleSheets(isManual) {
         if (data.settings.teacherName !== undefined) appState.settings.teacherName = data.settings.teacherName;
         if (data.settings.academicYear !== undefined) appState.settings.academicYear = data.settings.academicYear;
         if (data.settings.term !== undefined) appState.settings.term = data.settings.term;
+        if (data.settings.assignmentPeriods !== undefined) {
+          let periodsObj = data.settings.assignmentPeriods;
+          if (typeof periodsObj === 'string') {
+            try { periodsObj = JSON.parse(periodsObj); } catch (e) { periodsObj = {}; }
+          }
+          if (periodsObj && typeof periodsObj === 'object') {
+            appState.settings.assignmentPeriods = periodsObj;
+          }
+        }
+      }
+      if (Array.isArray(appState.assignments)) {
+        appState.assignments = appState.assignments.map(a => ({
+          ...a,
+          period: getAssignmentPeriod(a)
+        }));
       }
 
       // รวมห้องเรียนทั้งหมดที่พบจากนักเรียนและงานเข้าสู่ appState.settings.classrooms
@@ -5259,6 +5370,7 @@ async function pushSettingsToBackend(currentToken = '', newToken = '') {
             activeClassroom: appState.activeClassroom,
             subjects: appState.settings.subjects,
             classrooms: appState.settings.classrooms,
+            assignmentPeriods: appState.settings.assignmentPeriods || {},
             spreadsheetUrl: appState.settings.spreadsheetUrl || '',
             apiToken: appState.settings.apiToken || ''
           }
@@ -5347,7 +5459,8 @@ async function pushFullStateToBackend() {
           activeSubject: appState.activeSubject,
           activeClassroom: appState.activeClassroom,
           subjects: appState.settings.subjects,
-          classrooms: appState.settings.classrooms
+          classrooms: appState.settings.classrooms,
+          assignmentPeriods: appState.settings.assignmentPeriods || {}
         },
         students: appState.students,
         assignments: appState.assignments,
@@ -5641,18 +5754,7 @@ function getOrCreateGradeRecord(student) {
 
   if (!appState.gradebook) appState.gradebook = {};
 
-  let computedWork = 0;
-  const assignments = (appState.assignments || []).filter(a => a.subject === subj && a.classroom === room);
-  if (assignments.length > 0) {
-    assignments.forEach(a => {
-      const subKey = a.id + '_' + sid;
-      const sub = appState.submissions[subKey];
-      if (sub && sub.score !== null && sub.score !== undefined && sub.score !== '') {
-        computedWork += Number(sub.score);
-      }
-    });
-  }
-
+  const { workPre: computedWorkPre, workPost: computedWorkPost, postCount } = computeStudentAssignmentWorkScores(subj, room, sid);
   const subCfg = getSubjectConfig(subj);
 
   if (!appState.gradebook[key]) {
@@ -5663,36 +5765,54 @@ function getOrCreateGradeRecord(student) {
       no: student.no || 1,
       fullName: student.fullName || '',
       attPre: 0,
-      workPre: computedWork,
-      sumPre: computedWork,
+      workPre: computedWorkPre,
+      sumPre: computedWorkPre,
       midRaw: 0,
       midHelp: 0,
       midScore: 0,
       attPost: 0,
-      workPost: 0,
-      sumPost: 0,
-      termScore: computedWork,
+      workPost: computedWorkPost,
+      sumPost: computedWorkPost,
+      termScore: computedWorkPre + computedWorkPost,
       finalRaw: 0,
       finalDiv: subCfg.finalDivisor || 2,
       finalHelp: 0,
       finalScore: 0,
-      totalScore: computedWork,
+      totalScore: computedWorkPre + computedWorkPost,
       grade: '0',
       sgsStatus: 'ปกติ',
       note: '',
       isManualWork: false,
-      _autoWork: true
+      _autoWork: true,
+      isManualWorkPost: false,
+      _autoWorkPost: postCount > 0
     };
     appState.gradebook[key] = calculateGradeRecord(defaultRec, subCfg.ratio);
   } else {
     // ถ้ามี record เดิมอยู่แล้ว และไม่ได้เป็นคะแนนที่กรอกเอง ให้ซิงค์ตามงานจริงเสมอ
     const rec = appState.gradebook[key];
-    if (!rec.isManualWork) {
-      if (rec.workPre !== computedWork) {
-        rec.workPre = computedWork;
-        rec._autoWork = true;
-        appState.gradebook[key] = calculateGradeRecord(rec, subCfg.ratio);
+    let changed = false;
+
+    if (!rec.isManualWork && rec.workPre !== computedWorkPre) {
+      rec.workPre = computedWorkPre;
+      rec._autoWork = true;
+      changed = true;
+    }
+
+    if (postCount > 0) {
+      if (!rec.isManualWorkPost && rec.workPost !== computedWorkPost) {
+        rec.workPost = computedWorkPost;
+        rec._autoWorkPost = true;
+        changed = true;
       }
+    } else if (rec._autoWorkPost && !rec.isManualWorkPost && rec.workPost !== 0) {
+      rec.workPost = 0;
+      rec._autoWorkPost = false;
+      changed = true;
+    }
+
+    if (changed) {
+      appState.gradebook[key] = calculateGradeRecord(rec, subCfg.ratio);
     }
   }
 
@@ -5700,7 +5820,7 @@ function getOrCreateGradeRecord(student) {
 }
 
 /**
- * ดึงคะแนนจากหน้าเช็คงาน (Submissions) มาอัปเดตลงช่องงานเก็บก่อนกลางภาค (workPre) ทุกคน
+ * ดึงคะแนนจากหน้าเช็คงาน (Submissions) มาอัปเดตลงช่องงานก่อนกลางภาค (workPre) และหลังกลางภาค (workPost)
  */
 function syncWorkScoresFromCheckWork() {
   const students = getFilteredStudents();
@@ -5712,25 +5832,30 @@ function syncWorkScoresFromCheckWork() {
   const subj = appState.activeSubject;
   const room = appState.activeClassroom;
   let count = 0;
+  let preTotalTasks = 0;
+  let postTotalTasks = 0;
 
   students.forEach(s => {
     const sid = String(s.studentId || '');
     const key = subj + '_' + room + '_' + sid;
-
-    let computedWork = 0;
-    const assignments = (appState.assignments || []).filter(a => a.subject === subj && a.classroom === room);
-    assignments.forEach(a => {
-      const subKey = a.id + '_' + sid;
-      const sub = appState.submissions[subKey];
-      if (sub && sub.score !== null && sub.score !== undefined && sub.score !== '') {
-        computedWork += Number(sub.score);
-      }
-    });
+    const { workPre, workPost, preCount, postCount } = computeStudentAssignmentWorkScores(subj, room, sid);
+    preTotalTasks = preCount;
+    postTotalTasks = postCount;
 
     const rec = getOrCreateGradeRecord(s);
-    rec.workPre = computedWork;
+    rec.workPre = workPre;
     rec.isManualWork = false;
     rec._autoWork = true;
+
+    if (postCount > 0) {
+      rec.workPost = workPost;
+      rec.isManualWorkPost = false;
+      rec._autoWorkPost = true;
+    } else if (rec._autoWorkPost) {
+      rec.workPost = 0;
+      rec._autoWorkPost = false;
+    }
+
     appState.gradebook[key] = calculateGradeRecord(rec);
     count++;
   });
@@ -5738,7 +5863,11 @@ function syncWorkScoresFromCheckWork() {
   appState.isDirty = true;
   saveLocalState();
   renderApp();
-  showToast(`✅ ดึงคะแนนงานจริงเข้าตารางตัดเกรดแล้ว ${count} คน`);
+  if (postTotalTasks > 0) {
+    showToast(`✅ ดึงคะแนนเช็คงานเข้าตารางแล้ว ${count} คน (ก่อนกลาง ${preTotalTasks} งาน • หลังกลาง ${postTotalTasks} งาน)`);
+  } else {
+    showToast(`✅ ดึงคะแนนงานก่อนกลางภาคเข้าตารางแล้ว ${count} คน (${preTotalTasks} งาน)`);
+  }
 }
 
 /**
@@ -5863,10 +5992,13 @@ function updateGradebookCell(studentId, field, value) {
     rec[field] = value === '' ? 0 : Number(value);
   }
 
-  // ป้องกันการเขียนทับ: ถ้าคุณครูกรอกหรือแก้ไขคะแนนช่อง workPre ด้วยตนเอง ให้บันทึกสถานะ isManualWork
+  // ป้องกันการเขียนทับ: ถ้าคุณครูกรอกหรือแก้ไขคะแนนช่อง workPre / workPost ด้วยตนเอง ให้บันทึกสถานะ manual
   if (field === 'workPre') {
     rec.isManualWork = true;
     rec._autoWork = false;
+  } else if (field === 'workPost') {
+    rec.isManualWorkPost = true;
+    rec._autoWorkPost = false;
   }
 
   // คำนวณผลใหม่

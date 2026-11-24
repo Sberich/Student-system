@@ -257,7 +257,7 @@ function prepareCleanTemplateMenuAction() {
   const cleanAssignments = targetSs.getSheetByName(SHEET_ASSIGNMENTS);
   if (cleanAssignments) {
     cleanAssignments.clearContents();
-    cleanAssignments.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
+    cleanAssignments.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ', 'ช่วงคะแนน']);
     formatHeaderRow(cleanAssignments);
   }
 
@@ -591,7 +591,7 @@ function fetchAllData(ss) {
     const key = settingsValues[i][0];
     const val = settingsValues[i][1];
     if (key) {
-      if (key === 'subjects' || key === 'classrooms') {
+      if (key === 'subjects' || key === 'classrooms' || key === 'assignmentPeriods') {
         try { settings[key] = JSON.parse(val); } catch (e) { settings[key] = val; }
       } else {
         settings[key] = val;
@@ -640,13 +640,15 @@ function fetchAllData(ss) {
         dueDateFormatted = String(row[3] || '');
       }
 
+      const rawPeriod = String(row[7] || '').trim().toLowerCase();
       assignments.push({
         id: rawId ? String(rawId).trim() : `ASG_${String(i).padStart(2, '0')}`,
         title: rawTitle ? String(rawTitle).trim() : `งานที่ ${i}`,
         fullScore: Number(row[2]) || 5,
         dueDate: dueDateFormatted,
         subject: String(row[4] || settings.activeSubject || DEFAULT_SUBJECTS[0].code),
-        classroom: String(row[5] || settings.activeClassroom || DEFAULT_CLASSROOMS[0] || 'ม.1/1')
+        classroom: String(row[5] || settings.activeClassroom || DEFAULT_CLASSROOMS[0] || 'ม.1/1'),
+        period: (rawPeriod === 'post' || rawPeriod === 'หลังกลางภาค') ? 'post' : 'pre'
       });
     }
   }
@@ -1033,8 +1035,9 @@ function handleCreateAssignment(ss, payload) {
   const dueDate = payload.dueDate || '';
   const subject = payload.subject || (DEFAULT_SUBJECTS[0] && DEFAULT_SUBJECTS[0].code) || '';
   const classroom = payload.classroom || (DEFAULT_CLASSROOMS[0]) || '';
+  const period = (payload.period === 'post') ? 'post' : 'pre';
 
-  sheet.appendRow([id, title, fullScore, dueDate, subject, classroom, new Date()]);
+  sheet.appendRow([id, title, fullScore, dueDate, subject, classroom, new Date(), period]);
 
   return {
     id: id,
@@ -1042,7 +1045,8 @@ function handleCreateAssignment(ss, payload) {
     fullScore: fullScore,
     dueDate: dueDate,
     subject: subject,
-    classroom: classroom
+    classroom: classroom,
+    period: period
   };
 }
 
@@ -1060,7 +1064,7 @@ function handleDeleteAssignment(ss, assignId) {
 function handleSaveAssignmentsList(ss, assignmentsList) {
   const sheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
   sheet.clearContents();
-  sheet.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ']);
+  sheet.appendRow(['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ', 'ช่วงคะแนน']);
   formatHeaderRow(sheet);
 
   if (assignmentsList && assignmentsList.length > 0) {
@@ -1071,9 +1075,10 @@ function handleSaveAssignmentsList(ss, assignmentsList) {
       String(a.dueDate || ''),
       String(a.subject || ''),
       String(a.classroom || ''),
-      a.createdAt || new Date()
+      a.createdAt || new Date(),
+      (a.period === 'post' ? 'post' : 'pre')
     ]);
-    sheet.getRange(2, 1, rows.length, 7).setValues(rows);
+    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
   }
 }
 
@@ -1125,7 +1130,7 @@ function ensureSheetsExist(ss) {
   const reqSheets = [
     { name: SHEET_SETTINGS, headers: ['Key', 'Value'] },
     { name: SHEET_STUDENTS, headers: ['เลขที่', 'รหัสนักเรียน', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'สถานะ'] },
-    { name: SHEET_ASSIGNMENTS, headers: ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'] },
+    { name: SHEET_ASSIGNMENTS, headers: ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ', 'ช่วงคะแนน'] },
     { name: SHEET_SUBMISSIONS, headers: ['รหัสงาน', 'รหัสนักเรียน', 'สถานะ', 'คะแนน', 'หมายเหตุ', 'อัปเดตล่าสุด'] },
     {
       name: SHEET_GRADEBOOK,
@@ -1247,14 +1252,14 @@ function seedSampleData() {
   const assignmentsSheet = ss.getSheetByName(SHEET_ASSIGNMENTS);
   assignmentsSheet.clearContents();
   const sampleAssignments = [
-    ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ'],
-    ['A01', '01 ใบงานโครงสร้างสังคมและการขัดเกลา', 5, '2026-11-10', 'ส31101', 'ม.4/1', new Date()],
-    ['A02', '02 แผนผังความคิดสิทธิมนุษยชน', 5, '2026-11-17', 'ส31101', 'ม.4/1', new Date()],
-    ['A03', '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', 5, '2026-11-24', 'ส31101', 'ม.4/1', new Date()],
-    ['A04', '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', 5, '2026-12-01', 'ส31101', 'ม.4/1', new Date()],
-    ['A05', '05 ชิ้นงานสรุปหลักธรรมสากล', 5, '2026-12-08', 'ส31101', 'ม.4/1', new Date()]
+    ['รหัสงาน', 'ชื่องาน', 'คะแนนเต็ม', 'กำหนดส่ง', 'วิชา', 'ห้องเรียน', 'สร้างเมื่อ', 'ช่วงคะแนน'],
+    ['A01', '01 ใบงานโครงสร้างสังคมและการขัดเกลา', 5, '2026-11-10', 'ส31101', 'ม.4/1', new Date(), 'pre'],
+    ['A02', '02 แผนผังความคิดสิทธิมนุษยชน', 5, '2026-11-17', 'ส31101', 'ม.4/1', new Date(), 'pre'],
+    ['A03', '03 แบบฝึกหัดการปกครองระบอบประชาธิปไตย', 5, '2026-11-24', 'ส31101', 'ม.4/1', new Date(), 'pre'],
+    ['A04', '04 รายงานวิเคราะห์คดีตัวอย่างทางกฎหมาย', 5, '2026-12-01', 'ส31101', 'ม.4/1', new Date(), 'post'],
+    ['A05', '05 ชิ้นงานสรุปหลักธรรมสากล', 5, '2026-12-08', 'ส31101', 'ม.4/1', new Date(), 'post']
   ];
-  assignmentsSheet.getRange(1, 1, sampleAssignments.length, 7).setValues(sampleAssignments);
+  assignmentsSheet.getRange(1, 1, sampleAssignments.length, 8).setValues(sampleAssignments);
   formatHeaderRow(assignmentsSheet);
 
   // 4. Submissions ตัวอย่าง

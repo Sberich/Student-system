@@ -2082,11 +2082,11 @@ function renderReport(container) {
               <th rowspan="2" style="width: 150px; text-align: left; padding-left: 10px;">ชื่อ-นามสกุล</th>
               ${pageAssignments.map(a => `
                 <th rowspan="2" class="task-header" data-tooltip="${esc(a.title)}">
-                  <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-main, #1E293B); line-height: 1.3; margin-bottom: 2px; max-width: 82px; margin-inline: auto; word-break: break-word;">${esc(a.title)}</div>
-                  <div style="font-size: 0.66rem; color: #64748B; font-weight: normal;">(เต็ม ${a.fullScore})</div>
+                  <div class="task-title-label">${esc(a.title)}</div>
+                  <div class="task-full-label">(เต็ม ${a.fullScore})</div>
                 </th>
               `).join('')}
-              <th colspan="3" style="text-align: center; background: #F1F5F9;">สรุป</th>
+              <th colspan="3" style="text-align: center;">สรุป</th>
             </tr>
             <tr>
               <th style="width: 34px; text-align: center; font-size: 0.75rem;">ส่ง</th>
@@ -2116,13 +2116,13 @@ function renderReport(container) {
 
               return `
                 <tr>
-                  <td style="text-align: center; font-weight: 600; color: #64748B;">${st.no}</td>
-                  <td style="text-align: center; font-family: monospace; font-size: 0.82rem; color: #475569;">${esc(st.studentId)}</td>
+                  <td class="cell-no" style="text-align: center;">${st.no}</td>
+                  <td class="cell-id" style="text-align: center;">${esc(st.studentId)}</td>
                   <td class="col-name" style="text-align: left;">${esc(st.fullName)}</td>
                   ${taskCols}
-                  <td style="font-weight: 600; text-align: center; color: #16A34A;">${submittedSum}</td>
-                  <td style="font-weight: 600; text-align: center; ${pendingSum > 0 ? 'color: #DC2626;' : 'color: #94A3B8;'}">${pendingSum}</td>
-                  <td style="font-weight: 700; background: #F8FAFC; text-align: center; color: var(--primary);">${scoreSum}/${maxScorePageSum}</td>
+                  <td class="cell-sum-done" style="text-align: center;">${submittedSum}</td>
+                  <td class="${pendingSum > 0 ? 'cell-sum-pending' : 'cell-sum-zero'}" style="text-align: center;">${pendingSum}</td>
+                  <td class="cell-total" style="text-align: center;">${scoreSum}/${maxScorePageSum}</td>
                 </tr>
               `;
             }).join('')}
@@ -2130,11 +2130,11 @@ function renderReport(container) {
         </table>
 
         <!-- คำอธิบายชื่องานใต้ตาราง (Assignment Legend) -->
-        <div class="report-legend" style="margin-top: 12px; font-size: 0.76rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">
+        <div class="report-legend">
           ${pageAssignments.map((a, aIdx) => `
-            <div style="display: flex; gap: 6px; align-items: baseline;">
-              <span style="font-weight: 700; color: var(--primary); min-width: 22px;">งานที่ ${startIdx + aIdx + 1}:</span>
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(a.title)} <span style="color: #64748B;">(เต็ม ${a.fullScore} คะแนน)</span></span>
+            <div class="report-legend-item">
+              <span class="report-legend-label">งานที่ ${startIdx + aIdx + 1}:</span>
+              <span class="report-legend-title">${esc(a.title)} <span class="report-legend-score">(เต็ม ${a.fullScore} คะแนน)</span></span>
             </div>
           `).join('')}
         </div>
@@ -2143,7 +2143,7 @@ function renderReport(container) {
           <div>
             <div class="signature-line"></div>
             <div>ลงชื่อ (${esc(appState.settings.teacherName)})</div>
-            <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">ครูประจำวิชา</div>
+            <div class="signature-role">ครูประจำวิชา</div>
           </div>
         </div>
       </div>

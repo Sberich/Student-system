@@ -1611,6 +1611,98 @@ body {
   background: #FEF2F2;
 }
 
+.matrix-table .task-title-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-main, #1E293B);
+  line-height: 1.3;
+  margin-bottom: 2px;
+  max-width: 88px;
+  margin-inline: auto;
+  word-break: break-word;
+}
+
+.matrix-table .task-full-label {
+  font-size: 0.66rem;
+  color: var(--text-secondary, #64748B);
+  font-weight: 500;
+}
+
+.matrix-table .cell-no {
+  font-weight: 600;
+  color: var(--text-secondary, #64748B);
+}
+
+.matrix-table .cell-id {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #475569);
+}
+
+.matrix-table .cell-sum-done {
+  font-weight: 600;
+  color: #16A34A;
+}
+
+.matrix-table .cell-sum-pending {
+  font-weight: 600;
+  color: #DC2626;
+}
+
+.matrix-table .cell-sum-zero {
+  font-weight: 600;
+  color: var(--text-muted, #94A3B8);
+}
+
+.matrix-table .cell-total {
+  font-weight: 700;
+  background: var(--bg-subtle, #F8FAFC);
+  color: var(--primary);
+}
+
+.report-legend {
+  margin-top: 12px;
+  font-size: 0.76rem;
+  color: var(--text-secondary, #475569);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px 12px;
+  padding: 8px 12px;
+  background: var(--bg-subtle, #F8FAFC);
+  border: 1px solid var(--border-light, #E2E8F0);
+  border-radius: 6px;
+}
+
+.report-legend-item {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.report-legend-label {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.report-legend-title {
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.report-legend-score {
+  color: var(--text-muted, #64748B);
+  white-space: nowrap;
+}
+
+.signature-role {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #64748B);
+  margin-top: 2px;
+}
+
 .sheet-signature-box {
   margin-top: 2rem;
   display: flex;
@@ -1850,89 +1942,7 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* Print Styles */
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 8mm;
-  }
-
-  body {
-    background: #FFFFFF !important;
-    color: #000000 !important;
-  }
-
-  .app-header,
-  .nav-tabs,
-  .classroom-pill-strip,
-  .report-controls,
-  .report-page-tabs,
-  .btn,
-  #toast-container,
-  .keypad-panel,
-  .modal-overlay {
-    display: none !important;
-  }
-
-  .main-content {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  .card, .report-view-container {
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-
-  .printable-sheet {
-    border: none !important;
-    padding: 0 !important;
-    width: 100% !important;
-    page-break-after: always !important;
-    break-after: page !important;
-  }
-
-  .printable-sheet:last-child {
-    page-break-after: auto !important;
-    break-after: auto !important;
-  }
-
-  .matrix-table {
-    font-size: 8pt !important;
-    width: 100% !important;
-  }
-
-  .matrix-table thead {
-    display: table-header-group !important;
-  }
-
-  .matrix-table tr {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  .matrix-table th, 
-  .matrix-table td {
-    padding: 2px 4px !important;
-    border: 0.5pt solid #000000 !important;
-  }
-
-  .matrix-table th {
-    background-color: #E2E8F0 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .matrix-table .cell-missing {
-    color: #DC2626 !important;
-    font-weight: bold !important;
-    background: transparent !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-}
+/* Print Styles moved to bottom of stylesheet for maximum cascade reliability */
 
 /* ==========================================================================
    🎓 ทะเบียนคะแนน & ตัดเกรด (SGS Gradebook Styles)
@@ -5038,15 +5048,38 @@ body {
   background-color: var(--table-hover) !important;
 }
 
-:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table .cell-score {
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table tbody tr td.cell-score {
   color: var(--dk-accent) !important;
   font-weight: 600;
 }
 
-:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table .cell-missing {
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table tbody tr td.cell-missing {
   background: rgba(239, 68, 68, 0.16) !important;
   color: var(--dk-red) !important;
   font-weight: 700;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table tbody tr td.cell-sum-done {
+  color: var(--dk-green) !important;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table tbody tr td.cell-sum-pending {
+  color: var(--dk-red) !important;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table tbody tr td.cell-total {
+  background: var(--dk-sub-bg) !important;
+  color: var(--dk-accent) !important;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .report-legend {
+  background: var(--dk-inset-bg) !important;
+  border-color: var(--dk-border) !important;
+  color: var(--text-secondary) !important;
+}
+
+:is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .report-legend .report-legend-label {
+  color: var(--dk-accent) !important;
 }
 
 :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table .tag-done {
@@ -5399,24 +5432,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* 5. การพิมพ์ผ่านเครื่องพิมพ์ (Print View) ให้เป็นพื้นขาวอักษรดำเสมอ */
-@media print {
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .printable-sheet,
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table,
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table th,
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table td {
-    background: #FFFFFF !important;
-    color: #000000 !important;
-    border-color: #CCCCCC !important;
-  }
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table th {
-    background: #F1F5F9 !important;
-    color: #000000 !important;
-  }
-  :is([data-theme="dark"], [data-theme="emerald"], [data-theme="autumn"]) .matrix-table .cell-score {
-    color: #000000 !important;
-  }
-}
+/* Print styles consolidated at end of file */
 
 /* Modern Prompt & Dialog Modal */
 .prompt-modal-card {
@@ -6308,6 +6324,223 @@ body {
 
   .add-sub-modal-content {
     padding: 1rem 1.15rem !important;
+  }
+}
+
+/* ==========================================================================
+   🖨️ Authoritative Print Stylesheet (A4 Landscape Clean Document Printout)
+   วางไว้ท้ายสุดเพื่อให้ซ่อนทุกเมนู (รวมถึง Bottom Nav Bar) และบังคับสีขาว-ดำอ่านชัดในทุกธีม
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm 10mm;
+  }
+
+  :root,
+  [data-theme] {
+    --bg-app: #FFFFFF !important;
+    --bg-surface: #FFFFFF !important;
+    --bg-subtle: #F8FAFC !important;
+    --text-main: #0F172A !important;
+    --text-secondary: #334155 !important;
+    --text-muted: #475569 !important;
+    --border-light: #CBD5E1 !important;
+    --primary: #0F172A !important;
+    --dk-sub-bg: #F1F5F9 !important;
+    --dk-inset-bg: #FFFFFF !important;
+    --dk-border: #64748B !important;
+    --dk-accent: #0F172A !important;
+    --dk-green: #15803D !important;
+    --dk-red: #DC2626 !important;
+    --table-stripe: #F8FAFC !important;
+    --table-hover: #F8FAFC !important;
+  }
+
+  html,
+  body {
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ซ่อนแถบเมนู ปุ่ม และองค์ประกอบหน้าจอทั้งหมดไม่ให้ติดไปในเอกสาร */
+  .app-header,
+  .nav-tabs,
+  .bottom-nav-bar,
+  #mobile-bottom-nav,
+  .classroom-pill-strip,
+  .report-controls,
+  .report-page-tabs,
+  .btn,
+  #toast-container,
+  .keypad-panel,
+  .gb-floating-keypad,
+  .gb-quick-nav-hint,
+  .modal-overlay {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .main-content,
+  .card,
+  .report-view-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #FFFFFF !important;
+  }
+
+  .printable-sheet {
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .printable-sheet:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .sheet-header-text {
+    margin-bottom: 10px !important;
+  }
+
+  .sheet-header-text h2 {
+    color: #0F172A !important;
+    font-size: 13.5pt !important;
+  }
+
+  .sheet-header-text p {
+    color: #334155 !important;
+    font-size: 8.8pt !important;
+  }
+
+  .matrix-table {
+    font-size: 8pt !important;
+    width: 100% !important;
+    color: #0F172A !important;
+    border-collapse: collapse !important;
+  }
+
+  .matrix-table thead {
+    display: table-header-group !important;
+  }
+
+  .matrix-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    padding: 3px 5px !important;
+    border: 0.6pt solid #64748B !important;
+    color: #0F172A !important;
+    background: #FFFFFF !important;
+  }
+
+  .matrix-table th,
+  .matrix-table th.task-header {
+    background: #F1F5F9 !important;
+    color: #0F172A !important;
+    font-weight: 700 !important;
+  }
+
+  .matrix-table th.task-header .task-title-label {
+    color: #0F172A !important;
+  }
+
+  .matrix-table th.task-header .task-full-label {
+    color: #334155 !important;
+  }
+
+  .matrix-table tbody tr:nth-child(even) td {
+    background: #F8FAFC !important;
+  }
+
+  .matrix-table tbody tr td.cell-no,
+  .matrix-table tbody tr td.cell-id {
+    color: #334155 !important;
+  }
+
+  .matrix-table tbody tr td.cell-score {
+    color: #0F172A !important;
+    font-weight: 600 !important;
+  }
+
+  .matrix-table tbody tr td.cell-missing {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    font-weight: 700 !important;
+  }
+
+  .matrix-table tbody tr td.cell-sum-done {
+    color: #15803D !important;
+    font-weight: 700 !important;
+  }
+
+  .matrix-table tbody tr td.cell-sum-pending {
+    color: #DC2626 !important;
+    font-weight: 700 !important;
+  }
+
+  .matrix-table tbody tr td.cell-sum-zero {
+    color: #64748B !important;
+  }
+
+  .matrix-table tbody tr td.cell-total {
+    background: #F1F5F9 !important;
+    color: #0F172A !important;
+    font-weight: 700 !important;
+  }
+
+  .report-legend {
+    background: #F8FAFC !important;
+    border: 0.6pt solid #CBD5E1 !important;
+    color: #334155 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .report-legend .report-legend-label {
+    color: #0F172A !important;
+  }
+
+  .report-legend .report-legend-score {
+    color: #475569 !important;
+  }
+
+  .sheet-signature-box {
+    color: #0F172A !important;
+    margin-top: 14px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .signature-line {
+    border-bottom: 1pt dotted #475569 !important;
+  }
+
+  .signature-role {
+    color: #475569 !important;
   }
 }
 

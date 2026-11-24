@@ -3,12 +3,12 @@
  * ให้บริการ Network-First สำหรับ App Shell เพื่อให้รับการอัปเดตล่าสุดเสมอ
  */
 
-const CACHE_NAME = 'smart-grade-v60';
+const CACHE_NAME = 'smart-grade-v61';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=60',
-  './app.js?v=60',
+  './style.css?v=61',
+  './app.js?v=61',
   './html2canvas.min.js',
   './manifest.json',
   './apple-touch-icon.png',

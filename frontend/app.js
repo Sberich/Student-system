@@ -6318,9 +6318,9 @@ function renderGradebook(container) {
           <thead>
             <tr>
               <th colspan="3" class="th-sec-student">ข้อมูลนักเรียน</th>
-              <th colspan="3" class="th-sec-pre">คะแนนเก็บก่อนกลางภาค</th>
+              <th colspan="3" class="th-sec-pre">คะแนนก่อนกลางภาค</th>
               <th colspan="3" class="th-sec-mid">สอบกลางภาค</th>
-              <th colspan="3" class="th-sec-post">คะแนนเก็บหลังกลางภาค</th>
+              <th colspan="3" class="th-sec-post">คะแนนหลังกลางภาค</th>
               <th colspan="1" class="th-sec-term">ระหว่างภาค</th>
               <th colspan="3" class="th-sec-final">
                 <div class="final-header-with-div">
@@ -6352,7 +6352,7 @@ function renderGradebook(container) {
 
               <!-- สอบกลางภาค (ไม่มีตัวหารแล้ว) -->
               <th>ข้อเขียน</th>
-              <th>คะแนนช่วย</th>
+              <th>คะแนน</th>
               <th style="font-weight: 700;">สรุปกลาง</th>
 
               <!-- หลังกลางภาค -->
@@ -6365,7 +6365,7 @@ function renderGradebook(container) {
 
               <!-- สอบปลายภาค (ตัดช่องตัวหารออก โดยนำตัวหารไปไว้ที่หัวข้อตาราง) -->
               <th>ข้อเขียน</th>
-              <th>คะแนนช่วย</th>
+              <th>คะแนน</th>
               <th style="font-weight: 700;">สรุปปลาย (${is8020 ? 20 : 30})</th>
 
               <!-- รวมทั้งสิ้น -->
@@ -6562,11 +6562,11 @@ const GBF_COL_NAMES = {
   attPre: 'จิตพิสัย (ก่อนกลาง)',
   workPre: 'คะแนนเก็บ (ก่อนกลาง)',
   midRaw: 'สอบกลางภาค (ข้อเขียน)',
-  midHelp: 'กลางภาค (คะแนนช่วย)',
+  midHelp: 'กลางภาค (คะแนน)',
   attPost: 'จิตพิสัย (หลังกลาง)',
   workPost: 'คะแนนเก็บ (หลังกลาง)',
   finalRaw: 'สอบปลายภาค (ข้อเขียน)',
-  finalHelp: 'ปลายภาค (คะแนนช่วย)',
+  finalHelp: 'ปลายภาค (คะแนน)',
   note: 'หมายเหตุ (ร / มส)'
 };
 

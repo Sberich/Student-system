@@ -136,16 +136,16 @@ const APP_THEMES = [
     icon: '☀️',
     shortName: 'ซัมเมอร์',
     label: '☀️ ธีมซัมเมอร์ (Summer)',
-    swatches: ['#59B292', '#FFC94D', '#FAE7CB', '#FA6781'],
-    logo: { start: '#59B292', end: '#FA6781', dot: '#FFC94D' }
+    swatches: ['#FA6781', '#FFC94D', '#FAE7CB', '#59B292'],
+    logo: { start: '#FA6781', end: '#59B292', dot: '#FFC94D' }
   },
   {
     id: 'matcha',
     icon: '🍓',
     shortName: 'มัทฉะเบอร์รี',
     label: '🍓 ธีมมัทฉะเบอร์รี (Matcha Berry)',
-    swatches: ['#FA7070', '#FEFDED', '#C6EBC5', '#A1C398'],
-    logo: { start: '#FA7070', end: '#7CA674', dot: '#FEFDED' }
+    swatches: ['#4B8746', '#C6EBC5', '#FEFDED', '#FA7070'],
+    logo: { start: '#FA7070', end: '#6EA368', dot: '#FEFDED' }
   },
   {
     id: 'dark',

@@ -90,36 +90,96 @@ let hasSavedLocalState = false;
 let hasEverPulledFromBackend = false;
 
 // ----------------- Theme Switcher System -----------------
+const APP_THEMES = [
+  {
+    id: 'blue',
+    icon: '🔷',
+    shortName: 'ฟ้าคราม',
+    label: '🔷 ธีมฟ้าคราม (Classic)',
+    swatches: ['#2563EB', '#EFF6FF', '#93C5FD', '#1D4ED8'],
+    logo: { start: '#2563EB', end: '#1D4ED8', dot: '#93C5FD' }
+  },
+  {
+    id: 'emerald',
+    icon: '🕰️',
+    shortName: 'วินเทจ',
+    label: '🕰️ ธีมวินเทจ (Vintage)',
+    swatches: ['#123F36', '#2A6B5C', '#C49A45', '#E8DCC4'],
+    logo: { start: '#2A6B5C', end: '#123F36', dot: '#C49A45' }
+  },
+  {
+    id: 'purple',
+    icon: '🌸',
+    shortName: 'พิงก์วอร์เทกซ์',
+    label: '🌸 ธีมพิงก์วอร์เทกซ์ (Pink Vortex)',
+    swatches: ['#FF748A', '#FFF2E5', '#B7DED7', '#4D5784'],
+    logo: { start: '#FF748A', end: '#4D5784', dot: '#B7DED7' }
+  },
+  {
+    id: 'autumn',
+    icon: '🍁',
+    shortName: 'ออทัมน์',
+    label: '🍁 ธีมออทัมน์ (Autumn)',
+    swatches: ['#8B2626', '#EF6905', '#F1E5A1', '#486C2F'],
+    logo: { start: '#8B2626', end: '#EF6905', dot: '#F1E5A1' }
+  },
+  {
+    id: 'sage',
+    icon: '🌿',
+    shortName: 'เซจมอส',
+    label: '🌿 ธีมเซจมอส (Sage Moss)',
+    swatches: ['#ECE3CE', '#739072', '#4F6F52', '#3A4D39'],
+    logo: { start: '#4F6F52', end: '#3A4D39', dot: '#ECE3CE' }
+  },
+  {
+    id: 'summer',
+    icon: '☀️',
+    shortName: 'ซัมเมอร์',
+    label: '☀️ ธีมซัมเมอร์ (Summer)',
+    swatches: ['#59B292', '#FFC94D', '#FAE7CB', '#FA6781'],
+    logo: { start: '#59B292', end: '#FA6781', dot: '#FFC94D' }
+  },
+  {
+    id: 'matcha',
+    icon: '🍓',
+    shortName: 'มัทฉะเบอร์รี',
+    label: '🍓 ธีมมัทฉะเบอร์รี (Matcha Berry)',
+    swatches: ['#FA7070', '#FEFDED', '#C6EBC5', '#A1C398'],
+    logo: { start: '#FA7070', end: '#7CA674', dot: '#FEFDED' }
+  },
+  {
+    id: 'dark',
+    icon: '🌙',
+    shortName: 'โหมดมืด',
+    label: '🌙 โหมดมืด (Dark Mode)',
+    swatches: ['#121A28', '#1E293B', '#38BDF8', '#94A3B8'],
+    logo: { start: '#475569', end: '#0F172A', dot: '#38BDF8' }
+  }
+];
+
+function getThemeMeta(themeId) {
+  return APP_THEMES.find(t => t.id === themeId) || APP_THEMES[0];
+}
+
 function initTheme() {
   const savedTheme = localStorage.getItem('smartgrade_theme') || 'blue';
   setAppTheme(savedTheme, false);
 }
 
 function setAppTheme(themeName, showToastMsg = true) {
-  document.documentElement.setAttribute('data-theme', themeName);
-  localStorage.setItem('smartgrade_theme', themeName);
+  const themeMeta = getThemeMeta(themeName);
+  document.documentElement.setAttribute('data-theme', themeMeta.id);
+  localStorage.setItem('smartgrade_theme', themeMeta.id);
 
   const toggleBtn = document.getElementById('theme-toggle-btn');
   if (toggleBtn) {
-    const icons = {
-      'blue': '🔷',
-      'emerald': '🕰️',
-      'purple': '🌸',
-      'dark': '🌙'
-    };
-    toggleBtn.textContent = icons[themeName] || '🎨';
+    toggleBtn.textContent = themeMeta.icon || '🎨';
   }
 
-  updateLogoGradient(themeName);
+  updateLogoGradient(themeMeta.id);
 
   if (showToastMsg) {
-    const names = {
-      'blue': '🔷 ธีมฟ้าคราม (Classic)',
-      'emerald': '🕰️ ธีมวินเทจ (Vintage)',
-      'purple': '🌸 ธีมพิงก์วอร์เทกซ์ (Pink Vortex)',
-      'dark': '🌙 โหมดมืด (Dark Mode)'
-    };
-    showToast(`เปลี่ยนธีม: ${names[themeName] || themeName}`);
+    showToast(`เปลี่ยนธีม: ${themeMeta.label}`);
   }
 
   if (appState.currentTab === 'settings') {
@@ -128,22 +188,16 @@ function setAppTheme(themeName, showToastMsg = true) {
 }
 
 function cycleTheme() {
-  const themes = ['blue', 'emerald', 'purple', 'dark'];
   const current = localStorage.getItem('smartgrade_theme') || 'blue';
-  const nextIdx = (themes.indexOf(current) + 1) % themes.length;
-  setAppTheme(themes[nextIdx], true);
+  const curIdx = APP_THEMES.findIndex(t => t.id === current);
+  const nextIdx = ((curIdx >= 0 ? curIdx : 0) + 1) % APP_THEMES.length;
+  setAppTheme(APP_THEMES[nextIdx].id, true);
 }
 
 function updateLogoGradient(theme) {
   const grad = document.getElementById('brandGrad');
   if (!grad) return;
-  const colors = {
-    'blue': { start: '#2563EB', end: '#1D4ED8', dot: '#93C5FD' },
-    'emerald': { start: '#2A6B5C', end: '#123F36', dot: '#C49A45' },
-    'purple': { start: '#FF748A', end: '#4D5784', dot: '#B7DED7' },
-    'dark': { start: '#475569', end: '#0F172A', dot: '#38BDF8' }
-  };
-  const c = colors[theme] || colors.blue;
+  const c = getThemeMeta(theme).logo;
   const stops = grad.querySelectorAll('stop');
   if (stops.length >= 2) {
     stops[0].setAttribute('stop-color', c.start);
@@ -3758,25 +3812,22 @@ function renderSettings(container) {
     <div class="card settings-card-container" style="max-width: 720px; margin: 0 auto;">
       <h2 class="card-title" style="margin-bottom: 1.25rem;">การตั้งค่าโรงเรียน & 5 รายวิชา</h2>
 
-      <!-- ธีมและสีสันของระบบ (Theme) -->
-      <div class="form-group" style="margin-bottom: 1.25rem; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem;">
-        <label class="form-label" style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">🎨 ธีมและสีสันของระบบ (Theme)</label>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
-          เลือกโทนสีที่สบายตา (โลโก้และสีทั้งระบบจะเปลี่ยนพร้อมกันทันที)
-        </p>
-        <div class="cfg-theme-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
-          <button type="button" class="btn ${currentTheme === 'blue' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('blue')" style="font-size: 0.8rem;">
-            <span>🔷 ฟ้าคราม <span style="font-size: 0.72rem; opacity: 0.85;">(Classic)</span></span>
-          </button>
-          <button type="button" class="btn ${currentTheme === 'emerald' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('emerald')" style="font-size: 0.8rem;">
-            <span>🕰️ วินเทจ <span style="font-size: 0.72rem; opacity: 0.85;">(Vintage)</span></span>
-          </button>
-          <button type="button" class="btn ${currentTheme === 'purple' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('purple')" style="font-size: 0.8rem;">
-            <span>🌸 พิงก์วอร์เทกซ์ <span style="font-size: 0.72rem; opacity: 0.85;">(Pink Vortex)</span></span>
-          </button>
-          <button type="button" class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')" style="font-size: 0.8rem;">
-            <span>🌙 โหมดมืด <span style="font-size: 0.72rem; opacity: 0.85;">(Dark)</span></span>
-          </button>
+      <!-- ธีมและสีสันของระบบ (Theme - Compact Swatch Picker) -->
+      <div class="cfg-theme-card">
+        <div class="cfg-theme-header">
+          <span class="cfg-theme-title">🎨 ธีมระบบ</span>
+          <span class="cfg-theme-active-badge">กำลังใช้: ${esc(getThemeMeta(currentTheme).icon)} ${esc(getThemeMeta(currentTheme).shortName)}</span>
+        </div>
+        <div class="cfg-theme-grid">
+          ${APP_THEMES.map(t => `
+            <button type="button"
+                    class="cfg-theme-chip ${currentTheme === t.id ? 'is-active' : ''}"
+                    onclick="setAppTheme('${t.id}')"
+                    title="${esc(t.label)}">
+              <span class="cfg-theme-swatch" aria-hidden="true">${t.swatches.map(c => `<span style="background:${c};"></span>`).join('')}</span>
+              <span class="cfg-theme-name">${esc(t.shortName)}</span>
+            </button>
+          `).join('')}
         </div>
       </div>
 
